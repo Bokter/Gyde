@@ -1,0 +1,54 @@
+{
+  "font": {
+    "family": {
+      "$type": "fontFamily",
+      "$description": "All three are Google Fonts (OFL). Load them with next/font in the web service.",
+      "display": {
+        "$value": "'Bricolage Grotesque', 'Figtree', system-ui, sans-serif",
+        "$description": "Headings, numbers, brand"
+      },
+      "body": {
+        "$value": "'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif",
+        "$description": "UI and long reading"
+      },
+      "mono": {
+        "$value": "'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace",
+        "$description": "Code, versions, evidence"
+      }
+    },
+    "weight": {
+      "$type": "fontWeight",
+      "regular": { "$value": 400 },
+      "medium": { "$value": 500 },
+      "semibold": { "$value": 600 },
+      "bold": { "$value": 700 },
+      "extrabold": { "$value": 800 }
+    },
+    "size": {
+      "$type": "dimension",
+      "xs": { "$value": "0.75rem" },
+      "sm": { "$value": "0.875rem" },
+      "base": { "$value": "1rem" },
+      "lg": { "$value": "1.125rem" },
+      "xl": { "$value": "1.25rem" },
+      "2xl": { "$value": "1.5rem" },
+      "3xl": { "$value": "1.875rem" },
+      "4xl": { "$value": "2.25rem" },
+      "5xl": { "$value": "3rem" },
+      "6xl": { "$value": "3.75rem" }
+    },
+    "line-height": {
+      "$type": "number",
+      "tight": { "$value": 1.15 },
+      "snug": { "$value": 1.3 },
+      "normal": { "$value": 1.5 },
+      "relaxed": { "$value": 1.65 }
+    },
+    "letter-spacing": {
+      "$type": "dimension",
+      "tight": { "$value": "-0.02em" },
+      "normal": { "$value": "0em" },
+      "wide": { "$value": "0.04em", "$description": "Uppercase labels" }
+    }
+  }
+}

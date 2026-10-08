@@ -1,0 +1,64 @@
+{
+  "space": {
+    "$type": "dimension",
+    "$description": "4px base scale (rem).",
+    "0": { "$value": "0" },
+    "1": { "$value": "0.25rem" },
+    "2": { "$value": "0.5rem" },
+    "3": { "$value": "0.75rem" },
+    "4": { "$value": "1rem" },
+    "5": { "$value": "1.25rem" },
+    "6": { "$value": "1.5rem" },
+    "8": { "$value": "2rem" },
+    "10": { "$value": "2.5rem" },
+    "12": { "$value": "3rem" },
+    "16": { "$value": "4rem" },
+    "20": { "$value": "5rem" },
+    "24": { "$value": "6rem" }
+  },
+  "radius": {
+    "$type": "dimension",
+    "$description": "Generous radii: the interface should feel soft and comfortable.",
+    "sm": { "$value": "0.375rem" },
+    "md": { "$value": "0.625rem" },
+    "lg": { "$value": "1rem" },
+    "xl": { "$value": "1.5rem" },
+    "pill": { "$value": "9999px" }
+  },
+  "shadow": {
+    "$type": "shadow",
+    "$description": "Values are CSS box-shadow strings, softly tinted with the brand green.",
+    "sm": { "$value": "0 1px 2px rgba(6, 47, 1, 0.06)" },
+    "md": { "$value": "0 4px 12px rgba(6, 47, 1, 0.08)" },
+    "lg": { "$value": "0 12px 32px rgba(6, 47, 1, 0.12)" },
+    "focus": { "$value": "0 0 0 3px rgba(14, 112, 2, 0.35)" }
+  },
+  "motion": {
+    "duration": {
+      "$type": "duration",
+      "$description": "Zeroed under prefers-reduced-motion by the generated CSS.",
+      "fast": { "$value": "120ms" },
+      "base": { "$value": "200ms" },
+      "slow": { "$value": "320ms" }
+    },
+    "easing": {
+      "$type": "cubicBezier",
+      "standard": { "$value": "cubic-bezier(0.2, 0.8, 0.2, 1)" }
+    }
+  },
+  "breakpoint": {
+    "$type": "dimension",
+    "sm": { "$value": "640px" },
+    "md": { "$value": "768px" },
+    "lg": { "$value": "1024px" },
+    "xl": { "$value": "1280px" }
+  },
+  "z": {
+    "$type": "number",
+    "dropdown": { "$value": 1000 },
+    "sticky": { "$value": 1100 },
+    "overlay": { "$value": 1200 },
+    "modal": { "$value": 1300 },
+    "toast": { "$value": 1400 }
+  }
+}

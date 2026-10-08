@@ -1,0 +1,23 @@
+{
+  "name": "@gyde/design-tokens",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Design tokens of Gyde (W3C DTCG-style JSON) compiled to CSS custom properties.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./css": "./dist/tokens.css",
+    "./tokens.json": "./dist/tokens.json"
+  },
+  "scripts": {
+    "build": "tsx src/build.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

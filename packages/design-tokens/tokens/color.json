@@ -1,0 +1,77 @@
+{
+  "color": {
+    "$type": "color",
+    "$description": "Semantic tokens (light theme). Components use these, never the palette directly, so a dark theme only has to remap this file.",
+    "bg": {
+      "canvas": { "$value": "{palette.green.50}", "$description": "Page background" },
+      "surface": { "$value": "{palette.white}", "$description": "Cards, inputs, dialogs" },
+      "subtle": { "$value": "{palette.ink.50}", "$description": "Zebra rows, quiet panels" },
+      "brand": { "$value": "{palette.green.600}" },
+      "brand-subtle": {
+        "$value": "{palette.green.100}",
+        "$description": "Chips, selection, highlights"
+      }
+    },
+    "fg": {
+      "default": { "$value": "{palette.ink.900}" },
+      "muted": { "$value": "{palette.ink.600}" },
+      "subtle": { "$value": "{palette.ink.500}", "$description": "Placeholders and hints" },
+      "on-brand": { "$value": "{palette.white}" },
+      "brand": { "$value": "{palette.green.600}", "$description": "Links and brand accents" },
+      "brand-strong": { "$value": "{palette.green.700}" }
+    },
+    "border": {
+      "subtle": { "$value": "{palette.ink.200}", "$description": "Decorative dividers only" },
+      "control": {
+        "$value": "{palette.ink.400}",
+        "$description": "Borders of inputs and controls (WCAG 1.4.11, >= 3:1)"
+      },
+      "brand": { "$value": "{palette.green.600}" }
+    },
+    "action": {
+      "primary": {
+        "bg": { "$value": "{palette.green.600}" },
+        "bg-hover": { "$value": "{palette.green.700}" },
+        "bg-active": { "$value": "{palette.green.800}" },
+        "fg": { "$value": "{palette.white}" }
+      },
+      "secondary": {
+        "bg": { "$value": "{palette.white}" },
+        "bg-hover": { "$value": "{palette.green.50}" },
+        "border": { "$value": "{palette.green.600}" },
+        "fg": { "$value": "{palette.green.700}" }
+      }
+    },
+    "focus": {
+      "ring": { "$value": "{palette.green.600}" }
+    },
+    "status": {
+      "success": {
+        "fg": { "$value": "{palette.green.700}" },
+        "bg": { "$value": "{palette.green.100}" }
+      }
+    },
+    "severity": {
+      "critical": {
+        "fg": { "$value": "{palette.severity.critical.solid}" },
+        "bg": { "$value": "{palette.severity.critical.tint}" }
+      },
+      "high": {
+        "fg": { "$value": "{palette.severity.high.solid}" },
+        "bg": { "$value": "{palette.severity.high.tint}" }
+      },
+      "medium": {
+        "fg": { "$value": "{palette.severity.medium.solid}" },
+        "bg": { "$value": "{palette.severity.medium.tint}" }
+      },
+      "low": {
+        "fg": { "$value": "{palette.severity.low.solid}" },
+        "bg": { "$value": "{palette.severity.low.tint}" }
+      },
+      "info": {
+        "fg": { "$value": "{palette.severity.info.solid}" },
+        "bg": { "$value": "{palette.severity.info.tint}" }
+      }
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "palette": {
+    "$type": "color",
+    "green": {
+      "$description": "Brand. 600 and 100 come from the project deck (#0E7002 and #E1FEDE).",
+      "50": { "$value": "#F3FCF1" },
+      "100": { "$value": "#E1FEDE" },
+      "200": { "$value": "#BFF0B8" },
+      "300": { "$value": "#8FDB84" },
+      "400": { "$value": "#55BE48" },
+      "500": { "$value": "#2F9E20" },
+      "600": { "$value": "#0E7002" },
+      "700": { "$value": "#0B5A02" },
+      "800": { "$value": "#094501" },
+      "900": { "$value": "#062F01" },
+      "950": { "$value": "#031A00" }
+    },
+    "ink": {
+      "$description": "Green-tinted neutrals for text, borders and fills.",
+      "50": { "$value": "#F6F8F5" },
+      "100": { "$value": "#E8EFE6" },
+      "200": { "$value": "#D3DDD0" },
+      "300": { "$value": "#A8B6A5" },
+      "400": { "$value": "#7A8A77" },
+      "500": { "$value": "#5F705C" },
+      "600": { "$value": "#4A5A47" },
+      "700": { "$value": "#34432F" },
+      "800": { "$value": "#1F2C1C" },
+      "900": { "$value": "#0F1B0D" }
+    },
+    "white": { "$value": "#FFFFFF" },
+    "severity": {
+      "$description": "Solid = text and icons, tint = background. Never rely on color alone: pair with an icon and a label.",
+      "critical": { "solid": { "$value": "#B42318" }, "tint": { "$value": "#FEE9E7" } },
+      "high": { "solid": { "$value": "#C2410C" }, "tint": { "$value": "#FFEDE0" } },
+      "medium": { "solid": { "$value": "#955A06" }, "tint": { "$value": "#FEF3C7" } },
+      "low": { "solid": { "$value": "#1D5FA8" }, "tint": { "$value": "#E3EFFB" } },
+      "info": {
+        "solid": { "$value": "{palette.ink.600}" },
+        "tint": { "$value": "{palette.ink.100}" }
+      }
+    }
+  }
+}

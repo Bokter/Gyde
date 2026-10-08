@@ -1,0 +1,25 @@
+{
+  "name": "@gyde/service-kit",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Common bootstrap for Gyde services: Fastify app, health checks, errors, logging, config.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@gyde/contracts": "workspace:*",
+    "fastify": "catalog:",
+    "pino": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

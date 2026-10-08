@@ -1,0 +1,28 @@
+{
+  "name": "@gyde/registry",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Service Registry and Health Checker: keeps the list of healthy instances of every service.",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsup",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@gyde/contracts": "workspace:*",
+    "@gyde/service-kit": "workspace:*",
+    "fastify": "catalog:",
+    "pino": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsup": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

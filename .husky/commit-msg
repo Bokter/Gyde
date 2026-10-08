@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+# Validates the commit message (Conventional Commits). Skips when dependencies are not
+# installed on the host (Docker-first workflow): the CI validates the pull request title anyway.
+if [ ! -x node_modules/.bin/commitlint ]; then
+  echo "husky: commitlint is not installed on this machine; skipping the commit message check."
+  exit 0
+fi
+node_modules/.bin/commitlint --edit "$1"

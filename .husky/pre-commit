@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+# Lints and formats staged files. Skips when dependencies are not installed on the host.
+if [ ! -x node_modules/.bin/lint-staged ]; then
+  echo "husky: lint-staged is not installed on this machine; skipping the pre-commit check."
+  exit 0
+fi
+node_modules/.bin/lint-staged

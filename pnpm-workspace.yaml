@@ -2,3 +2,16 @@ packages:
   - apps/*
   - services/*
   - packages/*
+
+# Single version policy: every workspace package references these with "catalog:".
+# Bump a version here once and the whole monorepo follows.
+catalog:
+  '@types/node': ^24.19.1
+  fastify: ^5.12.5
+  pino: ^10.4.0
+  tsup: ^8.5.1
+  tsx: ^4.23.15
+  # typescript-eslint does not support TypeScript >= 6.1 yet; revisit when it does.
+  typescript: ~6.0.3
+  vitest: ^5.0.3
+  zod: ^4.6.5

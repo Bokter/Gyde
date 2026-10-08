@@ -1,0 +1,11 @@
+# Generated or vendored
+node_modules
+dist
+.next
+.turbo
+coverage
+pnpm-lock.yaml
+fixtures
+
+# Documentation is written by hand (tables and prose are not re-wrapped)
+*.md

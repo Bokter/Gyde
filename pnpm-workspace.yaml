@@ -3,6 +3,11 @@ packages:
   - services/*
   - packages/*
 
+# pnpm 11 fails the install when a dependency has an install script that was not approved.
+# esbuild (pulled by tsx, tsup and vite) only validates and optimizes its native binary.
+allowBuilds:
+  esbuild: true
+
 # Single version policy: every workspace package references these with "catalog:".
 # Bump a version here once and the whole monorepo follows.
 catalog:

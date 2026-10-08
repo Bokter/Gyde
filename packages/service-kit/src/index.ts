@@ -1,7 +1,7 @@
 export { buildApp, type AppOptions } from './app';
 export { baseEnv, loadConfig } from './config';
 export { HttpError } from './errors';
-export { requireInternalToken } from './internal-auth';
+export { protectInternalRoutes, requireInternalToken } from './internal-auth';
 export { REDACT_PATHS, createLogger, type Logger, type LoggerOptions } from './logger';
 export { registerStubRoutes, type StubRoute } from './stub-routes';
 export { startService, type StartOptions } from './start';

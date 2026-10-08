@@ -12,7 +12,8 @@ Arranque común de los servicios del backend, para que los siete arranquen igual
 | `parseOrThrow()` | Valida entrada no confiable con un esquema de `@gyde/contracts` (400 con la ruta que falla) |
 | `loadConfig()` / `baseEnv` | Variables de entorno validadas con zod; falla al arrancar con un mensaje legible |
 | `createLogger()` | Logger JSON (pino) que **censura secretos**: `apiKey`, `authorization`, `token`, `password`, `secret`… |
-| `requireInternalToken()` | Protege las rutas `/internal/*` con `INTERNAL_SERVICE_TOKEN` (comparación en tiempo constante) |
+| `protectInternalRoutes()` | Exige `INTERNAL_SERVICE_TOKEN` en **toda** ruta `/internal/*` (incluso las inexistentes); llámalo antes de registrar rutas |
+| `requireInternalToken()` | La guarda individual que usa lo anterior (comparación en tiempo constante) |
 | `registerStubRoutes()` | Registra los endpoints del contrato respondiendo `501 not_implemented` (ya validan el cuerpo) |
 
 ## Uso (así luce el `main.ts` de cualquier servicio)
@@ -34,5 +35,5 @@ await startService(app, { port: config.GATEWAY_PORT });
 ## Reglas
 
 - **Nunca** registres un secreto con `console.log` ni lo pongas en un mensaje de error. El logger censura por nombre de campo, pero un secreto dentro de un string no se puede detectar.
-- Las rutas `/internal/*` llevan `requireInternalToken` y **no** se exponen en el gateway.
+- Los servicios con rutas `/internal/*` llaman `protectInternalRoutes(app, config.INTERNAL_SERVICE_TOKEN)` y esas rutas **no** se exponen en el gateway.
 - El auto-registro en el Service Registry se enchufa en `startService({ onReady, onShutdown })` cuando exista `@gyde/discovery` (tarea del Área 1).

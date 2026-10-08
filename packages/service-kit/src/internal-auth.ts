@@ -1,7 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 
 import { HEADERS } from '@gyde/contracts';
-import type { FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 
 import { HttpError } from './errors';
 
@@ -29,4 +29,19 @@ export function requireInternalToken(expected: string) {
       throw new HttpError('unauthorized', 'Invalid internal token');
     }
   };
+}
+
+/**
+ * Requires the internal token on EVERY `/internal/*` request, including paths that do not exist,
+ * so a forgotten per-route guard cannot leave an endpoint open. Public routes are untouched.
+ * Call it before registering the routes of the service.
+ */
+export function protectInternalRoutes(app: FastifyInstance, token: string): void {
+  const guard = requireInternalToken(token);
+  app.addHook('onRequest', async (request) => {
+    const path = request.routeOptions?.url ?? request.url;
+    if (path.startsWith('/internal/')) {
+      await guard(request);
+    }
+  });
 }

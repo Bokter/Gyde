@@ -12,6 +12,7 @@ import {
   createLogger,
   loadConfig,
   parseOrThrow,
+  protectInternalRoutes,
   registerStubRoutes,
   requireInternalToken,
 } from '../src';
@@ -137,6 +138,36 @@ describe('internal token', () => {
   });
 
   it('accepts the right token', async () => {
+    const res = await makeApp().inject({
+      method: 'GET',
+      url: '/internal/ping',
+      headers: { 'x-internal-token': token },
+    });
+    expect(res.statusCode).toBe(200);
+  });
+});
+
+describe('protectInternalRoutes', () => {
+  const token = 'a-long-enough-internal-token';
+  const makeApp = () => {
+    const app = silentApp();
+    protectInternalRoutes(app, token);
+    app.get('/internal/ping', async () => ({ ok: true }));
+    app.get('/v1/public', async () => ({ ok: true }));
+    return app;
+  };
+
+  it('guards every /internal path, even unknown ones, and leaves public routes alone', async () => {
+    const app = makeApp();
+    expect((await app.inject({ method: 'GET', url: '/internal/ping' })).statusCode).toBe(401);
+    expect((await app.inject({ method: 'GET', url: '/internal/does-not-exist' })).statusCode).toBe(
+      401,
+    );
+    expect((await app.inject({ method: 'GET', url: '/v1/public' })).statusCode).toBe(200);
+    expect((await app.inject({ method: 'GET', url: '/healthz' })).statusCode).toBe(200);
+  });
+
+  it('lets the right token through', async () => {
     const res = await makeApp().inject({
       method: 'GET',
       url: '/internal/ping',

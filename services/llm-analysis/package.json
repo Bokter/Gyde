@@ -1,0 +1,28 @@
+{
+  "name": "@gyde/llm-analysis",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Servicio Analisis LLM: interprets and correlates evidence with the project context using the tenant LLM key (BYOK).",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsup",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@gyde/contracts": "workspace:*",
+    "@gyde/service-kit": "workspace:*",
+    "fastify": "catalog:",
+    "pino": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsup": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

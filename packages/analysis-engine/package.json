@@ -1,0 +1,23 @@
+{
+  "name": "@gyde/analysis-engine",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Client-side analysis engine: Template Method pipeline, Abstract Factory toolchains and the privacy gate.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@gyde/contracts": "workspace:*",
+    "@gyde/resilience": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

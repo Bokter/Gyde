@@ -1,0 +1,22 @@
+{
+  "name": "@gyde/github-action",
+  "version": "0.0.0",
+  "private": true,
+  "description": "GitHub Action that analyzes a game project in CI and comments the report on the pull request.",
+  "type": "module",
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@gyde/analysis-engine": "workspace:*",
+    "@gyde/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsup": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name": "@gyde/vscode-extension",
+  "displayName": "Gyde",
+  "version": "0.0.0",
+  "private": true,
+  "publisher": "gyde",
+  "description": "Analyze the dependencies, licenses and compatibility of your Unity or Unreal project from VS Code.",
+  "type": "module",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Linters",
+    "Other"
+  ],
+  "main": "./dist/extension.cjs",
+  "contributes": {
+    "commands": [
+      {
+        "command": "gyde.analyze",
+        "title": "Gyde: Analyze project"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@gyde/analysis-engine": "workspace:*",
+    "@gyde/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/vscode": "~1.100.0",
+    "tsup": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

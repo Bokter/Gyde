@@ -1,0 +1,27 @@
+{
+  "name": "@gyde/cli",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The `gyde` command line: analyzes a game project locally and talks to the Gyde API.",
+  "type": "module",
+  "bin": {
+    "gyde": "./dist/main.js"
+  },
+  "scripts": {
+    "dev": "tsx src/main.ts",
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@gyde/analysis-engine": "workspace:*",
+    "@gyde/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsup": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

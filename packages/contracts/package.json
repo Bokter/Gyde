@@ -1,0 +1,23 @@
+{
+  "name": "@gyde/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared zod schemas and types: the single source of truth between Gyde pieces.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./samples": "./src/samples.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

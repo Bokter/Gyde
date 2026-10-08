@@ -1,0 +1,42 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+build/
+out/
+.next/
+.turbo/
+*.tsbuildinfo
+coverage/
+*.vsix
+
+# environment and secrets (only the example file is tracked)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# local data and caches
+.cache/
+tmp/
+*.local
+infra/compose/.data/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# editors (shared settings are whitelisted)
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json

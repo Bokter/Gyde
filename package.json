@@ -1,0 +1,15 @@
+{
+  "name": "gyde",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Gyde: SaaS platform that detects and manages vulnerabilities, license conflicts and compatibility risks in game projects.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Bokter/Gyde.git"
+  },
+  "packageManager": "pnpm@11.4.0",
+  "engines": {
+    "node": ">=24"
+  }
+}

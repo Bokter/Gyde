@@ -1,0 +1,22 @@
+{
+  "name": "@gyde/discovery",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Service Discovery client: self-registration, heartbeat and healthy-instance lookup.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@gyde/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

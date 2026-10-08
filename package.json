@@ -21,6 +21,11 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "env:init": "node infra/scripts/bootstrap-env.mjs",
+    "docker:check": "docker build -f infra/docker/dev.Dockerfile --target check .",
+    "stack:up": "docker compose -f infra/compose/compose.yaml up --build",
+    "stack:watch": "docker compose -f infra/compose/compose.yaml watch",
+    "stack:down": "docker compose -f infra/compose/compose.yaml down",
     "prepare": "husky"
   },
   "devDependencies": {

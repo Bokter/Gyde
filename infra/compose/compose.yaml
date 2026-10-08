@@ -1,0 +1,274 @@
+# Local stack for Gyde (ADR 0008: Docker first).
+#
+#   cp .env.example .env            (or: node infra/scripts/bootstrap-env.mjs)
+#   docker compose -f infra/compose/compose.yaml up --build     start everything
+#   docker compose -f infra/compose/compose.yaml watch          start and sync your code edits live
+#
+# Every service runs the same development image (infra/docker/dev.Dockerfile). `watch` copies your
+# changes INTO the containers, so no node_modules ever appears in your checkout.
+name: gyde
+
+x-service: &service
+  build:
+    context: ../..
+    dockerfile: infra/docker/dev.Dockerfile
+    target: dev
+  image: gyde-dev
+  restart: unless-stopped
+  env_file:
+    - path: ../../.env
+      required: false
+
+# Static service URLs inside the compose network: the fallback `@gyde/discovery` uses when the
+# registry cannot resolve a service.
+x-urls: &urls
+  REGISTRY_URL: http://registry:4100
+  WEB_URL: http://web:3000
+  GATEWAY_URL: http://gateway:4000
+  NORMALIZATION_URL: http://normalization:4200
+  RETRIEVAL_URL: http://retrieval:4300
+  LLM_ANALYSIS_URL: http://llm-analysis:4400
+  REPORTS_URL: http://reports:4500
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gyde}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-local-only}
+      POSTGRES_DB: ${POSTGRES_DB:-gyde}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER:-gyde} -d $${POSTGRES_DB:-gyde}']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  registry:
+    <<: *service
+    command: pnpm --filter @gyde/registry dev
+    environment:
+      <<: *urls
+      REGISTRY_PORT: '4100'
+    ports:
+      - '${REGISTRY_PORT:-4100}:4100'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4100/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    develop:
+      watch:
+        - { action: sync, path: ../../services/registry/src, target: /repo/services/registry/src }
+        - {
+            action: sync,
+            path: ../../packages,
+            target: /repo/packages,
+            ignore: ['**/node_modules/**', '**/dist/**'],
+          }
+        - { action: rebuild, path: ../../pnpm-lock.yaml }
+
+  gateway:
+    <<: *service
+    command: pnpm --filter @gyde/gateway dev
+    environment:
+      <<: *urls
+      GATEWAY_PORT: '4000'
+    ports:
+      - '${GATEWAY_PORT:-4000}:4000'
+    depends_on:
+      registry:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4000/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    develop:
+      watch:
+        - { action: sync, path: ../../services/gateway/src, target: /repo/services/gateway/src }
+        - {
+            action: sync,
+            path: ../../packages,
+            target: /repo/packages,
+            ignore: ['**/node_modules/**', '**/dist/**'],
+          }
+        - { action: rebuild, path: ../../pnpm-lock.yaml }
+
+  normalization:
+    <<: *service
+    command: pnpm --filter @gyde/normalization dev
+    environment:
+      <<: *urls
+      NORMALIZATION_PORT: '4200'
+    ports:
+      - '${NORMALIZATION_PORT:-4200}:4200'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      registry:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4200/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    develop:
+      watch:
+        - {
+            action: sync,
+            path: ../../services/normalization/src,
+            target: /repo/services/normalization/src,
+          }
+        - { action: sync, path: ../../fixtures, target: /repo/fixtures }
+        - {
+            action: sync,
+            path: ../../packages,
+            target: /repo/packages,
+            ignore: ['**/node_modules/**', '**/dist/**'],
+          }
+        - { action: rebuild, path: ../../pnpm-lock.yaml }
+
+  retrieval:
+    <<: *service
+    command: pnpm --filter @gyde/retrieval dev
+    environment:
+      <<: *urls
+      RETRIEVAL_PORT: '4300'
+    ports:
+      - '${RETRIEVAL_PORT:-4300}:4300'
+    depends_on:
+      registry:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4300/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    develop:
+      watch:
+        - { action: sync, path: ../../services/retrieval/src, target: /repo/services/retrieval/src }
+        - { action: sync, path: ../../fixtures, target: /repo/fixtures }
+        - {
+            action: sync,
+            path: ../../packages,
+            target: /repo/packages,
+            ignore: ['**/node_modules/**', '**/dist/**'],
+          }
+        - { action: rebuild, path: ../../pnpm-lock.yaml }
+
+  llm-analysis:
+    <<: *service
+    command: pnpm --filter @gyde/llm-analysis dev
+    environment:
+      <<: *urls
+      LLM_ANALYSIS_PORT: '4400'
+    ports:
+      - '${LLM_ANALYSIS_PORT:-4400}:4400'
+    depends_on:
+      registry:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4400/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    develop:
+      watch:
+        - {
+            action: sync,
+            path: ../../services/llm-analysis/src,
+            target: /repo/services/llm-analysis/src,
+          }
+        - {
+            action: sync,
+            path: ../../packages,
+            target: /repo/packages,
+            ignore: ['**/node_modules/**', '**/dist/**'],
+          }
+        - { action: rebuild, path: ../../pnpm-lock.yaml }
+
+  reports:
+    <<: *service
+    command: pnpm --filter @gyde/reports dev
+    environment:
+      <<: *urls
+      REPORTS_PORT: '4500'
+    ports:
+      - '${REPORTS_PORT:-4500}:4500'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      registry:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4500/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    develop:
+      watch:
+        - { action: sync, path: ../../services/reports/src, target: /repo/services/reports/src }
+        - {
+            action: sync,
+            path: ../../packages,
+            target: /repo/packages,
+            ignore: ['**/node_modules/**', '**/dist/**'],
+          }
+        - { action: rebuild, path: ../../pnpm-lock.yaml }
+
+  # TODO(area-2): enable once the Next.js app exists in services/web (needs a `dev` script).
+  # web:
+  #   <<: *service
+  #   command: pnpm --filter @gyde/web dev
+  #   environment:
+  #     <<: *urls
+  #   ports:
+  #     - '${WEB_PORT:-3000}:3000'
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+
+volumes:
+  pgdata:

@@ -1,0 +1,14 @@
+# Keep the build context small and never ship secrets or host-installed dependencies.
+.git
+.husky
+.vscode
+**/node_modules
+**/dist
+**/.turbo
+**/.next
+**/coverage
+.env
+.env.*
+!.env.example
+docs
+infra/compose/.data

@@ -1,0 +1,19 @@
+{
+  "name": "@gyde/resilience",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Circuit Breaker and fallback cache: wraps every outgoing call of Gyde.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

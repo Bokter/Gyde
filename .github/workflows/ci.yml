@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Quality gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+  pr-title:
+    name: Conventional PR title
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Check the PR title against the repository commitlint rules
+        env:
+          # Passed through the environment, never interpolated into the script (injection safe).
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: printf '%s\n' "$PR_TITLE" | pnpm exec commitlint
+
+  # TODO(area-1): the images were written but never built on a machine with Docker running.
+  # Fix whatever fails here, then delete `continue-on-error` so this job gates merges.
+  docker:
+    name: Docker image (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: dev-check, args: '-f infra/docker/dev.Dockerfile --target check' }
+          - { target: gateway, args: '-f services/gateway/Dockerfile' }
+          - { target: registry, args: '-f services/registry/Dockerfile' }
+          - { target: normalization, args: '-f services/normalization/Dockerfile' }
+          - { target: retrieval, args: '-f services/retrieval/Dockerfile' }
+          - { target: llm-analysis, args: '-f services/llm-analysis/Dockerfile' }
+          - { target: reports, args: '-f services/reports/Dockerfile' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build
+        run: docker buildx build ${{ matrix.args }} .

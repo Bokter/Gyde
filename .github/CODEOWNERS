@@ -1,0 +1,42 @@
+# Code owners: each folder has an owner who is asked to review changes to it.
+#
+# SETUP (the lead, once the team has GitHub accounts): replace every <handle> placeholder below with
+# the GitHub username of the area owner, then uncomment the lines. Until then, everything is owned
+# by the lead so no review request points at an unknown user.
+#
+# Rules of the game (see CONTRIBUTING.md):
+# - You work inside your area. A change in another area goes as a small PR reviewed by its owner.
+# - packages/contracts is the agreement between areas: its PRs also need a reviewer from ANOTHER area.
+
+*  @Bokter
+
+# Area 1: Platform, Gateway and Resilience
+# /packages/resilience/        @<handle-area-1>
+# /packages/discovery/         @<handle-area-1>
+# /services/registry/          @<handle-area-1>
+# /services/gateway/           @<handle-area-1>
+# /infra/                      @<handle-area-1>
+# /.github/                    @<handle-area-1>
+
+# Area 2: Web, Payments and Surfaces
+# /services/web/               @<handle-area-2>
+# /packages/design-tokens/     @<handle-area-2>
+# /apps/github-action/         @<handle-area-2>
+# /apps/vscode-extension/      @<handle-area-2>
+# /docs/design/                @<handle-area-2>
+
+# Area 3: Knowledge
+# /services/normalization/     @<handle-area-3>
+# /services/retrieval/         @<handle-area-3>
+# /fixtures/sources/           @<handle-area-3>
+
+# Area 4: Engine, LLM and Reports
+# /packages/analysis-engine/   @<handle-area-4>
+# /apps/cli/                   @<handle-area-4>
+# /services/llm-analysis/      @<handle-area-4>
+# /services/reports/           @<handle-area-4>
+# /fixtures/projects/          @<handle-area-4>
+
+# Shared agreements: owned by the lead, reviewed by every area that consumes them.
+/packages/contracts/           @Bokter
+/packages/service-kit/         @Bokter

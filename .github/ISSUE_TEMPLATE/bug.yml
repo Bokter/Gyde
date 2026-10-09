@@ -1,0 +1,34 @@
+name: Error
+description: Algo no funciona como debería.
+title: '[Error] '
+labels: [bug]
+body:
+  - type: input
+    id: module
+    attributes:
+      label: Módulo
+      description: Por ejemplo gateway, reports, analysis-engine.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Cómo reproducirlo
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Qué esperabas y qué pasó
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs o salida
+      description: Revisa antes de pegar que no incluyan llaves, tokens ni datos de clientes.
+      render: text

@@ -1,0 +1,42 @@
+name: Tarea
+description: Una unidad de trabajo de un área (sale de los briefs de docs/tasks).
+title: '[Tarea] '
+labels: [task]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      options:
+        - Área 1 · Plataforma, Gateway y Resiliencia
+        - Área 2 · Web, Pagos y Superficies
+        - Área 3 · Conocimiento
+        - Área 4 · Motor, LLM y Reportes
+    validations:
+      required: true
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objetivo
+      description: Qué se quiere lograr y por qué.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Criterios de aceptación
+      description: Checklist verificable (pueden ser los `it.todo` del módulo).
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencias
+      description: Qué necesitas de otras áreas y qué mock usas mientras tanto.
+  - type: input
+    id: brief
+    attributes:
+      label: Brief
+      description: Enlace a la sección de docs/tasks.

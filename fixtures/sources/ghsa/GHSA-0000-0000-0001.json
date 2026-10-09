@@ -1,0 +1,24 @@
+{
+  "ghsa_id": "GHSA-0000-0000-0001",
+  "cve_id": null,
+  "url": "https://api.github.com/advisories/GHSA-0000-0000-0001",
+  "html_url": "https://github.com/advisories/GHSA-0000-0000-0001",
+  "summary": "Sample advisory: unsafe deserialization in Acme.Serialization",
+  "description": "Synthetic advisory used for tests and mocks. It does not describe a real vulnerability.",
+  "type": "reviewed",
+  "severity": "high",
+  "cvss": {
+    "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+    "score": 7.5
+  },
+  "published_at": "2026-01-15T00:00:00Z",
+  "updated_at": "2026-02-01T00:00:00Z",
+  "vulnerabilities": [
+    {
+      "package": { "ecosystem": "nuget", "name": "Acme.Serialization" },
+      "vulnerable_version_range": "< 1.5.0",
+      "first_patched_version": "1.5.0"
+    }
+  ],
+  "references": ["https://example.com/advisories/sample-0001"]
+}

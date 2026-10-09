@@ -1,0 +1,30 @@
+{
+  "project": {
+    "gameEngine": "unity",
+    "gameEngineVersion": "2022.3.20f1",
+    "sdks": [],
+    "platforms": []
+  },
+  "dependencies": [
+    {
+      "ecosystem": "nuget",
+      "name": "Acme.GplToolkit",
+      "version": "2.1.0",
+      "declaredLicense": "GPL-3.0-only",
+      "direct": true
+    },
+    {
+      "ecosystem": "nuget",
+      "name": "Acme.Serialization",
+      "version": "1.4.0",
+      "declaredLicense": "MIT",
+      "direct": true
+    },
+    {
+      "ecosystem": "upm",
+      "name": "com.unity.render-pipelines.universal",
+      "version": "14.0.9",
+      "direct": true
+    }
+  ]
+}

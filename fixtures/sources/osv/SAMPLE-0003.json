@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.6.0",
+  "id": "SAMPLE-0003",
+  "modified": "2026-02-03T00:00:00Z",
+  "published": "2026-01-25T00:00:00Z",
+  "summary": "Sample advisory: regression only in Acme.Serialization 2.0.0 to 2.0.x",
+  "details": "Synthetic advisory whose affected range does NOT include 1.4.0: it checks that version ranges are honored and there are no false positives.",
+  "severity": [
+    { "type": "CVSS_V3", "score": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:N/I:N/A:L" }
+  ],
+  "affected": [
+    {
+      "package": { "ecosystem": "NuGet", "name": "Acme.Serialization" },
+      "ranges": [
+        {
+          "type": "ECOSYSTEM",
+          "events": [{ "introduced": "2.0.0" }, { "fixed": "2.1.0" }]
+        }
+      ]
+    }
+  ],
+  "references": [{ "type": "ADVISORY", "url": "https://example.com/advisories/sample-0003" }],
+  "database_specific": { "severity": "LOW" }
+}

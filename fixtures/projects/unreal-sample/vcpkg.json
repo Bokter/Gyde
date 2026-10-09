@@ -1,0 +1,7 @@
+{
+  "name": "samplegame",
+  "version": "0.1.0",
+  "dependencies": [
+    { "name": "acme-samplelib", "version>=": "1.1.0" }
+  ]
+}

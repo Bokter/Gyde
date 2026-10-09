@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.6.0",
+  "id": "SAMPLE-0002",
+  "modified": "2026-02-02T00:00:00Z",
+  "published": "2026-01-20T00:00:00Z",
+  "summary": "Sample advisory: path handling issue in Acme.Unrelated",
+  "details": "Synthetic advisory about a package that the sample projects do not use: it must never match them.",
+  "severity": [
+    { "type": "CVSS_V3", "score": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N" }
+  ],
+  "affected": [
+    {
+      "package": { "ecosystem": "NuGet", "name": "Acme.Unrelated" },
+      "ranges": [
+        {
+          "type": "ECOSYSTEM",
+          "events": [{ "introduced": "0" }, { "fixed": "3.0.0" }]
+        }
+      ]
+    }
+  ],
+  "references": [{ "type": "ADVISORY", "url": "https://example.com/advisories/sample-0002" }],
+  "database_specific": { "severity": "MODERATE" }
+}

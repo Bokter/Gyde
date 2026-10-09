@@ -107,24 +107,6 @@ Tienes el módulo más delicado en seguridad: custodias **llaves de terceros**. 
 
 Sin visor de reportes · sin extensión de VS Code · prueba de conexión mínima (un solo proveedor) · sin rotación de claves maestras (solo `kid` único) · una sola moneda y sin impuestos en Stripe.
 
-## Prompt listo para tu asistente
+## Prompt para tu asistente
 
-```text
-Eres un ingeniero de software senior en el monorepo Gyde (TypeScript, pnpm, Next.js, Vitest). Trabajas en el Área 2: Servicio Web (Stripe, API keys, llaves de IA BYOK), diseño, GitHub Action y extensión de VS Code.
-
-Antes de escribir código, lee: CONTRIBUTING.md, docs/architecture/00-vision-general.md, 02-flujos.md (flujos 5 y 6), 04-datos-privacidad-seguridad.md, docs/adr/0007-..., docs/design/sistema-de-diseno.md, docs/tasks/area-2-web-pagos-y-superficies.md y los README de services/web, packages/design-tokens, packages/contracts, apps/github-action y apps/vscode-extension.
-
-Objetivo: crear la app Next.js en services/web con login de GitHub, suscripciones con Stripe (SOLO modo test), API keys (hasheadas, mostradas una vez) y llaves de IA por estudio cifradas con AES-256-GCM, más los endpoints internos POST /internal/api-keys/verify y GET /internal/tenants/:tenantId/llm-config; luego la GitHub Action.
-
-Reglas:
-- Tipos y esquemas de @gyde/contracts: no los dupliques; si falta algo, PR pequeño aparte a contracts.
-- Arquitectura limpia dentro de src/modules/<modulo>/{domain,application,infrastructure}: domain no importa Next, Stripe ni la base de datos (ESLint lo impone). src/app es delgado y llama casos de uso.
-- Seguridad: la llave de IA en claro nunca va a la UI, a logs, a errores ni a respuestas públicas; las API keys solo se guardan como hash; el webhook de Stripe verifica la firma y es idempotente; los endpoints /internal/* exigen x-internal-token y no están en el gateway.
-- Estilos solo con tokens semánticos de @gyde/design-tokens (var(--gyde-color-...)); contraste AA, foco visible, teclado, 375 px. Textos de la interfaz en español.
-- Pruebas sin red (Stripe y proveedores de IA simulados). Los it.todo y criterios del brief son tus criterios de aceptación.
-- Trabaja solo en services/web, apps/github-action, apps/vscode-extension, packages/design-tokens y docs/design.
-
-Orden: 1) bootstrap de Next + fuentes + tokens + DB + auth, 2) API keys y el endpoint de verificación (el Área 1 lo espera el día 2), 3) Stripe Checkout + webhook + entitlements, 4) BYOK y su endpoint interno (el Área 4 lo espera el día 3), 5) UI completa, 6) GitHub Action.
-
-Cómo trabajar: ramas cortas "<tipo>/<módulo>-<descripción>", commits Conventional Commits en inglés (scopes: web, design-tokens, github-action, vscode-extension), PRs de menos de un día. Antes de cada PR corre pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build. Al terminar cada tarea resume qué hiciste, qué decidiste y qué queda.
-```
+El prompt completo (contexto, arquitectura, patrones, reglas de coherencia entre documentos y código, flujo con `dev` y los detalles de esta área) está en [`prompts/prompt-area-2-web-pagos-y-superficies.md`](prompts/prompt-area-2-web-pagos-y-superficies.md). Pégalo al empezar tu sesión con Claude.

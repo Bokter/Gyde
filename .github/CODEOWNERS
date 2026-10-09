@@ -1,42 +1,42 @@
 # Code owners: each folder has an owner who is asked to review changes to it.
 #
-# SETUP (the lead, once the team has GitHub accounts): replace every <handle> placeholder below with
-# the GitHub username of the area owner, then uncomment the lines. Until then, everything is owned
-# by the lead so no review request points at an unknown user.
-#
 # Rules of the game (see CONTRIBUTING.md):
 # - You work inside your area. A change in another area goes as a small PR reviewed by its owner.
 # - packages/contracts is the agreement between areas: its PRs also need a reviewer from ANOTHER area.
+# - Everything is integrated through pull requests into `dev`; only the lead opens `dev` -> `main`.
 
 *  @Bokter
 
-# Area 1: Platform, Gateway and Resilience
-# /packages/resilience/        @<handle-area-1>
-# /packages/discovery/         @<handle-area-1>
-# /services/registry/          @<handle-area-1>
-# /services/gateway/           @<handle-area-1>
-# /infra/                      @<handle-area-1>
-# /.github/                    @<handle-area-1>
+# Area 1: Platform, Gateway and Resilience  (@FatimaCas)
+/packages/resilience/        @FatimaCas
+/packages/discovery/         @FatimaCas
+/services/registry/          @FatimaCas
+/services/gateway/           @FatimaCas
+/infra/                      @FatimaCas
+/.github/                    @FatimaCas
+/docs/workflow/              @FatimaCas
 
-# Area 2: Web, Payments and Surfaces
-# /services/web/               @<handle-area-2>
-# /packages/design-tokens/     @<handle-area-2>
-# /apps/github-action/         @<handle-area-2>
-# /apps/vscode-extension/      @<handle-area-2>
-# /docs/design/                @<handle-area-2>
+# Area 2: Web, Payments and Surfaces  (@kicconsu)
+/services/web/               @kicconsu
+/packages/design-tokens/     @kicconsu
+/apps/github-action/         @kicconsu
+/apps/vscode-extension/      @kicconsu
+/docs/design/                @kicconsu
 
-# Area 3: Knowledge
-# /services/normalization/     @<handle-area-3>
-# /services/retrieval/         @<handle-area-3>
-# /fixtures/sources/           @<handle-area-3>
+# Area 3: Knowledge  (@Bokter)
+/services/normalization/     @Bokter
+/services/retrieval/         @Bokter
+/fixtures/sources/           @Bokter
 
-# Area 4: Engine, LLM and Reports
-# /packages/analysis-engine/   @<handle-area-4>
-# /apps/cli/                   @<handle-area-4>
-# /services/llm-analysis/      @<handle-area-4>
-# /services/reports/           @<handle-area-4>
-# /fixtures/projects/          @<handle-area-4>
+# Area 4: Engine, LLM and Reports  (@JDBorjaC)
+/packages/analysis-engine/   @JDBorjaC
+/apps/cli/                   @JDBorjaC
+/services/llm-analysis/      @JDBorjaC
+/services/reports/           @JDBorjaC
+/fixtures/projects/          @JDBorjaC
 
 # Shared agreements: owned by the lead, reviewed by every area that consumes them.
-/packages/contracts/           @Bokter
-/packages/service-kit/         @Bokter
+/packages/contracts/         @Bokter
+/packages/service-kit/       @Bokter
+/docs/architecture/          @Bokter
+/docs/adr/                   @Bokter

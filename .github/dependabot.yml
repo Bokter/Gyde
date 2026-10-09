@@ -3,6 +3,7 @@ version: 2
 updates:
   - package-ecosystem: npm
     directory: /
+    target-branch: dev
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
@@ -16,9 +17,16 @@ updates:
       # typescript-eslint does not support TypeScript 6.1 or later yet (see pnpm-workspace.yaml).
       - dependency-name: typescript
         update-types: [version-update:semver-major, version-update:semver-minor]
+      # Types must match the runtime we target: Node 24 (.nvmrc, Dockerfiles).
+      - dependency-name: '@types/node'
+        update-types: [version-update:semver-major]
+      # Types cannot be newer than engines.vscode of the extension (^1.100).
+      - dependency-name: '@types/vscode'
+        update-types: [version-update:semver-major, version-update:semver-minor]
 
   - package-ecosystem: github-actions
     directory: /
+    target-branch: dev
     schedule:
       interval: weekly
     commit-message:
@@ -29,6 +37,7 @@ updates:
     directories:
       - /infra/docker
       - /services/*
+    target-branch: dev
     schedule:
       interval: weekly
     commit-message:

@@ -44,7 +44,7 @@ docs(tasks): clarify area 3 acceptance criteria
 | Servicios | `gateway`, `web`, `normalization`, `retrieval`, `llm-analysis`, `reports`, `registry` |
 | Paquetes | `contracts`, `analysis-engine`, `resilience`, `discovery`, `service-kit`, `design-tokens` |
 | Apps | `cli`, `github-action`, `vscode-extension` |
-| Transversales | `repo`, `tooling`, `ci`, `infra`, `fixtures`, `deps` |
+| Transversales | `repo`, `tooling`, `ci`, `infra`, `fixtures`, `deps`, `deps-dev` (los dos últimos los usa Dependabot) |
 | Documentación | `architecture`, `adr`, `design`, `tasks`, `workflow`, `readme` |
 
 Si un cambio cruza varios módulos, omite el scope. Un cambio incompatible lleva `!` (`feat(contracts)!: ...`) y un pie `BREAKING CHANGE:`. El hook local y el CI validan el formato (`commitlint`).

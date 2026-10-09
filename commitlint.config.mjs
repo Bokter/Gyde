@@ -27,6 +27,7 @@ const scopes = [
   'infra',
   'fixtures',
   'deps',
+  'deps-dev', // Dependabot uses it for development dependencies
   // documentation
   'architecture',
   'adr',

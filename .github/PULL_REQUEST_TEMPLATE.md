@@ -1,3 +1,5 @@
+> **Base del PR: `dev`.** Solo el líder abre PRs `dev` → `main` (releases).
+
 ## Qué cambia y por qué
 
 <!-- Una o dos frases. El título del PR debe seguir Conventional Commits: `feat(gateway): add API key authentication`. -->
@@ -19,4 +21,4 @@
 - [ ] No incluye secretos ni los escribe en logs; `.env.example` actualizado si hay variables nuevas.
 - [ ] Actualicé el README del módulo si cambió su comportamiento.
 - [ ] Si toca `packages/contracts`, avisé a las áreas que lo consumen y pedí revisión de otra área.
-- [ ] El PR es chico (menos de un día de trabajo) y está rebaseado sobre `main`.
+- [ ] El PR es chico (menos de un día de trabajo) y está rebaseado sobre `origin/dev`.

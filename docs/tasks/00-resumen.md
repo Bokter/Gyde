@@ -1,17 +1,17 @@
 # Plan del equipo: 4 áreas, 5 días
 
-Este documento es el **punto de partida**. Léelo completo y luego abre el brief de tu área. Cada brief tiene objetivo, archivos que puedes y que no puedes tocar, criterios de aceptación, dependencias con las otras áreas y un **prompt listo para pegar** en tu asistente de código.
+Este documento es el **punto de partida**. Léelo completo y luego abre el brief de tu área. Cada brief tiene objetivo, archivos que puedes y que no puedes tocar, criterios de aceptación, dependencias con las otras áreas y un **prompt listo para pegar** en tu asistente de código (los prompts completos por persona están en [`prompts/`](prompts/README.md)).
 
 ## Áreas y reparto
 
-Asignen personas en la tabla (una persona por área). El tamaño es relativo: S pequeño · M mediano · L grande.
+Una persona por área. El tamaño es relativo: S pequeño · M mediano · L grande.
 
 | Área | Módulos | Tamaño | Responsable |
 |---|---|---|---|
-| **1. Plataforma, Gateway y Resiliencia** ([brief](area-1-plataforma-y-borde.md)) | `resilience`, `registry`, `discovery`, `gateway`; mantiene `infra/` y el CI | M + S + S + M | _(asignar)_ |
-| **2. Web, Pagos y Superficies** ([brief](area-2-web-pagos-y-superficies.md)) | `web` (Stripe, API keys, BYOK), `design-tokens`, `github-action`, `vscode-extension` | L + S + S-M + S | _(asignar)_ |
-| **3. Conocimiento** ([brief](area-3-conocimiento.md)) | `normalization`, `retrieval` | L + L | _(asignar)_ |
-| **4. Motor, LLM y Reportes** ([brief](area-4-motor-llm-y-reportes.md)) | `analysis-engine` + `cli`, `llm-analysis`, `reports` | M-L + S + M + M | _(asignar)_ |
+| **1. Plataforma, Gateway y Resiliencia** ([brief](area-1-plataforma-y-borde.md)) | `resilience`, `registry`, `discovery`, `gateway`; mantiene `infra/` y el CI | M + S + S + M | @FatimaCas (Fatima Castro) |
+| **2. Web, Pagos y Superficies** ([brief](area-2-web-pagos-y-superficies.md)) | `web` (Stripe, API keys, BYOK), `design-tokens`, `github-action`, `vscode-extension` | L + S + S-M + S | @kicconsu (Samuel Camargo) |
+| **3. Conocimiento** ([brief](area-3-conocimiento.md)) | `normalization`, `retrieval` | L + L | @Bokter (Juan Rojas) |
+| **4. Motor, LLM y Reportes** ([brief](area-4-motor-llm-y-reportes.md)) | `analysis-engine` + `cli`, `llm-analysis`, `reports` | M-L + S + M + M | @JDBorjaC (Juan David Borja) |
 
 ## Qué ya está hecho (base del líder)
 
@@ -94,13 +94,13 @@ Se recorta **de derecha a izquierda**. Avisen en la sincronización diaria, no e
 3. **Capas:** `http → application → domain`, `infrastructure → application`. ESLint lo comprueba.
 4. **Secretos:** nada de llaves en el repo ni en logs. Stripe solo en modo test.
 5. **Trabaja en tu carpeta.** Si necesitas algo de otra área, abre un issue o un PR pequeño y avisa.
-6. **PRs pequeños y frecuentes** (menos de un día), con el título en Conventional Commits. Ver [`CONTRIBUTING.md`](../../CONTRIBUTING.md).
+6. **PRs pequeños y frecuentes** (menos de un día) **hacia `dev`**, con el título en Conventional Commits. Nadie empuja directo a `dev` ni a `main`; el líder lleva `dev` a `main` en cada hito. Ver [`CONTRIBUTING.md`](../../CONTRIBUTING.md).
 7. **Convierte los `it.todo` en pruebas reales** a medida que implementas: son tus criterios de aceptación.
 8. **Sincronización diaria de 15 minutos:** qué terminé, qué sigue, qué me bloquea.
 
 ## Día de integración (día 4)
 
-- [ ] `docker build -f infra/docker/dev.Dockerfile --target check .` pasa en `main`.
+- [ ] `docker build -f infra/docker/dev.Dockerfile --target check .` pasa en `dev`.
 - [ ] `docker compose up` deja todo saludable; el registry lista las instancias.
 - [ ] El gateway valida la API key contra Web y reenvía a Reports.
 - [ ] Reports → Retrieval → Normalization y → llm-analysis funcionan con datos reales de los fixtures.
@@ -112,7 +112,7 @@ Se recorta **de derecha a izquierda**. Avisen en la sincronización diaria, no e
 ## Definición de terminado del MVP
 
 - La demo E2E de arriba funciona sin intervención manual fuera de lo descrito.
-- `main` tiene el CI en verde y cada servicio arranca desde su imagen.
+- `dev` y `main` tienen el CI en verde y cada servicio arranca desde su imagen; el último release `dev → main` queda hecho.
 - Los `it.todo` del camino "Debe estar" son pruebas reales y verdes.
 - Los README de cada módulo describen lo que realmente hace.
 - No hay secretos en el historial y la privacidad está cubierta por pruebas.

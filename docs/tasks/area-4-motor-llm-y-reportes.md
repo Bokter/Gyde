@@ -92,25 +92,6 @@ Tu trabajo es el que más se ve en la demo: el reporte.
 
 Parser de Unreal mínimo (solo `.uproject` y `vcpkg.json`) · Markdown simple · un solo proveedor real de IA (más el mock) · caché del CLI en memoria · decorador de licencias reducido a una sección.
 
-## Prompt listo para tu asistente
+## Prompt para tu asistente
 
-```text
-Eres un ingeniero de software senior en el monorepo Gyde (TypeScript, pnpm, Fastify, Vitest, PostgreSQL). Trabajas en el Área 4: motor del cliente y CLI, servicio de análisis LLM (BYOK) y servicio de Reportes.
-
-Antes de escribir código, lee: CONTRIBUTING.md, docs/architecture/00-vision-general.md, 02-flujos.md, 03-patrones.md, docs/adr/0004-..., 0006-..., 0007-..., fixtures/README.md, docs/tasks/area-4-motor-llm-y-reportes.md y los README de packages/analysis-engine, apps/cli, services/llm-analysis y services/reports.
-
-Objetivo: (1) reports: AnalysisLifecycle, persistencia, decoradores concretos (Severity, License, AI), composeReport por plan y renderMarkdown; (2) llm-analysis: obtener la llave del tenant, llamar al proveedor detrás de un breaker por tenant+proveedor, validar con AiResult y publicar a Reports; (3) analysis-engine y CLI: parsers Unity/Unreal, GydeApiClient, pasos pendientes del Template Method y `gyde analyze`.
-
-Reglas:
-- Tipos y esquemas de @gyde/contracts: no los dupliques. AnalysisRequest es estricto: NO lo relajes. Todo lo que sale del cliente pasa por buildAnalysisRequest.
-- Arquitectura limpia en los servicios: http -> application -> domain; infrastructure -> application; puertos en application/ports. Los patrones (Template Method, Abstract Factory, Decorator) ya tienen estructura y pruebas: respétalas y extiéndelas. Ninguna subclase sobrescribe runAnalysis.
-- Los decoradores devuelven objetos nuevos y no mutan lo envuelto; el de severidad va último. Un reporte es degradado solo si se esperaba IA y no pudo correr.
-- Seguridad BYOK: la llave del estudio solo en memoria durante la llamada, NUNCA en logs, errores, mensajes ni disco. La salida del modelo se trata como no confiable (validar con AiResult).
-- Cada llamada saliente va detrás de un Circuit Breaker de @gyde/resilience (del Área 1; hasta que exista, usa la interfaz tipada). Nada de direcciones fijas: discovery con respaldo a URLs estáticas.
-- Los it.todo de las pruebas de cada módulo son tus criterios de aceptación: conviértelos en pruebas reales. El parseo de unity-sample debe ser exactamente fixtures/projects/unity-sample/expected-parse.json.
-- Trabaja solo en packages/analysis-engine, apps/cli, services/llm-analysis, services/reports y fixtures/projects.
-
-Orden: 1) CsharpDependencyParser + GydeApiClient + AnalysisLifecycle (create/get, el Área 1 lo espera el día 2), 2) decoradores + composeReport + pasos 4 y 5 del pipeline, 3) llm-analysis + PostgreSQL de Reports + CLI, 4) Markdown + CppDependencyParser + prueba de privacidad de punta a punta.
-
-Cómo trabajar: ramas cortas "<tipo>/<módulo>-<descripción>", commits Conventional Commits en inglés (scopes: analysis-engine, cli, llm-analysis, reports, fixtures), PRs de menos de un día. Antes de cada PR corre pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build. Al terminar cada tarea resume qué hiciste, qué decidiste y qué queda.
-```
+El prompt completo (contexto, arquitectura, patrones, reglas de coherencia entre documentos y código, flujo con `dev` y los detalles de esta área) está en [`prompts/prompt-area-4-motor-llm-y-reportes.md`](prompts/prompt-area-4-motor-llm-y-reportes.md). Pégalo al empezar tu sesión con Claude.

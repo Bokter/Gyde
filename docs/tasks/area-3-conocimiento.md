@@ -80,25 +80,6 @@ Dos servicios grandes. Empieza por el camino real mínimo (OSV + vulnerabilidade
 
 Compatibilidad con 2 o 3 reglas · documentación y comunidad como esqueleto con *fixtures* · NVD y GHSA solo con *fixtures* · sin planificador real (ingesta manual al arrancar) · sin API real de OSV (solo *fixtures*).
 
-## Prompt listo para tu asistente
+## Prompt para tu asistente
 
-```text
-Eres un ingeniero de software senior en el monorepo Gyde (TypeScript, pnpm, Fastify, Vitest, PostgreSQL). Trabajas en el Área 3: Pipeline de Normalización y Servicio de Retrieval.
-
-Antes de escribir código, lee: CONTRIBUTING.md, docs/architecture/00-vision-general.md, 02-flujos.md, 03-patrones.md, fixtures/README.md, docs/tasks/area-3-conocimiento.md y los README de services/normalization, services/retrieval y packages/contracts.
-
-Objetivo: (1) normalization: ingerir fuentes OSV (real), NVD/GHSA/documentación oficial/comunidad (con fixtures) a KnowledgeObject, persistirlas en PostgreSQL (schema normalization) y exponer POST /internal/knowledge/query; (2) retrieval: implementar VulnerabilityAnalyzer, LicenseAnalyzer, CompatibilityAnalyzer sobre BaseAnalyzer (Template Method, ya hecho) y el caso de uso RetrieveEvidence que publica el DeterministicResult a Reports y despacha a llm-analysis.
-
-Reglas:
-- Tipos y esquemas de @gyde/contracts: no los dupliques; si falta un campo, PR pequeño aparte a contracts.
-- Arquitectura limpia: http -> application -> domain; infrastructure -> application. Puertos en application/ports (SourceAdapter, KnowledgeRepository, KnowledgeSource, ReportsClient, LlmClient ya existen). domain sin I/O ni frameworks (ESLint lo impone).
-- El análisis determinístico es puro y síncrono (misma entrada, misma salida) y no usa IA ni red.
-- Comparación de versiones real por ecosistema (NuGet y UPM tipo SemVer, versiones de 4 partes en NuGet); coincidencia por ecosistema Y nombre.
-- Cada llamada a una fuente externa o a otro servicio va detrás de un Circuit Breaker de @gyde/resilience (del Área 1; hasta que exista, usa la interfaz tipada). Con INGEST_USE_FIXTURES=true no se toca la red.
-- Los it.todo de test/app.test.ts (normalization) y test/base-analyzer.test.ts (retrieval) son tus criterios de aceptación: conviértelos en pruebas reales. El resultado esperado sobre sampleAnalysisRequest + fixtures está en fixtures/README.md.
-- Trabaja solo en services/normalization, services/retrieval y fixtures/sources.
-
-Orden: 1) esquema + repositorio + adaptador OSV + VulnerabilityAnalyzer, 2) API de normalization + RetrieveEvidence con puertos falsos + LicenseAnalyzer, 3) adaptadores HTTP + publicación a Reports + NVD/GHSA + planificador, 4) compatibilidad + fuentes oficial/comunidad.
-
-Cómo trabajar: ramas cortas "<tipo>/<módulo>-<descripción>", commits Conventional Commits en inglés (scopes: normalization, retrieval, fixtures), PRs de menos de un día. Antes de cada PR corre pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build. Al terminar cada tarea resume qué hiciste, qué decidiste y qué queda.
-```
+El prompt completo (contexto, arquitectura, patrones, reglas de coherencia entre documentos y código, flujo con `dev` y los detalles de esta área) está en [`prompts/prompt-area-3-conocimiento.md`](prompts/prompt-area-3-conocimiento.md). Pégalo al empezar tu sesión con Claude.

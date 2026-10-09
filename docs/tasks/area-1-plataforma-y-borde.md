@@ -67,7 +67,7 @@ Consumes y produces los de `@gyde/contracts`: `ROUTES.gateway.*`, `ROUTES.regist
 - [ ] `docker build -f infra/docker/dev.Dockerfile --target check .` pasa. Si falla, corrígelo y documenta qué fue.
 - [ ] `docker compose -f infra/compose/compose.yaml up` deja PostgreSQL y los 6 servicios **saludables**; `watch` sincroniza cambios. Marca `infra/README.md` como verificado.
 - [ ] Cada `services/*/Dockerfile` construye y arranca (`docker build -f services/<x>/Dockerfile .`).
-- [ ] El CI (`.github/workflows/ci.yml`) está verde en un PR y `main` queda protegida según [`docs/workflow/configuracion-github.md`](../workflow/configuracion-github.md).
+- [ ] El CI (`.github/workflows/ci.yml`) está verde en un PR y `dev` y `main` quedan protegidas según [`docs/workflow/configuracion-github.md`](../workflow/configuracion-github.md).
 - [ ] (Si hay tiempo) un script de humo E2E en `infra/scripts/` que recorra el camino feliz.
 
 ## Dependencias con otras áreas
@@ -94,25 +94,6 @@ Consumes y produces los de `@gyde/contracts`: `ROUTES.gateway.*`, `ROUTES.regist
 
 Cachés de archivo mínimos · límites en memoria sin persistencia · sin Redis · sin métricas · un solo algoritmo de balanceo (round-robin).
 
-## Prompt listo para tu asistente
+## Prompt para tu asistente
 
-```text
-Eres un ingeniero de software senior en el monorepo Gyde (TypeScript, pnpm, Fastify, Vitest). Trabajas en el Área 1: resiliencia, discovery, registry y API Gateway.
-
-Antes de escribir código, lee: CONTRIBUTING.md, docs/architecture/00-vision-general.md, 02-flujos.md, 03-patrones.md, docs/adr/0005-..., docs/tasks/area-1-plataforma-y-borde.md y los README de packages/resilience, packages/discovery, services/registry, services/gateway e infra.
-
-Objetivo: implementar Circuit Breaker (con caché de respaldo), Service Discovery (registry + Health Checker + cliente), el API Gateway (autenticación por API key, límites del plan, enrutado) y dejar Docker/CI funcionando.
-
-Reglas:
-- Los tipos y esquemas están en @gyde/contracts: no los dupliques. Si falta un campo, propón un PR pequeño al contrato aparte.
-- Arquitectura limpia por servicio: http -> application -> domain; infrastructure -> application. Los puertos van en application/ports. ESLint lo impone.
-- Cada llamada saliente va detrás de un Circuit Breaker. Nada de direcciones fijas: discovery con respaldo a las URLs estáticas del entorno.
-- Los criterios de aceptación son los it.todo de las pruebas de cada módulo: conviértelos en pruebas reales a medida que implementas. Usa relojes inyectables, nada de sleeps reales.
-- Nunca registres secretos (API keys, tokens). El gateway no enruta /internal/*.
-- Privacidad: AnalysisRequest es estricto; no lo relajes.
-- Trabaja solo en tus carpetas (resilience, discovery, registry, gateway, service-kit, infra, .github/workflows). No toques las demás.
-
-Orden: 1) CircuitBreaker + MemoryFallbackCache + FileFallbackCache (las Áreas 3 y 4 lo esperan hoy), 2) registry, 3) discovery + ResilientHttpClient en service-kit, 4) gateway, 5) construir y corregir las imágenes Docker y el CI.
-
-Cómo trabajar: ramas cortas "<tipo>/<módulo>-<descripción>", commits Conventional Commits en inglés (scopes: resilience, registry, discovery, gateway, service-kit, infra, ci), PRs de menos de un día. Antes de cada PR corre: pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build (o docker build -f infra/docker/dev.Dockerfile --target check .). Al terminar cada tarea resume qué hiciste, qué decidiste y qué queda.
-```
+El prompt completo (contexto, arquitectura, patrones, reglas de coherencia entre documentos y código, flujo con `dev` y los detalles de esta área) está en [`prompts/prompt-area-1-plataforma-y-borde.md`](prompts/prompt-area-1-plataforma-y-borde.md). Pégalo al empezar tu sesión con Claude.

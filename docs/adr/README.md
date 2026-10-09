@@ -15,3 +15,4 @@ Para proponer o cambiar una decisión: copia la plantilla con el siguiente núme
 | [0007](0007-llaves-llm-por-estudio-byok.md) | Llaves LLM por estudio (BYOK) | Aceptada |
 | [0008](0008-desarrollo-con-docker-primero.md) | Desarrollo con Docker primero | Aceptada |
 | [0009](0009-postgresql-un-schema-por-servicio.md) | PostgreSQL: un schema y un rol por servicio | Aceptada |
+| [0010](0010-rama-dev-de-integracion.md) | Rama `dev` de integración antes de `main` | Aceptada |

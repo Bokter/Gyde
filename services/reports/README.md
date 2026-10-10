@@ -59,7 +59,8 @@ retrieval-error ──▶ failed
 src/domain/report/       Decorator (hecho) y composeReport, decoradores, renderMarkdown (TODO)
 src/application/         AnalysisLifecycle y puertos: ReportRepository, RetrievalClient
 src/infrastructure/      repositorio PostgreSQL y cliente HTTP de Retrieval (con breaker)
-src/http/                rutas (ya declaradas como stubs)
+src/http/                controladores NestJS (ya declarados como stubs 501)
+src/app.module.ts        composition root: enlaza puertos con adaptadores (ADR 0011)
 ```
 
 Los criterios de aceptación están como `it.todo` en `test/app.test.ts` y `test/report-decorator.test.ts`.

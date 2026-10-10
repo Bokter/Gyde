@@ -5,7 +5,7 @@ Patrón arquitectónico **Circuit Breaker** + **caché local / fallback** (docum
 ## Máquina de estados
 
 ```
-CERRADO ──(5 fallos seguidos o 50 % de fallos en la ventana)──▶ ABIERTO
+CERRADO ──(5 fallos seguidos o 50 % de fallos con al menos CB_MIN_CALLS llamadas en la ventana)──▶ ABIERTO
 ABIERTO ──(pasa el tiempo de espera)──▶ SEMIABIERTO (pocas llamadas de prueba)
 SEMIABIERTO ──(las pruebas funcionan)──▶ CERRADO
 SEMIABIERTO ──(una prueba falla)──▶ ABIERTO (reinicia el temporizador)
@@ -19,6 +19,7 @@ Parámetros por defecto, leídos del entorno (ver `.env.example`):
 |---|---|---|
 | `CB_FAILURE_THRESHOLD` | 5 | Fallos consecutivos para abrir |
 | `CB_FAILURE_RATE` | 0.5 | Proporción de fallos en la ventana para abrir |
+| `CB_MIN_CALLS` | 5 | Mínimo de llamadas en la ventana antes de evaluar `CB_FAILURE_RATE` |
 | `CB_WINDOW_MS` | 30000 | Ventana deslizante |
 | `CB_OPEN_TIMEOUT_MS` | 15000 | Tiempo abierto antes de probar |
 | `CB_HALF_OPEN_MAX_CALLS` | 2 | Llamadas de prueba en semiabierto |

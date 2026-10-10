@@ -20,6 +20,8 @@ export interface CircuitBreakerOptions {
   failureThreshold: number;
   /** Open when this share (0-1) of the calls inside the window failed. CB_FAILURE_RATE (0.5). */
   failureRate: number;
+  /** Minimum calls in sliding window before evaluating failureRate. CB_MIN_CALLS (5). Defaults to 5. */
+  minCalls?: number;
   /** Sliding window used by `failureRate`. CB_WINDOW_MS. */
   windowMs: number;
   /** How long to stay open before probing again. CB_OPEN_TIMEOUT_MS. */
@@ -206,7 +208,10 @@ export class CircuitBreaker {
     if (this.consecutiveFailures >= this.options.failureThreshold) return true;
 
     const total = this.windowCalls.length;
-    if (total > 0 && this.windowFailures.length / total >= this.options.failureRate) return true;
+    const minCalls = this.options.minCalls ?? 5;
+    if (total >= minCalls && this.windowFailures.length / total >= this.options.failureRate) {
+      return true;
+    }
 
     return false;
   }

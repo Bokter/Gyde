@@ -34,6 +34,7 @@ function makeBreaker(
     name: 'test-breaker',
     failureThreshold: 5,
     failureRate: 0.5,
+    minCalls: 5,
     windowMs: 30_000,
     openTimeoutMs: 15_000,
     halfOpenMaxCalls: 2,
@@ -82,7 +83,7 @@ describe('CircuitBreaker state machine (doc 3.3)', () => {
     const clock = makeClock();
     // Use a very high failure threshold so only the rate triggers the open.
     const breaker = makeBreaker(
-      { failureThreshold: 100, failureRate: 0.5, windowMs: 30_000 },
+      { failureThreshold: 100, failureRate: 0.5, minCalls: 4, windowMs: 30_000 },
       clock,
     );
 
@@ -94,6 +95,15 @@ describe('CircuitBreaker state machine (doc 3.3)', () => {
     await breaker.execute(fail(), { fallback: ok('fb') });
     // 2 failures / 4 total = 50% → open
     expect(breaker.state).toBe<CircuitState>('open');
+  });
+
+  it('does NOT open on 1 failure if total calls < minCalls (CB_MIN_CALLS)', async () => {
+    const clock = makeClock();
+    const breaker = makeBreaker({ failureThreshold: 5, failureRate: 0.5, minCalls: 5 }, clock);
+
+    // 1 failure (100% rate), but total calls (1) < minCalls (5) -> stays closed
+    await breaker.execute(fail(), { fallback: ok('fb') });
+    expect(breaker.state).toBe<CircuitState>('closed');
   });
 
   it('while open, answers immediately with the fallback and does NOT call the dependency', async () => {

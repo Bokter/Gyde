@@ -1,4 +1,4 @@
-export { GydeApiClient, type GydeApiClientOptions } from './client/gyde-api-client';
+export { GydeApiClient, GydeApiError, type GydeApiClientOptions } from './client/gyde-api-client';
 export { AnalysisPipeline, type AnalysisPipelineDeps } from './pipeline/analysis-pipeline';
 export {
   GitHubActionPipeline,

@@ -2,7 +2,7 @@
 
 Mantiene la lista actualizada de **instancias activas y saludables** de cada servicio, para que nadie "hardcodee" direcciones que cambian con el autoescalado (patrón **Service Discovery**). Es un servicio de infraestructura muy pequeño: no aparece en el diagrama de contenedores, pero sí en el documento (sección 3.1: *Service Registry* y *Health Checker*).
 
-> **Estado:** esqueleto ejecutable (501). Implementación: **Área 1** (`docs/tasks/area-1-plataforma-y-borde.md`). Cliente: `@gyde/discovery`.
+> **Estado:** implementado y verificado (**Área 1**, `docs/tasks/area-1-plataforma-y-borde.md`). Cliente: `@gyde/discovery`.
 
 - Puerto: `REGISTRY_PORT` (4100) · Solo red interna · Todas las rutas `/v1/*` exigen `x-internal-token`.
 

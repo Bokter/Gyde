@@ -1,13 +1,19 @@
-import type { InstanceInfo, ServiceName, ServiceRegistration } from '@gyde/contracts';
+import {
+  buildPath,
+  HEADERS,
+  type InstanceInfo,
+  ROUTES,
+  type ServiceName,
+  type ServiceRegistration,
+} from '@gyde/contracts';
+
+import { NoHealthyInstanceError } from './errors';
 
 /**
  * SERVICE DISCOVERY client (architecture doc, "Patrón arquitectónico 2").
  *
  * Instances come and go with autoscaling, so nobody hardcodes an address: services register
  * themselves, the gateway asks the registry for a healthy instance before each call.
- *
- * TODO(area-1): implement. Acceptance criteria: docs/tasks/area-1-plataforma-y-borde.md and the
- * pending specs in test/registry-client.test.ts.
  */
 
 export interface ServiceResolver {
@@ -33,30 +39,145 @@ export interface RegistryClientOptions {
   staticUrls?: Partial<Record<ServiceName, string>>;
 }
 
+interface CacheEntry {
+  instances: InstanceInfo[];
+  fetchedAt: number;
+}
+
 export class RegistryClient implements ServiceResolver {
   readonly options: RegistryClientOptions;
+  private readonly resolveCache = new Map<ServiceName, CacheEntry>();
+  private readonly roundRobinIndices = new Map<ServiceName, number>();
 
   constructor(options: RegistryClientOptions) {
     this.options = options;
   }
 
-  async register(_registration: ServiceRegistration): Promise<void> {
-    throw new Error('TODO(area-1): RegistryClient.register is not implemented yet');
+  private get fetchFn(): typeof fetch {
+    return this.options.fetch ?? globalThis.fetch;
   }
 
-  async heartbeat(_instanceId: string): Promise<void> {
-    throw new Error('TODO(area-1): RegistryClient.heartbeat is not implemented yet');
+  private get defaultHeaders(): Record<string, string> {
+    return {
+      [HEADERS.internalToken]: this.options.internalToken,
+      'Content-Type': 'application/json',
+    };
   }
 
-  async deregister(_instanceId: string): Promise<void> {
-    throw new Error('TODO(area-1): RegistryClient.deregister is not implemented yet');
+  async register(registration: ServiceRegistration): Promise<void> {
+    const url = `${this.options.registryUrl}${ROUTES.registry.instances}`;
+    const res = await this.fetchFn(url, {
+      method: 'POST',
+      headers: this.defaultHeaders,
+      body: JSON.stringify(registration),
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`Registry registration failed (${res.status}): ${text}`);
+    }
   }
 
-  async resolve(_serviceName: ServiceName): Promise<InstanceInfo[]> {
-    throw new Error('TODO(area-1): RegistryClient.resolve is not implemented yet');
+  async heartbeat(instanceId: string): Promise<void> {
+    const path = buildPath(ROUTES.registry.heartbeat, { instanceId });
+    const url = `${this.options.registryUrl}${path}`;
+    const res = await this.fetchFn(url, {
+      method: 'PUT',
+      headers: this.defaultHeaders,
+    });
+
+    if (res.status === 404) {
+      throw new Error(`Instance "${instanceId}" not found in registry`);
+    }
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`Registry heartbeat failed (${res.status}): ${text}`);
+    }
   }
 
-  async pick(_serviceName: ServiceName): Promise<InstanceInfo> {
-    throw new Error('TODO(area-1): RegistryClient.pick is not implemented yet');
+  async deregister(instanceId: string): Promise<void> {
+    const path = buildPath(ROUTES.registry.instance, { instanceId });
+    const url = `${this.options.registryUrl}${path}`;
+    const res = await this.fetchFn(url, {
+      method: 'DELETE',
+      headers: this.defaultHeaders,
+    });
+
+    if (!res.ok && res.status !== 404) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`Registry deregistration failed (${res.status}): ${text}`);
+    }
+  }
+
+  async resolve(serviceName: ServiceName): Promise<InstanceInfo[]> {
+    const ttl = this.options.resolveCacheTtlMs ?? 5000;
+    const cached = this.resolveCache.get(serviceName);
+    const now = Date.now();
+
+    if (cached && now - cached.fetchedAt < ttl) {
+      return cached.instances;
+    }
+
+    const path = buildPath(ROUTES.registry.resolve, { serviceName });
+    const url = `${this.options.registryUrl}${path}`;
+
+    try {
+      const res = await this.fetchFn(url, {
+        method: 'GET',
+        headers: this.defaultHeaders,
+      });
+
+      if (res.ok) {
+        const instances = (await res.json()) as InstanceInfo[];
+        const healthy = instances.filter((i) => i.healthy);
+        this.resolveCache.set(serviceName, { instances: healthy, fetchedAt: now });
+        return healthy;
+      }
+    } catch {
+      // Registry call failed (network or server error)
+    }
+
+    // Fallback 1: return static URL if available in options.staticUrls
+    const staticUrl = this.options.staticUrls?.[serviceName];
+    if (staticUrl) {
+      const isoNow = new Date(now).toISOString();
+      const staticInstance: InstanceInfo = {
+        instanceId: `static-${serviceName}`,
+        serviceName,
+        baseUrl: staticUrl,
+        version: '0.0.0',
+        healthy: true,
+        registeredAt: isoNow,
+        lastHeartbeatAt: isoNow,
+      };
+      return [staticInstance];
+    }
+
+    // Fallback 2: return stale cached instance if available
+    if (cached) {
+      return cached.instances;
+    }
+
+    return [];
+  }
+
+  async pick(serviceName: ServiceName): Promise<InstanceInfo> {
+    const instances = await this.resolve(serviceName);
+    const healthy = instances.filter((i) => i.healthy);
+
+    if (healthy.length === 0) {
+      throw new NoHealthyInstanceError(serviceName);
+    }
+
+    const currentIndex = this.roundRobinIndices.get(serviceName) ?? 0;
+    const picked = healthy[currentIndex % healthy.length];
+    this.roundRobinIndices.set(serviceName, currentIndex + 1);
+
+    if (!picked) {
+      throw new NoHealthyInstanceError(serviceName);
+    }
+
+    return picked;
   }
 }

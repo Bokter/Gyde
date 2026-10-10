@@ -258,17 +258,39 @@ services:
           }
         - { action: rebuild, path: ../../pnpm-lock.yaml }
 
-  # TODO(area-2): enable once the Next.js app exists in services/web (needs a `dev` script).
-  # web:
-  #   <<: *service
-  #   command: pnpm --filter @gyde/web dev
-  #   environment:
-  #     <<: *urls
-  #   ports:
-  #     - '${WEB_PORT:-3000}:3000'
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
+  web:
+    <<: *service
+    command: pnpm --filter @gyde/web dev
+    environment:
+      <<: *urls
+      WEB_PORT: '3000'
+    ports:
+      - '${WEB_PORT:-3000}:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    develop:
+      watch:
+        - { action: sync, path: ../../services/web/src, target: /repo/services/web/src }
+        - { action: sync, path: ../../services/web/public, target: /repo/services/web/public }
+        - {
+            action: sync,
+            path: ../../packages,
+            target: /repo/packages,
+            ignore: ['**/node_modules/**', '**/dist/**'],
+          }
+        - { action: rebuild, path: ../../pnpm-lock.yaml }
 
 volumes:
   pgdata:

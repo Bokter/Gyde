@@ -29,7 +29,7 @@ Una instancia de PostgreSQL, **un schema y un rol por servicio que persiste**, s
 | `reports` | `reports` | análisis y reportes |
 | `gateway`, `retrieval`, `llm-analysis`, `registry` | — | sin persistencia (caché en memoria) |
 
-Los reportes contienen nombres de dependencias y hallazgos, no código del cliente. Definir una política de retención es parte del Área 4 (por defecto, la del plan).
+Los reportes contienen nombres de dependencias y hallazgos, no código del cliente. La política de retención queda fuera del camino E2E del MVP: por defecto se conservan según el plan y, si se implementa, es una constante documentada en `reports` (Área 4), no una función nueva.
 
 ## 3. Llaves LLM de los estudios (BYOK)
 

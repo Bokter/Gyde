@@ -23,6 +23,7 @@ El cliente envía **una única solicitud** y el backend orquesta; los cinco paso
 | `FetchVulnerabilities`, `AnalyzeLicenses`, `GenerateReport` | **Etapas del mismo trabajo remoto**: `retrieving` → `analyzing` → `ready` |
 | `PublishResult` | **Local** (hook; consola o comentario de PR) |
 
+- En el código, `runAnalysis()` ejecuta siete métodos: los cinco pasos del documento, más `submitAnalysis` (el envío de la solicitud única, que añade esta decisión) y `publishResult` (el hook de salida).
 - Reportes crea el trabajo y devuelve `202`; el cliente **consulta** el estado hasta `ready`.
 - Retrieval publica primero el **resultado determinístico** a Reportes: desde ahí el reporte ya se puede entregar, pase lo que pase con la IA.
 - Los `OsvVulnerabilityFetcher` / `NvdVulnerabilityFetcher` del UML son **adaptadores del cliente hacia el backend** (leen la etapa de vulnerabilidades por el gateway); no consultan NVD/OSV.

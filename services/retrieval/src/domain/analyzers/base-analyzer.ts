@@ -50,10 +50,21 @@ export abstract class BaseAnalyzer<TCandidate, TMatch> {
 
   /** Invariant: most severe first, then highest CVSS, then title: a stable, deterministic order. */
   protected prioritize(findings: Finding[]): Finding[] {
-    const rank = (finding: Finding) => SEVERITY_ORDER.indexOf(finding.severity);
-    return [...findings].sort(
-      (a, b) =>
-        rank(a) - rank(b) || (b.cvss ?? 0) - (a.cvss ?? 0) || a.title.localeCompare(b.title, 'en'),
-    );
+    return [...findings].sort(compareFindings);
   }
+}
+
+/**
+ * The order of every list of findings: most severe first, then highest CVSS, then title, then id
+ * (so even two findings with the same title keep a fixed position). Shared by the analyzers and
+ * by the use case that merges their results.
+ */
+export function compareFindings(a: Finding, b: Finding): number {
+  const rank = (finding: Finding) => SEVERITY_ORDER.indexOf(finding.severity);
+  return (
+    rank(a) - rank(b) ||
+    (b.cvss ?? 0) - (a.cvss ?? 0) ||
+    a.title.localeCompare(b.title, 'en') ||
+    a.id.localeCompare(b.id, 'en')
+  );
 }

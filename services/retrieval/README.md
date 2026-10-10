@@ -2,7 +2,7 @@
 
 Recupera la información pertinente por **tres vías** y la cruza con el proyecto del cliente. Dos de ellas son **determinísticas**: no usan IA y siguen funcionando aunque el proveedor de LLM falle.
 
-> **Estado:** `BaseAnalyzer`, `VulnerabilityAnalyzer` y `LicenseAnalyzer` están implementados y probados. Faltan `CompatibilityAnalyzer`, el caso de uso y los adaptadores (el endpoint sigue en 501). Implementación: **Área 3** (`docs/tasks/area-3-conocimiento.md`).
+> **Estado:** `POST /internal/retrieve`, el caso de uso `RetrieveEvidence`, los adaptadores HTTP y los analizadores de vulnerabilidades y licencias están implementados y probados. Falta `CompatibilityAnalyzer` (su cobertura se informa como `false` mientras tanto). Implementación: **Área 3** (`docs/tasks/area-3-conocimiento.md`).
 
 - Puerto: `RETRIEVAL_PORT` (4300) · Solo red interna · Su único cliente es **Reports**.
 - Origen en el documento: contenedor *Servicio de retrieval* ("Filtra evidencia relevante") y el "Servicio de Análisis (vulnerabilidad y licencias) determinístico".
@@ -30,20 +30,34 @@ Viven como **módulos de este servicio** (no como tres microservicios), comparti
 
 | Método y ruta | Cuerpo | Respuesta |
 |---|---|---|
-| `POST /internal/retrieve` | `RetrieveRequest` | `202` (el trabajo sigue en segundo plano) |
+| `POST /internal/retrieve` | `RetrieveRequest` | `202` sin cuerpo, **al instante**; el trabajo sigue en segundo plano y el resultado viaja a Reports por su propio endpoint |
 
 ## Estructura
 
 ```
 src/domain/analyzers/    BaseAnalyzer (hecho) · vulnerabilities/ (hecho) · licenses/ (hecho) · compatibility/
 src/domain/versions/     comparación de versiones por ecosistema y rangos afectados (puro)
-src/application/         RetrieveEvidence y puertos: KnowledgeSource, ReportsClient, LlmClient
-src/infrastructure/      adaptadores HTTP hacia normalization, reports y llm-analysis (con breaker)
-src/http/                controladores NestJS (ya declarados como stubs 501)
+src/application/         RetrieveEvidence, BackgroundJobs y puertos: KnowledgeSource, ReportsClient, LlmClient
+src/infrastructure/      InternalHttpClient (breaker por dependencia), ServiceLocator (discovery + `*_URL`) y los adaptadores HTTP hacia normalization, reports y llm-analysis
+src/http/                controlador NestJS de `POST /internal/retrieve`
 src/app.module.ts        composition root: enlaza puertos con adaptadores (ADR 0011)
 ```
 
-Los criterios de aceptación pendientes están como `it.todo` en `test/base-analyzer.test.ts`.
+Los criterios de aceptación pendientes (`CompatibilityAnalyzer`) están como `it.todo` en `test/base-analyzer.test.ts`.
+
+## Cómo se comporta `RetrieveEvidence`
+
+- **Plan:** `vulnerabilities` corre en todos los planes; `licenses` exige `licenseCompliance` y `compatibility` exige `compatibilityAnalysis`. `coverage` del resultado dice qué analizadores corrieron de verdad.
+- **Un solo orden:** los hallazgos de todos los analizadores se mezclan con la misma regla (severidad, CVSS, título, id): mismo conjunto de conocimiento, mismo resultado y mismo orden.
+- **Publica el resultado determinístico a Reports antes de tocar la IA.** Solo envía a llm-analysis si el plan permite IA **y** el cliente la pidió (`options.includeAi`).
+- **Normalization degradado:** si no responde (caído, circuito abierto) se sirve la última respuesta guardada para la misma consulta o, si no hay, se sigue sin conocimiento; en ambos casos `partialSources: true`. Eso **no** hace degradado al reporte y los análisis que no necesitan conocimiento (licencias) siguen funcionando.
+- **Errores propios** (respuesta inválida de normalization, un 4xx, un fallo del análisis): `AnalysisFailure` con `retrieval-error`; el mensaje es fijo y no incluye detalles internos.
+- **llm-analysis caído** (sin respuesta, 5xx o circuito abierto): `AnalysisFailure` con `stage: 'llm'` y `reason: 'llm-unavailable'`; el resultado determinístico ya estaba publicado. Si llm-analysis rechaza la solicitud (4xx): `llm-error`.
+- **Reports no contesta:** reintenta unos segundos (3 intentos). Si no se puede entregar nada, lo registra en el log y no se cae.
+
+## Llamadas salientes
+
+Toda llamada pasa por `InternalHttpClient`: un **Circuit Breaker por dependencia** (`CB_*`), la dirección sale del `ServiceLocator` (discovery primero; las `NORMALIZATION_URL`, `LLM_ANALYSIS_URL` y `REPORTS_URL` solo como respaldo mientras el cliente del registry no esté conectado) y se envía `x-internal-token`. Una caída (red, tiempo agotado, 5xx, circuito abierto) es `ServiceUnavailableError`; un 4xx es `ServiceRejectedError` y no cuenta como fallo del servicio.
 
 ## Cruce de vulnerabilidades
 

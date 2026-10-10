@@ -19,11 +19,13 @@ catalog:
   '@types/pg': ^8.23.1
   drizzle-kit: ^0.31.11
   drizzle-orm: ^0.45.4
+  '@types/spdx-expression-parse': ^4.0.0
   fastify: ^5.12.5
   pg: ^8.23.1
   pino: ^10.4.0
   reflect-metadata: ^0.2.2
   rxjs: ^7.8.2
+  spdx-expression-parse: ^5.0.0
   tsup: ^8.5.1
   tsx: ^4.23.15
   # typescript-eslint does not support TypeScript >= 6.1 yet; revisit when it does.

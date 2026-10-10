@@ -73,9 +73,8 @@ describe('BaseAnalyzer (Template Method)', () => {
 /** Acceptance criteria for Area 3. Turn each `it.todo` into a real test as you build it
  * (the VulnerabilityAnalyzer ones live in vulnerability-analyzer.test.ts). */
 describe('LicenseAnalyzer', () => {
-  it.todo('flags GPL-3.0-only as a copyleft risk for proprietary distribution');
-  it.todo('understands SPDX expressions (MIT OR Apache-2.0 is fine, GPL-3.0-only AND MIT is not)');
-  it.todo('reports a missing or unknown license as an informational finding');
+  // The SPDX, expression and informational cases live in license-analyzer.test.ts; the plan gate
+  // is applied by the RetrieveEvidence use case.
   it.todo('is gated by entitlements.features.licenseCompliance');
 });
 

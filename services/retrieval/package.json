@@ -19,11 +19,13 @@
     "@nestjs/platform-fastify": "catalog:",
     "pino": "catalog:",
     "reflect-metadata": "catalog:",
+    "spdx-expression-parse": "catalog:",
     "rxjs": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "@types/spdx-expression-parse": "catalog:",
     "tsup": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",

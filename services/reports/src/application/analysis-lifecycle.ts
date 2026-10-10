@@ -1,13 +1,17 @@
+import { randomUUID } from 'node:crypto';
+
 import type {
   AiResult,
   AnalysisAccepted,
   AnalysisFailure,
   CreateAnalysisJob,
   DeterministicResult,
+  Finding,
   Report,
+  SeverityCounts,
 } from '@gyde/contracts';
 
-import type { ReportRepository } from './ports/report-repository';
+import type { ReportRepository, StoredAnalysis } from './ports/report-repository';
 import type { RetrievalClient } from './ports/retrieval-client';
 
 export interface AnalysisLifecycleDeps {
@@ -16,6 +20,43 @@ export interface AnalysisLifecycleDeps {
   /** Injectable for tests. */
   now?: () => Date;
   newId?: () => string;
+}
+
+function countBySeverity(findings: Finding[]): SeverityCounts {
+  const counts: SeverityCounts = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+  for (const finding of findings) counts[finding.severity] += 1;
+  return counts;
+}
+
+/** DI token of the `AnalysisLifecycle` use case (ADR 0011: explicit `@Inject`). */
+export const ANALYSIS_LIFECYCLE = Symbol('AnalysisLifecycle');
+
+/** Derives the public Report from what the service has stored so far. */
+function toReport(stored: StoredAnalysis): Report {
+  const findings = stored.deterministic?.findings ?? [];
+  const failedRetrieval = stored.failure?.stage === 'retrieval';
+  const degraded =
+    stored.failure !== undefined && stored.failure.stage === 'llm' && stored.aiExpected;
+
+  return {
+    id: stored.id,
+    status: stored.status,
+    createdAt: stored.createdAt,
+    ...(stored.completedAt !== undefined ? { completedAt: stored.completedAt } : {}),
+    degraded,
+    ...(degraded && stored.failure
+      ? {
+          degradedReason: stored.failure.reason as
+            'llm-unavailable' | 'llm-not-configured' | 'llm-error',
+        }
+      : {}),
+    appliedLayers: ['basic'],
+    summary: { counts: countBySeverity(findings) },
+    findings,
+    ...(failedRetrieval && stored.failure
+      ? { error: { code: 'internal' as const, message: stored.failure.message } }
+      : {}),
+  };
 }
 
 /**
@@ -35,8 +76,6 @@ export interface AnalysisLifecycleDeps {
  * - `aiExpected` = the client asked for AI AND the plan allows it. When it is false the report is
  *   not degraded: the AI layer was simply not part of it.
  * - A report is `degraded` only when AI was expected and could not run.
- *
- * TODO(area-4): implement.
  */
 export class AnalysisLifecycle {
   private readonly deps: AnalysisLifecycleDeps;
@@ -45,9 +84,45 @@ export class AnalysisLifecycle {
     this.deps = deps;
   }
 
-  async create(_job: CreateAnalysisJob): Promise<AnalysisAccepted> {
-    void this.deps;
-    throw new Error('TODO(area-4): AnalysisLifecycle.create is not implemented yet');
+  async create(job: CreateAnalysisJob): Promise<AnalysisAccepted> {
+    const now = this.deps.now ?? (() => new Date());
+    const newId = this.deps.newId ?? (() => randomUUID());
+    const id = newId();
+    const aiExpected = job.request.options.includeAi && job.entitlements.features.aiEnrichment;
+
+    const stored: StoredAnalysis = {
+      id,
+      tenantId: job.tenantId,
+      entitlements: job.entitlements,
+      aiExpected,
+      status: 'retrieving',
+      createdAt: now().toISOString(),
+    };
+    await this.deps.repository.create(stored);
+
+    try {
+      await this.deps.retrieval.retrieve({
+        analysisId: id,
+        tenantId: job.tenantId,
+        entitlements: job.entitlements,
+        request: job.request,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Retrieval is unavailable';
+      await this.deps.repository.update({
+        ...stored,
+        status: 'failed',
+        completedAt: now().toISOString(),
+        failure: {
+          analysisId: id,
+          stage: 'retrieval',
+          reason: 'retrieval-error',
+          message,
+        },
+      });
+    }
+
+    return { analysisId: id, status: 'retrieving' };
   }
 
   async recordDeterministic(_result: DeterministicResult): Promise<void> {
@@ -62,7 +137,11 @@ export class AnalysisLifecycle {
     throw new Error('TODO(area-4): AnalysisLifecycle.recordFailure is not implemented yet');
   }
 
-  async getReport(_analysisId: string): Promise<Report> {
-    throw new Error('TODO(area-4): AnalysisLifecycle.getReport is not implemented yet');
+  async getReport(analysisId: string): Promise<Report> {
+    const stored = await this.deps.repository.get(analysisId);
+    if (!stored) {
+      throw new Error(`Analysis ${analysisId} was not found`);
+    }
+    return toReport(stored);
   }
 }

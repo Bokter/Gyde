@@ -187,6 +187,24 @@ export class PostgresKnowledgeRepository implements KnowledgeRepository {
     });
   }
 
+  async lastRun(source: string): Promise<IngestionRun | undefined> {
+    const [row] = await this.db
+      .select()
+      .from(ingestionRuns)
+      .where(eq(ingestionRuns.source, source))
+      .orderBy(desc(ingestionRuns.finishedAt), desc(ingestionRuns.id))
+      .limit(1);
+    if (!row) return undefined;
+    return {
+      source: row.source,
+      status: row.status === 'success' ? 'success' : 'failed',
+      startedAt: row.startedAt,
+      finishedAt: row.finishedAt,
+      recordsProcessed: row.recordsProcessed,
+      ...(row.error !== null && { error: row.error }),
+    };
+  }
+
   async lastIngestedAt(source: string): Promise<Date | undefined> {
     const [row] = await this.db
       .select({ finishedAt: ingestionRuns.finishedAt })

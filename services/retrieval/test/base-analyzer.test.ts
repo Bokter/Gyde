@@ -70,23 +70,12 @@ describe('BaseAnalyzer (Template Method)', () => {
   });
 });
 
-/** Acceptance criteria for Area 3. Turn each `it.todo` into a real test as you build it
- * (the VulnerabilityAnalyzer ones live in vulnerability-analyzer.test.ts). */
-describe('LicenseAnalyzer', () => {
-  // The SPDX, expression and informational cases live in license-analyzer.test.ts; the plan gate
-  // is applied by the RetrieveEvidence use case.
-  it.todo('is gated by entitlements.features.licenseCompliance');
-});
-
+/**
+ * Acceptance criteria for Area 3 that are still to build. The vulnerability and license cases live
+ * in their own test files; the RetrieveEvidence use case and the plan gates in app.test.ts.
+ */
 describe('CompatibilityAnalyzer', () => {
   it.todo('flags a package that does not support the project game engine version');
   it.todo('takes the SDKs and the target platforms into account');
   it.todo('is gated by entitlements.features.compatibilityAnalysis');
-});
-
-describe('RetrieveEvidence use case', () => {
-  it.todo('publishes the deterministic result to Reports before involving the LLM');
-  it.todo('dispatches to llm-analysis only when the plan allows AI and the client asked for it');
-  it.todo('publishes an AnalysisFailure (retrieval-error) when the knowledge cannot be fetched');
-  it.todo('keeps working with partialSources=true when the normalization service is degraded');
 });

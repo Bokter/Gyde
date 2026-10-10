@@ -38,7 +38,8 @@ Viven como **módulos de este servicio** (no como tres microservicios), comparti
 src/domain/analyzers/    BaseAnalyzer (hecho) · vulnerabilities/ · compatibility/ · licenses/
 src/application/         RetrieveEvidence y puertos: KnowledgeSource, ReportsClient, LlmClient
 src/infrastructure/      adaptadores HTTP hacia normalization, reports y llm-analysis (con breaker)
-src/http/                ruta (ya declarada como stub)
+src/http/                controladores NestJS (ya declarados como stubs 501)
+src/app.module.ts        composition root: enlaza puertos con adaptadores (ADR 0011)
 ```
 
 Los criterios de aceptación están como `it.todo` en `test/base-analyzer.test.ts`.

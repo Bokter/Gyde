@@ -1,12 +1,6 @@
-import { ROUTES, RetrieveRequest } from '@gyde/contracts';
-import {
-  type FastifyInstance,
-  type Logger,
-  buildApp,
-  protectInternalRoutes,
-  registerStubRoutes,
-} from '@gyde/service-kit';
+import { type Logger, type NestFastifyApplication, createService } from '@gyde/service-kit';
 
+import { AppModule } from '../app.module';
 import type { Config } from '../config';
 
 export interface AppDeps {
@@ -14,16 +8,12 @@ export interface AppDeps {
   logger: Logger;
 }
 
-/** HTTP surface of Retrieval: internal only. Reports is its only caller. */
-export function createApp({ config, logger }: AppDeps): FastifyInstance {
-  const app = buildApp({ name: 'retrieval', logger });
-  protectInternalRoutes(app, config.INTERNAL_SERVICE_TOKEN);
-
-  // The real handler answers 202 at once and runs `RetrieveEvidence` in the background: results
-  // travel to Reports (and llm-analysis) through their own endpoints.
-  registerStubRoutes(app, [
-    { method: 'POST', url: ROUTES.retrieval.retrieve, body: RetrieveRequest },
-  ]);
-
-  return app;
+/** Builds the NestJS application of the retrieval service (not listening yet: see `main.ts`). */
+export function createApp({ config, logger }: AppDeps): Promise<NestFastifyApplication> {
+  return createService(AppModule, {
+    name: 'retrieval',
+    logger,
+    config,
+    internalToken: config.INTERNAL_SERVICE_TOKEN,
+  });
 }

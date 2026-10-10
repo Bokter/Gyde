@@ -33,6 +33,7 @@ El cruce **dependencia/versión** (¿esta versión cae en el rango afectado?) lo
 src/application/ports/       SourceAdapter y KnowledgeRepository (ya definidos)
 src/application/             casos de uso: IngestSource, QueryKnowledge, ScheduleIngestion
 src/domain/                  reglas puras de normalización y deduplicación
+                             (cvss.ts: puntaje base CVSS v3.0/3.1 a partir del vector, para fuentes que solo publican el vector, como OSV)
 src/infrastructure/sources/  structured/ · official/ · community/  (un adaptador por fuente)
 src/infrastructure/          repositorio PostgreSQL y planificador (cron)
 src/http/                    controladores NestJS (ya declarados como stubs 501)

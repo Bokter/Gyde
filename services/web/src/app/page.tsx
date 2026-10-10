@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { PLAN_CATALOG, type Plan } from '@gyde/contracts';
+
+const planOrder: Plan[] = ['free', 'pro', 'studio'];
 
 export default function HomePage() {
   return (
@@ -145,84 +148,46 @@ export default function HomePage() {
           </div>
 
           <div className="grid gap-8 lg:grid-cols-3 max-w-6xl mx-auto">
-            {[
-              {
-                name: 'Free',
-                price: 0,
-                description: 'Para proyectos personales y aprendizaje',
-                features: [
-                  '30 análisis al mes',
-                  '1 proyecto activo',
-                  'Análisis de vulnerabilidades',
-                  'Cumplimiento de licencias (SPDX)',
-                  'Puntaje de severidad',
-                ],
-                cta: 'Empezar gratis',
-                variant: 'secondary' as const,
-                popular: false,
-              },
-              {
-                name: 'Pro',
-                price: 29,
-                description: 'Para equipos profesionales en crecimiento',
-                features: [
-                  '500 análisis al mes',
-                  '10 proyectos activos',
-                  'Análisis de compatibilidad (motor + SDK)',
-                  'Explicaciones con IA (BYOK)',
-                  'Todo lo de Free',
-                ],
-                cta: 'Suscribirse a Pro',
-                variant: 'primary' as const,
-                popular: true,
-              },
-              {
-                name: 'Studio',
-                price: 99,
-                description: 'Para estudios grandes con necesidades avanzadas',
-                features: [
-                  'Análisis ilimitados',
-                  'Proyectos ilimitados',
-                  'Soporte prioritario',
-                  'Todo lo de Pro',
-                ],
-                cta: 'Contactar ventas',
-                variant: 'secondary' as const,
-                popular: false,
-              },
-            ].map((plan, index) => (
-              <article
-                key={index}
-                className={`relative rounded-2xl border p-6 transition-shadow ${
-                  plan.popular
-                    ? 'border-[var(--gyde-color-action-primary-bg)] shadow-lg shadow-[var(--gyde-color-action-primary-bg)]/10'
-                    : 'border-[var(--gyde-color-border-subtle)] shadow-sm hover:shadow-md'
-                }`}
-              >
-                {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span className="inline-block rounded-full bg-[var(--gyde-color-action-primary-bg)] px-3 py-1 text-xs font-semibold text-white">
-                      Más popular
-                    </span>
-                  </div>
-                )}
-                <header className="mb-6">
-                  <h3 className="text-xl font-bold text-[var(--gyde-color-fg-default)]">
-                    {plan.name}
-                  </h3>
-                  <p className="mt-2 text-[var(--gyde-color-fg-muted)]">{plan.description}</p>
-                  <div className="mt-4 flex items-baseline gap-1">
-                    <span className="text-4xl font-bold text-[var(--gyde-color-fg-default)]">
-                      {plan.price === 0 ? 'Gratis' : `$${plan.price}`}
-                    </span>
-                    {plan.price > 0 && (
-                      <span className="text-[var(--gyde-color-fg-muted)]">/mes</span>
-                    )}
-                  </div>
-                </header>
-                <ul className="space-y-3 mb-8" role="list">
-                  {plan.features.map((feature, i) => (
-                    <li key={i} className="flex items-start gap-3">
+            {planOrder.map((planKey) => {
+              const plan = PLAN_CATALOG[planKey];
+              const isPopular = planKey === 'pro';
+              const price = planKey === 'free' ? 0 : planKey === 'pro' ? 29 : 99; // TODO: move to contracts or env
+              return (
+                <article
+                  key={planKey}
+                  className={`relative rounded-2xl border p-6 transition-shadow ${
+                    isPopular
+                      ? 'border-[var(--gyde-color-action-primary-bg)] shadow-lg shadow-[var(--gyde-color-action-primary-bg)]/10'
+                      : 'border-[var(--gyde-color-border-subtle)] shadow-sm hover:shadow-md'
+                  }`}
+                >
+                  {isPopular && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                      <span className="inline-block rounded-full bg-[var(--gyde-color-action-primary-bg)] px-3 py-1 text-xs font-semibold text-white">
+                        Más popular
+                      </span>
+                    </div>
+                  )}
+                  <header className="mb-6">
+                    <h3 className="text-xl font-bold text-[var(--gyde-color-fg-default)]">
+                      {planKey.charAt(0).toUpperCase() + planKey.slice(1)}
+                    </h3>
+                    <p className="mt-2 text-[var(--gyde-color-fg-muted)]">
+                      {planKey === 'free'
+                        ? 'Para proyectos personales y aprendizaje'
+                        : planKey === 'pro'
+                          ? 'Para equipos profesionales en crecimiento'
+                          : 'Para estudios grandes con necesidades avanzadas'}
+                    </p>
+                    <div className="mt-4 flex items-baseline gap-1">
+                      <span className="text-4xl font-bold text-[var(--gyde-color-fg-default)]">
+                        {price === 0 ? 'Gratis' : `$${price}`}
+                      </span>
+                      {price > 0 && <span className="text-[var(--gyde-color-fg-muted)]">/mes</span>}
+                    </div>
+                  </header>
+                  <ul className="space-y-3 mb-8" role="list">
+                    <li className="flex items-start gap-3">
                       <svg
                         className="h-5 w-5 shrink-0 text-[var(--gyde-color-action-primary-bg)] mt-0.5"
                         viewBox="0 0 20 20"
@@ -235,22 +200,144 @@ export default function HomePage() {
                           clipRule="evenodd"
                         />
                       </svg>
-                      <span className="text-[var(--gyde-color-fg-default)]">{feature}</span>
+                      <span className="text-[var(--gyde-color-fg-default)]">
+                        {plan.limits.analysesPerMonth === null
+                          ? 'Análisis ilimitados'
+                          : `${plan.limits.analysesPerMonth} análisis al mes`}
+                      </span>
                     </li>
-                  ))}
-                </ul>
-                <Link
-                  href={plan.name === 'Free' ? '/auth/login' : '#'}
-                  className={`block w-full rounded-lg px-6 py-3 text-center font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-[var(--gyde-color-focus-ring)] focus-visible:ring-offset-2 ${
-                    plan.variant === 'primary'
-                      ? 'bg-[var(--gyde-color-action-primary-bg)] text-white hover:bg-[var(--gyde-color-action-primary-bg-hover)]'
-                      : 'border border-[var(--gyde-color-border-control)] text-[var(--gyde-color-fg-default)] hover:bg-[var(--gyde-color-bg-brand-subtle)]'
-                  }`}
-                >
-                  {plan.cta}
-                </Link>
-              </article>
-            ))}
+                    <li className="flex items-start gap-3">
+                      <svg
+                        className="h-5 w-5 shrink-0 text-[var(--gyde-color-action-primary-bg)] mt-0.5"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      <span className="text-[var(--gyde-color-fg-default)]">
+                        {plan.limits.projects === null
+                          ? 'Proyectos ilimitados'
+                          : `${plan.limits.projects} proyecto${plan.limits.projects === 1 ? '' : 's'} activo${plan.limits.projects === 1 ? '' : 's'}`}
+                      </span>
+                    </li>
+                    {plan.features.licenseCompliance && (
+                      <li className="flex items-start gap-3">
+                        <svg
+                          className="h-5 w-5 shrink-0 text-[var(--gyde-color-action-primary-bg)] mt-0.5"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        <span className="text-[var(--gyde-color-fg-default)]">
+                          Análisis de vulnerabilidades
+                        </span>
+                      </li>
+                    )}
+                    {plan.features.licenseCompliance && (
+                      <li className="flex items-start gap-3">
+                        <svg
+                          className="h-5 w-5 shrink-0 text-[var(--gyde-color-action-primary-bg)] mt-0.5"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        <span className="text-[var(--gyde-color-fg-default)]">
+                          Cumplimiento de licencias (SPDX)
+                        </span>
+                      </li>
+                    )}
+                    {plan.features.severityScoring && (
+                      <li className="flex items-start gap-3">
+                        <svg
+                          className="h-5 w-5 shrink-0 text-[var(--gyde-color-action-primary-bg)] mt-0.5"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        <span className="text-[var(--gyde-color-fg-default)]">
+                          Puntaje de severidad
+                        </span>
+                      </li>
+                    )}
+                    {plan.features.compatibilityAnalysis && (
+                      <li className="flex items-start gap-3">
+                        <svg
+                          className="h-5 w-5 shrink-0 text-[var(--gyde-color-action-primary-bg)] mt-0.5"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        <span className="text-[var(--gyde-color-fg-default)]">
+                          Análisis de compatibilidad (motor + SDK)
+                        </span>
+                      </li>
+                    )}
+                    {plan.features.aiEnrichment && (
+                      <li className="flex items-start gap-3">
+                        <svg
+                          className="h-5 w-5 shrink-0 text-[var(--gyde-color-action-primary-bg)] mt-0.5"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        <span className="text-[var(--gyde-color-fg-default)]">
+                          Explicaciones con IA (BYOK)
+                        </span>
+                      </li>
+                    )}
+                  </ul>
+                  <Link
+                    href={planKey === 'free' ? '/auth/login' : '#'}
+                    className={`block w-full rounded-lg px-6 py-3 text-center font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-[var(--gyde-color-focus-ring)] focus-visible:ring-offset-2 ${
+                      isPopular
+                        ? 'bg-[var(--gyde-color-action-primary-bg)] text-white hover:bg-[var(--gyde-color-action-primary-bg-hover)]'
+                        : 'border border-[var(--gyde-color-border-control)] text-[var(--gyde-color-fg-default)] hover:bg-[var(--gyde-color-bg-brand-subtle)]'
+                    }`}
+                  >
+                    {planKey === 'free'
+                      ? 'Empezar gratis'
+                      : planKey === 'pro'
+                        ? 'Suscribirse a Pro'
+                        : 'Contactar ventas'}
+                  </Link>
+                </article>
+              );
+            })}
           </div>
         </div>
       </section>

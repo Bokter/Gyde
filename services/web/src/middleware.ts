@@ -1,4 +1,4 @@
-import { auth } from '@/lib/auth/config';
+import { auth } from '@/modules/auth/infrastructure/auth.config';
 import { NextResponse } from 'next/server';
 
 const publicPaths = ['/', '/auth/login', '/api/auth'];

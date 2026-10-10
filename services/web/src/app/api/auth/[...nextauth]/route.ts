@@ -1,3 +1,4 @@
-import { handlers } from '@/lib/auth/config';
+import { handlers } from '@/modules/auth/infrastructure/auth.config';
 
-export const { GET, POST } = handlers;
+export const GET = handlers.GET;
+export const POST = handlers.POST;

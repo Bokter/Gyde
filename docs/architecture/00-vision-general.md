@@ -101,3 +101,4 @@ Las flechas con línea continua son llamadas internas síncronas; las punteadas 
 | Protección del código propietario | `@gyde/contracts` (esquema estricto) y `packages/analysis-engine/src/privacy/` |
 | Modelo freemium y planes de suscripción | `services/web` (Stripe), `PLAN_CATALOG` en contratos, límites en `gateway`, capas del reporte en `reports` |
 | Despliegue independiente de cada contenedor | `services/*/Dockerfile` e `infra/compose/` |
+| Arquitectura limpia con NestJS (módulos, controladores, inyección de dependencias) | `services/*/src/{http,application,domain,infrastructure}` y `app.module.ts` como composition root; [ADR 0011](../adr/0011-nestjs-como-framework-de-los-servicios.md) |

@@ -76,15 +76,18 @@ Cada servicio sigue la misma estructura:
 
 ```
 services/<nombre>/src/
-├─ domain/          # entidades y reglas puras: sin I/O, sin frameworks
-├─ application/     # casos de uso + puertos (interfaces)
-├─ infrastructure/  # adaptadores que implementan los puertos (DB, HTTP, Stripe, LLM…)
-├─ http/            # rutas Fastify; validan con @gyde/contracts
+├─ domain/          # entidades y reglas puras: sin I/O, sin frameworks (ni NestJS)
+├─ application/     # casos de uso + puertos (interfaces) y su token de inyección; sin NestJS
+├─ infrastructure/  # adaptadores @Injectable que implementan los puertos (DB, HTTP, Stripe, LLM…)
+├─ http/            # controladores NestJS; validan con @gyde/contracts (ZodValidationPipe)
 ├─ config.ts        # variables de entorno validadas con zod
-└─ main.ts          # composition root: único lugar que conoce implementaciones
+├─ app.module.ts    # composition root: enlaza cada puerto con su adaptador
+└─ main.ts          # arranque (createApp + startService)
 ```
 
-Las dependencias van hacia adentro: `http → application → domain` e `infrastructure → application`. `domain` no importa nada de las demás capas ni de librerías de infraestructura. ESLint lo comprueba y el CI falla si se viola.
+Las dependencias van hacia adentro: `http → application → domain` e `infrastructure → application`. `domain` y `application` no importan las capas exteriores ni librerías de infraestructura, **incluido NestJS**. ESLint lo comprueba y el CI falla si se viola.
+
+**NestJS** ([ADR 0011](docs/adr/0011-nestjs-como-framework-de-los-servicios.md)): los casos de uso son clases normales; en `app.module.ts` se construyen con `useFactory` y cada puerto se enlaza a su adaptador por su token (`{ provide: REPORT_REPOSITORY, useClass: ... }`). Siempre `@Inject(TOKEN)` explícito en los constructores, porque `esbuild` (tsup y Vitest) no emite metadatos de decoradores. Los contratos son zod, no DTO con `class-validator`. En las pruebas: `const app = await createApp(...)`, `app.inject(...)` y `afterAll(() => app.close())`.
 
 Los paquetes de `packages/` no contienen lógica propia de un servicio. Si dos servicios necesitan lo mismo, se evalúa moverlo a un paquete; si solo lo usa uno, se queda en ese servicio.
 

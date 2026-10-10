@@ -4,12 +4,14 @@ import { afterAll, describe, expect, it } from 'vitest';
 
 import { configSchema } from '../src/config';
 import { createApp } from '../src/http/app';
+import { createPgliteDatabase } from './support/pglite';
 
 const token = 'test-internal-token-123456';
 const config = configSchema.parse({ INTERNAL_SERVICE_TOKEN: token });
 const app = await createApp({
   config,
   logger: createLogger({ name: 'normalization-test', level: 'silent' }),
+  module: { database: createPgliteDatabase() },
 });
 const auth = { [HEADERS.internalToken]: token };
 
@@ -52,8 +54,6 @@ describe('normalization behavior still to implement', () => {
   it.todo('NVD and GHSA adapters ingest their fixtures with the same normalized shape');
   it.todo('official adapter ingests engine changelogs/docs (Unity first, Unreal as a skeleton)');
   it.todo('community adapter ingests GitHub Issues, marks them low trust and filters them lightly');
-  it.todo('every normalized object validates against the KnowledgeObject contract');
-  it.todo('ingestion is idempotent: re-ingesting a record updates it, it never duplicates');
   it.todo('high-trust sources refresh on INGEST_HIGH_TRUST_CRON, community on its own cadence');
   it.todo('a source that is down does not stop the others and stale knowledge keeps being served');
   it.todo('POST /internal/knowledge/query returns objects that mention the requested packages');

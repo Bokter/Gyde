@@ -62,7 +62,7 @@ Si algo de eso contradice lo que ves en el código, **detente y dímelo** antes 
 4. Si el plan permite IA y el cliente la pidió: `retrieval` → `llm-analysis` `POST /internal/analyze` → `llm-analysis` obtiene la llave del tenant en `web` → llama al proveedor → publica `AiResult` a `reports`.
 5. `reports` compone el reporte con los decoradores que permite el plan. El cliente consulta `GET /v1/analyses/:id` hasta `ready`.
 - **Estados:** `pending → retrieving → analyzing → ready` (o `failed` si falla la recuperación).
-- **Degradado:** solo si se esperaba IA y no pudo correr: `llm-unavailable`, `llm-not-configured`, `llm-error`, `partial-sources`. Si el plan o el cliente no pidieron IA, el reporte **no** es degradado.
+- **Degradado:** solo si se esperaba IA y no pudo correr: `llm-unavailable`, `llm-not-configured`, `llm-error` (los tres valores de `DegradedReason`). Si el plan o el cliente no pidieron IA, el reporte **no** es degradado, y que falten fuentes de conocimiento (`partialSources`) tampoco lo hace degradado.
 - Un reporte **nunca queda colgado**: si la IA no responde en `REPORTS_AI_TIMEOUT_MS` pasa a `ready` y degradado.
 
 **Invariantes (no se rompen):** (1) el código fuente del cliente no sale; (2) el análisis determinístico no depende de la IA; (3) toda llamada saliente pasa por un Circuit Breaker; (4) nadie hardcodea direcciones de servicios (discovery, con URLs estáticas `*_URL` solo como respaldo); (5) las llaves BYOK se cifran en reposo y nunca se escriben en logs; (6) cada servicio es dueño de sus datos.

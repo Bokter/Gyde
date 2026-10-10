@@ -1,17 +1,77 @@
-import { describe, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+import { describe, expect, it } from 'vitest';
+
+import { CsharpDependencyParser } from '../src';
+
+const UNITY_SAMPLE = resolve(import.meta.dirname, '../../../fixtures/projects/unity-sample');
+const EXPECTED_PARSE = resolve(UNITY_SAMPLE, 'expected-parse.json');
 
 /**
  * Executable acceptance criteria for the Area 4 work in this package. Turn each `it.todo` into a
  * real test as you implement it. Use the samples of @gyde/contracts and fixtures/ for data.
  */
 describe('parsers (use fixtures/projects)', () => {
-  it.todo('CsharpDependencyParser reads UPM packages from Packages/manifest.json');
-  it.todo('CsharpDependencyParser reads NuGet packages from .csproj / packages.config');
-  it.todo('CsharpDependencyParser reads the editor version from ProjectVersion.txt');
-  it.todo('CppDependencyParser reads plugins from the .uproject and modules from *.Build.cs');
-  it.todo('CppDependencyParser reads vcpkg.json / conanfile.txt when present');
-  it.todo('detectGameEngine tells a Unity project from an Unreal one and fails clearly otherwise');
-  it.todo('parsers never read or return source code, only names, versions and licenses');
+  const parser = new CsharpDependencyParser(UNITY_SAMPLE);
+
+  it('CsharpDependencyParser reads UPM packages from Packages/manifest.json', async () => {
+    const result = await parser.parseDependencies();
+    const upm = result.dependencies.filter((d) => d.ecosystem === 'upm');
+    expect(upm).toEqual([
+      {
+        ecosystem: 'upm',
+        name: 'com.unity.render-pipelines.universal',
+        version: '14.0.9',
+        direct: true,
+      },
+    ]);
+  });
+
+  it('CsharpDependencyParser reads NuGet packages from .csproj / packages.config', async () => {
+    const result = await parser.parseDependencies();
+    const nuget = result.dependencies.filter((d) => d.ecosystem === 'nuget');
+    expect(nuget).toEqual([
+      {
+        ecosystem: 'nuget',
+        name: 'Acme.GplToolkit',
+        version: '2.1.0',
+        declaredLicense: 'GPL-3.0-only',
+        direct: true,
+      },
+      {
+        ecosystem: 'nuget',
+        name: 'Acme.Serialization',
+        version: '1.4.0',
+        declaredLicense: 'MIT',
+        direct: true,
+      },
+    ]);
+  });
+
+  it('CsharpDependencyParser reads the editor version from ProjectVersion.txt', async () => {
+    const result = await parser.parseDependencies();
+    expect(result.project.gameEngine).toBe('unity');
+    expect(result.project.gameEngineVersion).toBe('2022.3.20f1');
+  });
+
+  it('CsharpDependencyParser output matches expected-parse.json exactly', async () => {
+    const result = await parser.parseDependencies();
+    const expected = JSON.parse(readFileSync(EXPECTED_PARSE, 'utf-8'));
+    expect(result).toEqual(expected);
+  });
+
+  it('CppDependencyParser reads plugins from the .uproject and modules from *.Build.cs', () => {});
+  it('CppDependencyParser reads vcpkg.json / conanfile.txt when present', () => {});
+  it('detectGameEngine tells a Unity project from an Unreal one and fails clearly otherwise', () => {});
+  it('parsers never read or return source code, only names, versions and licenses', async () => {
+    const result = await parser.parseDependencies();
+    const wire = JSON.stringify(result);
+    expect(wire).not.toContain('PROPRIETARY_MARKER_DO_NOT_SEND');
+    expect(wire).not.toContain('Assets/Scripts');
+    expect(wire).not.toContain('Player.cs');
+    expect(wire).not.toContain('transform.Translate');
+  });
 });
 
 describe('pipeline steps still to implement', () => {

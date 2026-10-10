@@ -37,7 +37,7 @@ Son siete métodos: los **cinco pasos del documento** (autenticar, parsear, vuln
 
 ## Tareas del Área 4 en este paquete
 
-1. `CsharpDependencyParser` y `CppDependencyParser` contra `fixtures/projects/*`; `detectGameEngine`.
+1. ~~`CsharpDependencyParser`~~ (hecho: UPM, NuGet con licencia `.nuspec`, versión del editor) · `CppDependencyParser` y `detectGameEngine` (pendientes).
 2. `GydeApiClient` (Bearer, validación de respuestas, Circuit Breaker, caché local).
 3. `analyzeLicenses`, `generateReport` (polling con tiempo límite, resultado degradado).
 4. `parseDependencies` de **los dos** pipelines (CLI y Action, la misma lógica sobre `buildAnalysisRequest`) y `publishResult` del CLI (consola). El `publishResult` de la Action (comentario de PR) es del **Área 2**.

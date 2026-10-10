@@ -2,7 +2,7 @@
 
 Recupera la información pertinente por **tres vías** y la cruza con el proyecto del cliente. Dos de ellas son **determinísticas**: no usan IA y siguen funcionando aunque el proveedor de LLM falle.
 
-> **Estado:** `BaseAnalyzer` y `VulnerabilityAnalyzer` (con la comparación de versiones por ecosistema) están implementados y probados. Faltan `LicenseAnalyzer`, `CompatibilityAnalyzer`, el caso de uso y los adaptadores (el endpoint sigue en 501). Implementación: **Área 3** (`docs/tasks/area-3-conocimiento.md`).
+> **Estado:** `BaseAnalyzer`, `VulnerabilityAnalyzer` y `LicenseAnalyzer` están implementados y probados. Faltan `CompatibilityAnalyzer`, el caso de uso y los adaptadores (el endpoint sigue en 501). Implementación: **Área 3** (`docs/tasks/area-3-conocimiento.md`).
 
 - Puerto: `RETRIEVAL_PORT` (4300) · Solo red interna · Su único cliente es **Reports**.
 - Origen en el documento: contenedor *Servicio de retrieval* ("Filtra evidencia relevante") y el "Servicio de Análisis (vulnerabilidad y licencias) determinístico".
@@ -35,7 +35,7 @@ Viven como **módulos de este servicio** (no como tres microservicios), comparti
 ## Estructura
 
 ```
-src/domain/analyzers/    BaseAnalyzer (hecho) · vulnerabilities/ (hecho) · compatibility/ · licenses/
+src/domain/analyzers/    BaseAnalyzer (hecho) · vulnerabilities/ (hecho) · licenses/ (hecho) · compatibility/
 src/domain/versions/     comparación de versiones por ecosistema y rangos afectados (puro)
 src/application/         RetrieveEvidence y puertos: KnowledgeSource, ReportsClient, LlmClient
 src/infrastructure/      adaptadores HTTP hacia normalization, reports y llm-analysis (con breaker)
@@ -51,6 +51,22 @@ Los criterios de aceptación pendientes están como `it.todo` en `test/base-anal
 - **Rangos** (estilo OSV): `introduced` es inclusivo (`0` o ausente = desde el inicio), `fixed` es el primer arreglo y **exclusivo** (`1.5.0` no es vulnerable con «fixed 1.5.0»), `lastAffected` es inclusivo, y `versions` es una lista explícita alternativa. La coincidencia exige **ecosistema y nombre** (sin distinguir mayúsculas).
 - **Duplicados:** el mismo aviso publicado por varias fuentes (comparten un alias) es **un** hallazgo con la evidencia de cada fuente; se nombra por su CVE si lo tiene o, si no, por el identificador que más fuentes comparten. La recomendación es la versión corregida más alta entre las copias.
 - Solo producen hallazgos los objetos de tipo `vulnerability` de fuentes que no son de comunidad.
+
+## Cruce de licencias
+
+La política es para un juego que se distribuye como **producto propietario**. La tabla de qué significa cada licencia es **datos** (`domain/analyzers/licenses/license-policy.ts`); el analizador solo la lee.
+
+| Clase | Ejemplos | Hallazgo |
+|---|---|---|
+| permisiva | MIT, Apache-2.0, BSD, ISC, Zlib | ninguno |
+| copyleft débil | LGPL, MPL-2.0, EPL | `low` (revisar cómo se enlaza; los *builds* estáticos como IL2CPP o consolas piden más cuidado) |
+| copyleft fuerte | GPL, EUPL, OSL | `medium` |
+| copyleft de red | AGPL, SSPL | `high` (también aplica al ofrecer un servidor por red) |
+
+- **Expresiones SPDX** (`spdx-expression-parse`): `OR` deja elegir al licenciatario, así que cuenta la alternativa menos restrictiva; `AND` suma obligaciones, así que cuenta la más restrictiva. `WITH` una excepción de enlace (p. ej. `Classpath-exception-2.0`) baja el copyleft un nivel. Se entienden `+`, los paréntesis y los identificadores obsoletos (`GPL-3.0`).
+- **Combinaciones incompatibles** unidas por `AND` (p. ej. `GPL-2.0-only AND Apache-2.0`): `high`.
+- **Licencia que no se puede clasificar** (no es SPDX, o es válida pero sin política): `info`, nunca «todo bien» en silencio. **Licencia ausente**: `info` solo para NuGet; los paquetes UPM no la declaran en su manifiesto, así que su ausencia no dice nada.
+- El *gate* del plan (`licenseCompliance`) lo aplica el caso de uso, no el analizador.
 
 ## Configuración
 

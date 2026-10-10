@@ -43,6 +43,8 @@ Datos de ejemplo **sintéticos** para desarrollar, probar y hacer la demo **sin 
 | `Acme.GplToolkit` con licencia `GPL-3.0-only` (media) | *Copyleft* fuerte frente a distribución propietaria |
 | **Sin** hallazgo por `SAMPLE-0002` ni `SAMPLE-0003` | Otro paquete, y 1.4.0 queda fuera de 2.0.0–2.1.0: sirven para probar que no hay falsos positivos |
 
+El paquete UPM de `unity-sample` (sin licencia en su manifiesto) **no** genera un hallazgo informativo de licencia ausente: eso solo se reporta para NuGet.
+
 ## Reglas
 
 - Mantén los fixtures **pequeños** y legibles: son documentación viva.

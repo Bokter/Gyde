@@ -14,3 +14,6 @@ export interface KnowledgeRepository {
   /** When a source was last ingested successfully (drives incremental fetches and /sources). */
   lastIngestedAt(source: string): Promise<Date | undefined>;
 }
+
+/** DI token of the `KnowledgeRepository` port: `app.module.ts` binds it to an adapter (see ADR 0011). */
+export const KNOWLEDGE_REPOSITORY = Symbol('KnowledgeRepository');

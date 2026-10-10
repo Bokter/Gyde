@@ -1,17 +1,19 @@
 import { HEADERS } from '@gyde/contracts';
 import { createLogger } from '@gyde/service-kit';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 
 import { configSchema } from '../src/config';
 import { createApp } from '../src/http/app';
 
 const token = 'test-internal-token-123456';
 const config = configSchema.parse({ INTERNAL_SERVICE_TOKEN: token });
-const app = createApp({
+const app = await createApp({
   config,
   logger: createLogger({ name: 'normalization-test', level: 'silent' }),
 });
 const auth = { [HEADERS.internalToken]: token };
+
+afterAll(() => app.close());
 
 describe('normalization skeleton', () => {
   it('is alive and uses fixtures by default', async () => {

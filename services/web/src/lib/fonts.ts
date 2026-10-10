@@ -1,22 +1,22 @@
-import { Bricolage_Grotesque, Figtree, JetBrains_Mono } from 'next/font/google';
+import localFont from 'next/font/local';
 
-export const bricolageGrotesque = Bricolage_Grotesque({
-  subsets: ['latin'],
-  weight: ['600', '700', '800'],
+export const bricolageGrotesque = localFont({
+  src: './fonts/BricolageGrotesque-Variable.woff2',
   variable: '--font-bricolage-grotesque',
   display: 'swap',
+  weight: '100 900',
 });
 
-export const figtree = Figtree({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
+export const figtree = localFont({
+  src: './fonts/Figtree-Variable.woff2',
   variable: '--font-figtree',
   display: 'swap',
+  weight: '300 900',
 });
 
-export const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
+export const jetbrainsMono = localFont({
+  src: './fonts/JetBrainsMono-Variable.woff2',
   variable: '--font-jetbrains-mono',
   display: 'swap',
+  weight: '100 800',
 });

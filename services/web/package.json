@@ -17,31 +17,34 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@auth/drizzle-adapter": "catalog:",
+    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
+    "@fontsource-variable/figtree": "^5.3.0",
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@gyde/contracts": "workspace:*",
     "@gyde/design-tokens": "workspace:*",
-    "@auth/drizzle-adapter": "catalog:",
-    "next": "catalog:",
-    "react": "catalog:",
-    "react-dom": "catalog:",
-    "next-auth": "catalog:",
-    "drizzle-orm": "catalog:",
-    "pg": "catalog:",
-    "zod": "catalog:",
-    "stripe": "catalog:",
     "@oslojs/crypto": "catalog:",
     "@oslojs/encoding": "catalog:",
-    "jose": "catalog:"
+    "drizzle-orm": "catalog:",
+    "jose": "catalog:",
+    "next": "catalog:",
+    "next-auth": "catalog:",
+    "pg": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "stripe": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
+    "@next/eslint-plugin-next": "catalog:",
     "@types/node": "catalog:",
     "@types/pg": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "typescript": "catalog:",
-    "vitest": "catalog:",
     "drizzle-kit": "catalog:",
-    "tsx": "catalog:",
     "eslint": "catalog:",
-    "@next/eslint-plugin-next": "catalog:"
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

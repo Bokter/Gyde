@@ -32,8 +32,12 @@ describe('web bootstrap', () => {
   it('should have fonts configuration', async () => {
     const fs = await import('fs/promises');
     const fonts = await fs.readFile(path.join(webRoot, 'src/lib/fonts.ts'), 'utf-8');
-    expect(fonts).toContain('Bricolage_Grotesque');
-    expect(fonts).toContain('Figtree');
-    expect(fonts).toContain('JetBrains_Mono');
+    expect(fonts).toContain('localFont');
+    expect(fonts).toContain('BricolageGrotesque-Variable.woff2');
+    expect(fonts).toContain('Figtree-Variable.woff2');
+    expect(fonts).toContain('JetBrainsMono-Variable.woff2');
+    expect(fonts).toContain('--font-bricolage-grotesque');
+    expect(fonts).toContain('--font-figtree');
+    expect(fonts).toContain('--font-jetbrains-mono');
   });
 });

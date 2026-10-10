@@ -50,7 +50,6 @@ describe('normalization skeleton', () => {
 
 /** Acceptance criteria for Area 3. Turn each `it.todo` into a real test as you build it. */
 describe('normalization behavior still to implement', () => {
-  it.todo('OSV adapter ingests the advisories in fixtures/sources/osv into KnowledgeObjects');
   it.todo('NVD and GHSA adapters ingest their fixtures with the same normalized shape');
   it.todo('official adapter ingests engine changelogs/docs (Unity first, Unreal as a skeleton)');
   it.todo('community adapter ingests GitHub Issues, marks them low trust and filters them lightly');

@@ -118,6 +118,9 @@ services:
     environment:
       <<: *urls
       NORMALIZATION_PORT: '4200'
+      NORMALIZATION_DATABASE_URL: ${NORMALIZATION_DATABASE_URL:-postgres://normalization:change-me-local-only@postgres:5432/gyde}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-change-me-long-random-string}
+      INGEST_USE_FIXTURES: ${INGEST_USE_FIXTURES:-true}
     ports:
       - '${NORMALIZATION_PORT:-4200}:4200'
     depends_on:

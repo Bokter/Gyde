@@ -1,6 +1,6 @@
-import { AnalysisRequest, ROUTES } from '@gyde/contracts';
-import { type FastifyInstance, type Logger, buildApp, registerStubRoutes } from '@gyde/service-kit';
+import { type Logger, type NestFastifyApplication, createService } from '@gyde/service-kit';
 
+import { AppModule } from '../app.module';
 import type { Config } from '../config';
 
 export interface AppDeps {
@@ -8,20 +8,11 @@ export interface AppDeps {
   logger: Logger;
 }
 
-/**
- * HTTP surface of the gateway: the PUBLIC API used by the CLI, the GitHub Action and the extension.
- * Each stub answers 501 (and already validates its body) until it is replaced by a handler that
- * calls a use case from `application/`.
- */
-export function createApp({ logger }: AppDeps): FastifyInstance {
-  const app = buildApp({ name: 'gateway', logger });
-
-  registerStubRoutes(app, [
-    { method: 'GET', url: ROUTES.gateway.verify },
-    { method: 'POST', url: ROUTES.gateway.analyses, body: AnalysisRequest },
-    { method: 'GET', url: ROUTES.gateway.analysis },
-    { method: 'GET', url: ROUTES.gateway.analysisMarkdown },
-  ]);
-
-  return app;
+/** Builds the NestJS application of the gateway service (not listening yet: see `main.ts`). */
+export function createApp({ config, logger }: AppDeps): Promise<NestFastifyApplication> {
+  return createService(AppModule, {
+    name: 'gateway',
+    logger,
+    config,
+  });
 }

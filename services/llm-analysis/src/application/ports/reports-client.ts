@@ -5,3 +5,6 @@ export interface ReportsClient {
   publishAiResult(result: AiResult): Promise<void>;
   publishFailure(failure: AnalysisFailure): Promise<void>;
 }
+
+/** DI token of the `ReportsClient` port: `app.module.ts` binds it to an adapter (see ADR 0011). */
+export const REPORTS_CLIENT = Symbol('ReportsClient');

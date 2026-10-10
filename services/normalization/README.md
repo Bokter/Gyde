@@ -35,7 +35,8 @@ src/application/             casos de uso: IngestSource, QueryKnowledge, Schedul
 src/domain/                  reglas puras de normalización y deduplicación
 src/infrastructure/sources/  structured/ · official/ · community/  (un adaptador por fuente)
 src/infrastructure/          repositorio PostgreSQL y planificador (cron)
-src/http/                    rutas (ya declaradas como stubs)
+src/http/                    controladores NestJS (ya declarados como stubs 501)
+src/app.module.ts            composition root: enlaza puertos con adaptadores (ADR 0011)
 ```
 
 ## Reglas

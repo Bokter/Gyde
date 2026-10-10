@@ -2,18 +2,20 @@ import { HEADERS } from '@gyde/contracts';
 import { PLAN_CATALOG } from '@gyde/contracts';
 import { sampleAnalysisRequest } from '@gyde/contracts/samples';
 import { createLogger } from '@gyde/service-kit';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 
 import { configSchema } from '../src/config';
 import { createApp } from '../src/http/app';
 
 const token = 'test-internal-token-123456';
 const config = configSchema.parse({ INTERNAL_SERVICE_TOKEN: token });
-const app = createApp({
+const app = await createApp({
   config,
   logger: createLogger({ name: 'retrieval-test', level: 'silent' }),
 });
 const auth = { [HEADERS.internalToken]: token };
+
+afterAll(() => app.close());
 
 describe('retrieval skeleton', () => {
   it('is alive', async () => {

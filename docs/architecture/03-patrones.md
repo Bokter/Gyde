@@ -43,7 +43,7 @@ Dos patrones arquitectónicos y tres de diseño (GoF), tal como los define el do
 
 ## Template Method
 
-**En el pipeline del cliente.** `AnalysisPipeline.runAnalysis()` fija el orden: autenticar, parsear (hook), enviar, vulnerabilidades, licencias, reporte y publicar (hook). `LocalCLIPipeline` y `GitHubActionPipeline` solo rellenan los hooks. Nadie puede alterar el orden ni omitir la validación de la API key; un test de arquitectura exige que ninguna subclase sobrescriba `runAnalysis`.
+**En el pipeline del cliente.** `AnalysisPipeline.runAnalysis()` fija el orden: autenticar, parsear (hook), enviar, vulnerabilidades, licencias, reporte y publicar (hook): los cinco pasos del documento más el envío y la publicación. `LocalCLIPipeline` y `GitHubActionPipeline` solo rellenan los hooks. Nadie puede alterar el orden ni omitir la validación de la API key; un test de arquitectura exige que ninguna subclase sobrescriba `runAnalysis`.
 
 **En Retrieval, internamente** ("aplicando Template Method internamente", como dice el documento). `BaseAnalyzer.analyze()` = `select → match → toFinding → prioritize → evidencia`, con `prioritize` invariante. Los tres analizadores (vulnerabilidades, licencias, compatibilidad) viven como módulos de un mismo servicio y comparten ese esqueleto. Es **puro y síncrono**: misma entrada, misma salida.
 
@@ -58,7 +58,7 @@ Dos patrones arquitectónicos y tres de diseño (GoF), tal como los define el do
 | `ReportComponent` | `report-component.ts` |
 | `BasicAnalysisReport` (ConcreteComponent) | `basic-analysis-report.ts` |
 | `ReportDecorator` | `report-decorator.ts` |
-| `AIEnrichmentDecorator`, `LicenseComplianceDecorator`, `SeverityScoreDecorator` | `decorators/*.decorator.ts` |
+| `AIEnrichmentDecorator` (PDF), `LicenseComplianceDecorator`, `SeverityScoreDecorator` | `decorators/*.decorator.ts`; en código la clase se escribe `AiEnrichmentDecorator` (convención de TypeScript para siglas) |
 | Composición según permisos | `compose-report.ts` |
 
 **Reglas.** Los decoradores devuelven objetos nuevos (no mutan lo envuelto). El de severidad va **último** para que su puntaje cubra las capas anteriores. `AiEnrichmentDecorator` solo **mezcla** el `AiResult` que produjo llm-analysis.

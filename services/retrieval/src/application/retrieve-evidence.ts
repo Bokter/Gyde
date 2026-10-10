@@ -22,6 +22,8 @@ export interface RetrieveEvidenceDeps {
  *     whatever happens with the AI.
  *  4. If the plan allows AI and the client asked for it, dispatch the evidence to llm-analysis.
  *  5. If step 1 or 2 fails, publish an AnalysisFailure (`retrieval-error`) instead of hanging.
+ *  6. If the call to llm-analysis fails or its circuit is open (the service is down), publish an
+ *     AnalysisFailure with stage `llm` and reason `llm-unavailable`: only Retrieval notices it.
  *
  * TODO(area-3): implement.
  */

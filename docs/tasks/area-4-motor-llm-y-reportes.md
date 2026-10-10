@@ -37,7 +37,7 @@ Tu trabajo es el que más se ve en la demo: el reporte.
 
 - [ ] **`AnalysisLifecycle`** con la máquina de estados del README (`pending → retrieving → analyzing → ready`, `failed`): `create` guarda el trabajo, llama a Retrieval (con breaker y discovery) y responde `202`; `recordDeterministic`, `recordAi`, `recordFailure` y `getReport`. **Entrega `POST /internal/analyses` y `GET /internal/analyses/:id` el día 2.**
 - [ ] **Persistencia** en PostgreSQL (schema `reports`, `REPORTS_DATABASE_URL`, migraciones) detrás de `ReportRepository`.
-- [ ] **Degradado:** un reporte es `degraded` solo si se esperaba IA y no pudo correr (`llm-unavailable`, `llm-not-configured`, `llm-error`); si el plan o el cliente no pidieron IA, **no** lo es. Si el resultado de IA no llega en `REPORTS_AI_TIMEOUT_MS`, pasa a `ready` y degradado. Un fallo de Retrieval deja el reporte `failed` con un error claro.
+- [ ] **Degradado:** un reporte es `degraded` solo si se esperaba IA y no pudo correr (`llm-unavailable`, `llm-not-configured`, `llm-error`); si el plan o el cliente no pidieron IA, **no** lo es. Si el resultado de IA no llega en `REPORTS_AI_TIMEOUT_MS`, pasa a `ready` y degradado con `llm-unavailable`. Si `llm-analysis` está apagado, Retrieval ya publica ese motivo (Área 3). Un fallo de Retrieval deja el reporte `failed` con un error claro.
 - [ ] **Decoradores concretos** sobre la base ya hecha: `SeverityScoreDecorator` (puntaje 0-100 determinístico, va **último**), `LicenseComplianceDecorator`, `AiEnrichmentDecorator` (mezcla el `AiResult` por id de hallazgo y respeta su prioridad). Devuelven objetos nuevos.
 - [ ] **`composeReport(input)`** arma la cadena según `Entitlements` (free: básico + licencias + severidad, nunca IA; pro y studio suman IA solo con un `AiResult` presente).
 - [ ] **`renderMarkdown`**: hallazgos ordenados por severidad con evidencia, impacto y recomendación, y un aviso claro cuando el reporte es degradado.
@@ -60,10 +60,10 @@ Tu trabajo es el que más se ve en la demo: el reporte.
 - [ ] **`CppDependencyParser`** y **`detectGameEngine`** sobre `unreal-sample` (la propuesta de `fixtures/README.md`; ajústala y documenta).
 - [ ] **`GydeApiClient`**: `Authorization: Bearer`, respuestas validadas con los esquemas, **Circuit Breaker + caché local** (sirve el último reporte como degradado), errores accionables para 401, 402 y 429, **nunca registra la API key**.
 - [ ] Pasos pendientes del **Template Method**: `analyzeLicenses` y `generateReport` (consulta con tiempo límite hasta `ready`, fallo claro si queda `failed`, resultado degradado desde la caché si el gateway no responde). Las dos implementaciones de fetchers (OSV/NVD) filtran la evidencia por fuente.
-- [ ] **`LocalCLIPipeline`** (`parseDependencies` con `buildAnalysisRequest`, `publishResult` a consola) y **`apps/cli`**: `gyde analyze [ruta]` con los argumentos y códigos de salida de su README; formatos `text`, `json` y `markdown`.
+- [ ] **`LocalCLIPipeline`** (`parseDependencies` con `buildAnalysisRequest`, `publishResult` a consola; añade `--fail-on-degraded` al README del CLI) y **`apps/cli`**: `gyde analyze [ruta]` con los argumentos y códigos de salida de su README; formatos `text`, `json` y `markdown`.
 - [ ] **Prueba de privacidad de punta a punta:** ejecutar el pipeline sobre `unity-sample` con un gateway falso y comprobar que el cuerpo enviado **no contiene** `PROPRIETARY_MARKER_DO_NOT_SEND` ni rutas de archivos.
 - [ ] El test de arquitectura que prohíbe sobrescribir `runAnalysis` sigue verde. Todos los `it.todo` de `packages/analysis-engine/test/acceptance.test.ts` convertidos.
-- [ ] `GitHubActionPipeline` lo implementa el Área 2 usando tu motor; deja los hooks bien documentados.
+- [ ] **`GitHubActionPipeline.parseDependencies`** es tuyo (la misma lógica que el CLI sobre `buildAnalysisRequest`). Su `publishResult` (comentario de PR) lo implementa el Área 2; deja ambos hooks bien documentados.
 
 ## Dependencias con otras áreas
 

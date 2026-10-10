@@ -2,44 +2,96 @@ import { Writable } from 'node:stream';
 
 import { AnalysisRequest, ApiError } from '@gyde/contracts';
 import { sampleAnalysisRequest } from '@gyde/contracts/samples';
-import { describe, expect, it } from 'vitest';
+import { Body, Controller, Get, Module, Post } from '@nestjs/common';
+import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import {
+  type NestFastifyApplication,
   HttpError,
+  ZodValidationPipe,
   baseEnv,
-  buildApp,
   createLogger,
+  createService,
   loadConfig,
-  parseOrThrow,
-  protectInternalRoutes,
-  registerStubRoutes,
-  requireInternalToken,
+  notImplemented,
+  type ServiceOptions,
 } from '../src';
 
-const silentApp = (readiness?: Record<string, () => Promise<unknown>>) =>
-  buildApp({
+@Controller()
+class ProbeController {
+  @Get('limit')
+  limit(): never {
+    throw new HttpError('plan_limit_exceeded', 'Monthly limit reached');
+  }
+
+  @Get('boom')
+  boom(): never {
+    throw new Error('db password is hunter2');
+  }
+
+  @Post('echo')
+  echo(@Body(new ZodValidationPipe(z.object({ name: z.string() }))) body: { name: string }) {
+    return body;
+  }
+
+  @Post('raw')
+  raw(@Body() body: unknown) {
+    return body;
+  }
+
+  @Post('v1/analyses')
+  analyses(@Body(new ZodValidationPipe(AnalysisRequest)) _body: AnalysisRequest): never {
+    return notImplemented('POST', '/v1/analyses');
+  }
+
+  @Get('internal/ping')
+  internalPing() {
+    return { ok: true };
+  }
+
+  @Get('v1/public')
+  publicRoute() {
+    return { ok: true };
+  }
+}
+
+@Module({ controllers: [ProbeController] })
+class ProbeModule {}
+
+const opened: NestFastifyApplication[] = [];
+async function makeApp(options: Partial<ServiceOptions> = {}): Promise<NestFastifyApplication> {
+  const app = await createService(ProbeModule, {
     name: 'test-service',
     version: '1.2.3',
     logger: createLogger({ name: 'test', level: 'silent' }),
-    readiness,
+    ...options,
   });
+  opened.push(app);
+  return app;
+}
+
+afterEach(async () => {
+  await Promise.all(opened.splice(0).map((app) => app.close()));
+});
 
 describe('health checks', () => {
   it('answers /healthz with the service identity', async () => {
-    const app = silentApp();
+    const app = await makeApp();
     const res = await app.inject({ method: 'GET', url: '/healthz' });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ status: 'ok', service: 'test-service', version: '1.2.3' });
   });
 
   it('is ready when every check passes and 503 when one fails', async () => {
-    const ok = silentApp({ db: async () => true });
+    const ok = await makeApp({ readiness: { db: async () => true } });
     expect((await ok.inject({ method: 'GET', url: '/readyz' })).statusCode).toBe(200);
 
-    const failing = silentApp({
-      db: async () => {
-        throw new Error('connection refused');
+    const failing = await makeApp({
+      readiness: {
+        db: async () => {
+          throw new Error('connection refused');
+        },
       },
     });
     const res = await failing.inject({ method: 'GET', url: '/readyz' });
@@ -50,7 +102,7 @@ describe('health checks', () => {
 
 describe('request ids', () => {
   it('generates one and echoes an incoming one', async () => {
-    const app = silentApp();
+    const app = await makeApp();
     const generated = await app.inject({ method: 'GET', url: '/healthz' });
     expect(generated.headers['x-request-id']).toBeTruthy();
 
@@ -65,49 +117,37 @@ describe('request ids', () => {
 
 describe('error handling', () => {
   it('answers unknown routes with the standard envelope and never echoes the query string', async () => {
-    const res = await silentApp().inject({ method: 'GET', url: '/nope?apiKey=leak-me' });
+    const res = await (await makeApp()).inject({ method: 'GET', url: '/nope?apiKey=leak-me' });
     expect(res.statusCode).toBe(404);
     expect(ApiError.safeParse(res.json()).success).toBe(true);
     expect(res.body).not.toContain('leak-me');
   });
 
   it('maps HttpError to its status and code', async () => {
-    const app = silentApp();
-    app.get('/limit', async () => {
-      throw new HttpError('plan_limit_exceeded', 'Monthly limit reached');
-    });
-    const res = await app.inject({ method: 'GET', url: '/limit' });
+    const res = await (await makeApp()).inject({ method: 'GET', url: '/limit' });
     expect(res.statusCode).toBe(402);
     expect(res.json()).toMatchObject({ error: { code: 'plan_limit_exceeded' } });
   });
 
   it('turns unexpected errors into a generic 500 without leaking internals', async () => {
-    const app = silentApp();
-    app.get('/boom', async () => {
-      throw new Error('db password is hunter2');
-    });
-    const res = await app.inject({ method: 'GET', url: '/boom' });
+    const res = await (await makeApp()).inject({ method: 'GET', url: '/boom' });
     expect(res.statusCode).toBe(500);
     expect(res.json()).toMatchObject({ error: { code: 'internal' } });
     expect(res.body).not.toContain('hunter2');
   });
 
   it('reports validation problems as 400 with the failing path', async () => {
-    const app = silentApp();
-    app.post('/echo', async (request) =>
-      parseOrThrow(z.object({ name: z.string() }), request.body),
-    );
-    const res = await app.inject({ method: 'POST', url: '/echo', payload: {} });
+    const res = await (await makeApp()).inject({ method: 'POST', url: '/echo', payload: {} });
     expect(res.statusCode).toBe(400);
     expect(res.json().error.details).toEqual([expect.objectContaining({ path: 'name' })]);
   });
 
   it('rejects malformed JSON with 400', async () => {
-    const app = silentApp();
-    app.post('/echo', async (request) => request.body);
-    const res = await app.inject({
+    const res = await (
+      await makeApp()
+    ).inject({
       method: 'POST',
-      url: '/echo',
+      url: '/raw',
       headers: { 'content-type': 'application/json' },
       payload: '{bad json',
     });
@@ -118,74 +158,44 @@ describe('error handling', () => {
 
 describe('internal token', () => {
   const token = 'a-long-enough-internal-token';
-  const makeApp = () => {
-    const app = silentApp();
-    app.get('/internal/ping', { onRequest: requireInternalToken(token) }, async () => ({
-      ok: true,
-    }));
-    return app;
-  };
 
-  it('rejects missing and wrong tokens', async () => {
-    const app = makeApp();
+  it('rejects missing and wrong tokens on every /internal path, even unknown ones', async () => {
+    const app = await makeApp({ internalToken: token });
     expect((await app.inject({ method: 'GET', url: '/internal/ping' })).statusCode).toBe(401);
+    expect((await app.inject({ method: 'GET', url: '/internal/does-not-exist' })).statusCode).toBe(
+      401,
+    );
     const wrong = await app.inject({
       method: 'GET',
       url: '/internal/ping',
       headers: { 'x-internal-token': 'wrong-token-with-other-length' },
     });
     expect(wrong.statusCode).toBe(401);
+    expect(ApiError.safeParse(wrong.json()).success).toBe(true);
   });
 
-  it('accepts the right token', async () => {
-    const res = await makeApp().inject({
+  it('accepts the right token and leaves public routes and health checks alone', async () => {
+    const app = await makeApp({ internalToken: token });
+    const ok = await app.inject({
       method: 'GET',
       url: '/internal/ping',
       headers: { 'x-internal-token': token },
     });
-    expect(res.statusCode).toBe(200);
-  });
-});
-
-describe('protectInternalRoutes', () => {
-  const token = 'a-long-enough-internal-token';
-  const makeApp = () => {
-    const app = silentApp();
-    protectInternalRoutes(app, token);
-    app.get('/internal/ping', async () => ({ ok: true }));
-    app.get('/v1/public', async () => ({ ok: true }));
-    return app;
-  };
-
-  it('guards every /internal path, even unknown ones, and leaves public routes alone', async () => {
-    const app = makeApp();
-    expect((await app.inject({ method: 'GET', url: '/internal/ping' })).statusCode).toBe(401);
-    expect((await app.inject({ method: 'GET', url: '/internal/does-not-exist' })).statusCode).toBe(
-      401,
-    );
+    expect(ok.statusCode).toBe(200);
     expect((await app.inject({ method: 'GET', url: '/v1/public' })).statusCode).toBe(200);
     expect((await app.inject({ method: 'GET', url: '/healthz' })).statusCode).toBe(200);
   });
 
-  it('lets the right token through', async () => {
-    const res = await makeApp().inject({
-      method: 'GET',
-      url: '/internal/ping',
-      headers: { 'x-internal-token': token },
-    });
-    expect(res.statusCode).toBe(200);
+  it('guards the prefixes you choose (the registry guards /v1/)', async () => {
+    const app = await makeApp({ internalToken: token, internalPrefixes: ['/v1/'] });
+    expect((await app.inject({ method: 'GET', url: '/v1/public' })).statusCode).toBe(401);
+    expect((await app.inject({ method: 'GET', url: '/internal/ping' })).statusCode).toBe(200);
   });
 });
 
-describe('stub routes', () => {
-  const makeApp = () => {
-    const app = silentApp();
-    registerStubRoutes(app, [{ method: 'POST', url: '/v1/analyses', body: AnalysisRequest }]);
-    return app;
-  };
-
-  it('validates the body before answering 501', async () => {
-    const app = makeApp();
+describe('contract stubs', () => {
+  it('validates the body before answering 501 not_implemented', async () => {
+    const app = await makeApp();
     const bad = await app.inject({ method: 'POST', url: '/v1/analyses', payload: { nope: true } });
     expect(bad.statusCode).toBe(400);
 

@@ -41,7 +41,10 @@ export const DeterministicResult = z.strictObject({
     compatibility: z.boolean(),
     licenses: z.boolean(),
   }),
-  /** True when some knowledge sources could not be queried. */
+  /**
+   * True when some knowledge sources could not be queried. It does NOT make the report
+   * degraded: a report is degraded only when the expected AI layer could not run.
+   */
   partialSources: z.boolean().default(false),
 });
 export type DeterministicResult = z.infer<typeof DeterministicResult>;

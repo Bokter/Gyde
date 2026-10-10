@@ -15,7 +15,6 @@ export const DegradedReason = z.enum([
   'llm-unavailable', // circuit open / provider down
   'llm-not-configured', // the tenant has no LLM key yet
   'llm-error', // the provider answered with an error
-  'partial-sources', // some knowledge sources were unavailable
 ]);
 export type DegradedReason = z.infer<typeof DegradedReason>;
 

@@ -8,6 +8,6 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   // Workspace packages ship as TypeScript source: bundle them. npm dependencies stay external,
-  // which is why fastify, pino and zod are declared in this package.json.
+  // which is why NestJS, pino and zod are declared in this package.json.
   noExternal: [/^@gyde\//],
 });

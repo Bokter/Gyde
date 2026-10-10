@@ -19,11 +19,11 @@ http → application → domain          infrastructure → application
 - `application`: casos de uso y **puertos** (interfaces).
 - `infrastructure`: adaptadores que implementan los puertos (base de datos, HTTP, Stripe, proveedores de IA).
 - `http`: rutas que validan con `@gyde/contracts` y llaman casos de uso.
-- `main.ts` es el **composition root**: el único lugar que conoce implementaciones concretas.
+- `app.module.ts` (con `main.ts`) es el **composition root**: el único lugar que conoce implementaciones concretas y las enlaza con los puertos (NestJS, [ADR 0011](0011-nestjs-como-framework-de-los-servicios.md)).
 
 El Servicio Web aplica las mismas capas **dentro de cada módulo** (`modules/<nombre>/{domain,application,infrastructure}`).
 
-Las reglas se **imponen con ESLint** (`tooling/eslint/layer-boundaries.mjs`, `no-restricted-imports`): `domain` y `application` no pueden importar capas exteriores ni librerías de infraestructura (Fastify, Next, Stripe, bases de datos, SDKs de IA).
+Las reglas se **imponen con ESLint** (`tooling/eslint/layer-boundaries.mjs`, `no-restricted-imports`): `domain` y `application` no pueden importar capas exteriores ni librerías de infraestructura (NestJS, Fastify, Next, Stripe, bases de datos, SDKs de IA).
 
 ## Consecuencias
 

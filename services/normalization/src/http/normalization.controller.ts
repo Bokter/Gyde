@@ -1,27 +1,64 @@
-import { ROUTES, KnowledgeQuery } from '@gyde/contracts';
-import { notImplemented, ZodValidationPipe } from '@gyde/service-kit';
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import {
+  type IngestResult,
+  KnowledgeQuery,
+  type KnowledgeQueryResult,
+  ROUTES,
+  type SourcesStatus,
+} from '@gyde/contracts';
+import { HttpError, ZodValidationPipe } from '@gyde/service-kit';
+import { Body, Controller, Get, HttpCode, Inject, Param, Post } from '@nestjs/common';
+
+import {
+  IngestSource,
+  IngestionFailedError,
+  IngestionInProgressError,
+  UnknownSourceError,
+} from '../application/ingest-source';
+import { ListSources } from '../application/list-sources';
+import { QueryKnowledge } from '../application/query-knowledge';
 
 /**
- * HTTP surface of the normalization service: internal only (every route is under /internal).
- *
- * Every method answers `501 not_implemented` (and already validates its body) until you replace
- * `notImplemented(...)` with a call to a use case injected with `@Inject(UseCase)`.
+ * HTTP surface of the normalization service: internal only (every route is under /internal and
+ * needs `x-internal-token`). Controllers validate and delegate; the rules live in `application/`.
  */
 @Controller()
 export class NormalizationController {
+  constructor(
+    @Inject(QueryKnowledge) private readonly queryKnowledge: QueryKnowledge,
+    @Inject(ListSources) private readonly listSources: ListSources,
+    @Inject(IngestSource) private readonly ingestSource: IngestSource,
+  ) {}
+
   @Post(ROUTES.normalization.query)
-  query(@Body(new ZodValidationPipe(KnowledgeQuery)) _body: KnowledgeQuery): never {
-    return notImplemented('POST', ROUTES.normalization.query);
+  @HttpCode(200)
+  query(
+    @Body(new ZodValidationPipe(KnowledgeQuery)) body: KnowledgeQuery,
+  ): Promise<KnowledgeQueryResult> {
+    return this.queryKnowledge.execute(body);
   }
 
   @Get(ROUTES.normalization.sources)
-  sources(): never {
-    return notImplemented('GET', ROUTES.normalization.sources);
+  sources(): Promise<SourcesStatus> {
+    return this.listSources.execute();
   }
 
+  /** Manual ingestion: answers when the run finished (a failed run is recorded and answers 503). */
   @Post(ROUTES.normalization.ingest)
-  ingest(): never {
-    return notImplemented('POST', ROUTES.normalization.ingest);
+  @HttpCode(200)
+  async ingest(@Param('source') source: string): Promise<IngestResult> {
+    try {
+      return await this.ingestSource.execute(source);
+    } catch (error) {
+      if (error instanceof UnknownSourceError) {
+        throw new HttpError('not_found', `Unknown source "${source}"`);
+      }
+      if (error instanceof IngestionInProgressError) {
+        throw new HttpError('conflict', `Source "${source}" is already being ingested`);
+      }
+      if (error instanceof IngestionFailedError) {
+        throw new HttpError('upstream_unavailable', error.message, { source });
+      }
+      throw error;
+    }
   }
 }

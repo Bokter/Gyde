@@ -1,16 +1,25 @@
+import { CircuitBreaker, createBreakerFromEnv } from '@gyde/resilience';
 import { APP_CONFIG } from '@gyde/service-kit';
 import { type DynamicModule, Module } from '@nestjs/common';
 
-import { KNOWLEDGE_REPOSITORY } from './application/ports/knowledge-repository';
+import { IngestSource } from './application/ingest-source';
+import { ListSources } from './application/list-sources';
+import { QueryKnowledge } from './application/query-knowledge';
+import {
+  KNOWLEDGE_REPOSITORY,
+  type KnowledgeRepository,
+} from './application/ports/knowledge-repository';
+import { SOURCE_ADAPTERS, type SourceAdapter } from './application/ports/source-adapter';
 import type { Config } from './config';
 import { NormalizationController } from './http/normalization.controller';
-import { DATABASE, type DatabaseHandle, connectPostgres } from './infrastructure/db/database';
+import { DATABASE, type DatabaseHandle } from './infrastructure/db/database';
 import { DatabaseLifecycle } from './infrastructure/db/database-lifecycle';
 import { PostgresKnowledgeRepository } from './infrastructure/postgres-knowledge.repository';
+import { OsvAdapter } from './infrastructure/sources/structured/osv.adapter';
 
 export interface AppModuleOptions {
-  /** Replaces the PostgreSQL connection (tests pass an in-memory database). */
-  database?: DatabaseHandle;
+  /** The PostgreSQL connection (`main.ts` opens it; tests pass an in-memory database). */
+  database: DatabaseHandle;
 }
 
 /**
@@ -20,24 +29,46 @@ export interface AppModuleOptions {
  */
 @Module({})
 export class AppModule {
-  static register(options: AppModuleOptions = {}): DynamicModule {
+  static register({ database }: AppModuleOptions): DynamicModule {
     return {
       module: AppModule,
       controllers: [NormalizationController],
       providers: [
-        {
-          provide: DATABASE,
-          useFactory: (config: Config): DatabaseHandle => {
-            if (options.database) return options.database;
-            if (!config.NORMALIZATION_DATABASE_URL) {
-              throw new Error('NORMALIZATION_DATABASE_URL is required to start the service');
-            }
-            return connectPostgres(config.NORMALIZATION_DATABASE_URL);
-          },
-          inject: [APP_CONFIG],
-        },
+        { provide: DATABASE, useValue: database },
         DatabaseLifecycle,
         { provide: KNOWLEDGE_REPOSITORY, useClass: PostgresKnowledgeRepository },
+        {
+          // One adapter per source; each owns its own circuit breaker (a source that is down
+          // must not stop the others).
+          provide: SOURCE_ADAPTERS,
+          useFactory: (config: Config): SourceAdapter[] => [
+            new OsvAdapter({
+              useFixtures: config.INGEST_USE_FIXTURES,
+              fixturesDir: config.INGEST_FIXTURES_DIR,
+              apiUrl: config.OSV_API_URL,
+              bucketUrl: config.OSV_BUCKET_URL,
+              breaker: new CircuitBreaker(createBreakerFromEnv('normalization->osv')),
+            }),
+          ],
+          inject: [APP_CONFIG],
+        },
+        {
+          provide: QueryKnowledge,
+          useFactory: (repository: KnowledgeRepository) => new QueryKnowledge(repository),
+          inject: [KNOWLEDGE_REPOSITORY],
+        },
+        {
+          provide: ListSources,
+          useFactory: (adapters: SourceAdapter[], repository: KnowledgeRepository) =>
+            new ListSources({ adapters, repository }),
+          inject: [SOURCE_ADAPTERS, KNOWLEDGE_REPOSITORY],
+        },
+        {
+          provide: IngestSource,
+          useFactory: (adapters: SourceAdapter[], repository: KnowledgeRepository) =>
+            new IngestSource({ adapters, repository }),
+          inject: [SOURCE_ADAPTERS, KNOWLEDGE_REPOSITORY],
+        },
       ],
     };
   }

@@ -2,7 +2,7 @@
 
 Ingiere fuentes **heterogéneas** y las transforma en objetos de conocimiento (`KnowledgeObject`) con un **esquema común**, consultables por los demás servicios. Mantiene su información al día **de forma autónoma**: corre de manera periódica e indefinida, sin acoplarse al ciclo de vida del análisis.
 
-> **Estado:** la persistencia (`KnowledgeRepository` sobre PostgreSQL y migraciones) está lista. Los adaptadores de fuentes, los casos de uso y la API siguen como esqueleto (501). Implementación: **Área 3** (`docs/tasks/area-3-conocimiento.md`).
+> **Estado:** la API interna, la persistencia y el adaptador OSV están listos. Faltan los adaptadores NVD, GHSA, oficial y comunidad y el planificador por cadencia. Implementación: **Área 3** (`docs/tasks/area-3-conocimiento.md`).
 
 - Puerto: `NORMALIZATION_PORT` (4200) · Solo red interna (`/internal/*` exige `x-internal-token`).
 - Datos propios: schema `normalization` de PostgreSQL. Nadie más lee esas tablas: se consulta por la API.
@@ -21,11 +21,17 @@ Ingiere fuentes **heterogéneas** y las transforma en objetos de conocimiento (`
 
 ## API interna
 
+Todo `/internal/*` exige `x-internal-token` y nunca pasa por el gateway.
+
 | Método y ruta | Cuerpo | Respuesta |
 |---|---|---|
-| `POST /internal/knowledge/query` | `KnowledgeQuery` | `KnowledgeQueryResult` (objetos que **mencionan** los paquetes pedidos) |
-| `GET /internal/sources` | — | estado de cada fuente (última ingesta, errores) |
-| `POST /internal/ingest/:source` | — | dispara una ingesta manual |
+| `POST /internal/knowledge/query` | `KnowledgeQuery` | `200` `KnowledgeQueryResult`: objetos que **mencionan** los paquetes pedidos (mismo ecosistema y nombre), sin filtrar por versión |
+| `GET /internal/sources` | — | `200` `SourcesStatus`: por fuente, `status` (`never` / `ok` / `failed`), última ingesta exitosa, último intento y último error |
+| `POST /internal/ingest/:source` | — | `200` `IngestResult` al terminar la ingesta · `404` fuente desconocida · `409` ya hay una ingesta de esa fuente en curso · `503` la fuente falló (el intento queda registrado) |
+
+- La ingesta es **incremental**: pide a la fuente lo cambiado desde la última ingesta **exitosa**. Un registro mal formado se omite y se cuenta (`recordsSkipped`) sin detener el resto de la fuente.
+- Una fuente caída falla sola: las demás se ingieren y lo ya almacenado se sigue sirviendo.
+- `GET /healthz` es liveness; `GET /readyz` responde `503` mientras la base de datos no contesta.
 
 El cruce **dependencia/versión** (¿esta versión cae en el rango afectado?) lo hace **Retrieval**, no este servicio: aquí se devuelven los candidatos por ecosistema y nombre.
 
@@ -33,7 +39,7 @@ El cruce **dependencia/versión** (¿esta versión cae en el rango afectado?) lo
 
 ```
 src/application/ports/       SourceAdapter y KnowledgeRepository (ya definidos)
-src/application/             casos de uso: IngestSource, QueryKnowledge, ScheduleIngestion
+src/application/             casos de uso: IngestSource, QueryKnowledge, ListSources (y ScheduleIngestion, pendiente)
 src/domain/                  reglas puras de normalización y deduplicación
                              (cvss.ts: puntaje base CVSS v3.0/3.1 a partir del vector, para fuentes que solo publican el vector, como OSV)
 src/infrastructure/sources/  structured/ · official/ · community/  (un adaptador por fuente)

@@ -25,6 +25,9 @@ export interface KnowledgeRepository {
   /** Records the outcome of an ingestion attempt (successful or not). */
   recordRun(run: IngestionRun): Promise<void>;
 
+  /** The most recent ingestion attempt of a source, successful or not (drives `GET /sources`). */
+  lastRun(source: string): Promise<IngestionRun | undefined>;
+
   /** When a source was last ingested successfully (drives incremental fetches and /sources). */
   lastIngestedAt(source: string): Promise<Date | undefined>;
 }

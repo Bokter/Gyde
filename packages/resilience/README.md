@@ -2,8 +2,6 @@
 
 Patrón arquitectónico **Circuit Breaker** + **caché local / fallback** (documento de arquitectura, patrón 1). Es la librería que envuelve **toda llamada saliente** de Gyde para que un proveedor lento o caído no arrastre a los demás ni congele el CI de un cliente.
 
-> **Estado:** API tipada y criterios de aceptación como pruebas pendientes (`it.todo`). La implementación es del **Área 1** (`docs/tasks/area-1-plataforma-y-borde.md`).
-
 ## Máquina de estados
 
 ```
@@ -26,6 +24,75 @@ Parámetros por defecto, leídos del entorno (ver `.env.example`):
 | `CB_HALF_OPEN_MAX_CALLS` | 2 | Llamadas de prueba en semiabierto |
 | `CB_CALL_TIMEOUT_MS` | 10000 | Una llamada más lenta cuenta como fallo |
 
+## Uso real
+
+```ts
+import {
+  CircuitBreaker,
+  MemoryFallbackCache,
+  createBreakerFromEnv,
+} from '@gyde/resilience';
+
+// 1. Create once per dependency (not per request).
+const cache = new MemoryFallbackCache<AiResult>({ maxEntries: 500 });
+
+// 2. Read CB_* from the environment.
+const breaker = new CircuitBreaker(createBreakerFromEnv('retrieval->llm-analysis'));
+
+// 3. Wrap every outgoing call.
+const result = await breaker.execute(
+  async () => {
+    const fresh = await llmClient.analyze(request);
+    await cache.set(tenantKey, fresh);
+    return fresh;
+  },
+  {
+    fallback: async () => {
+      const entry = await cache.get(tenantKey);
+      return entry
+        ? { ...entry.value, degraded: true }   // mark as degraded so caller knows
+        : defaultDegradedResult;
+    },
+  },
+);
+```
+
+### `createBreakerFromEnv(name, env?)`
+
+Lee las variables `CB_*` del entorno y devuelve un `CircuitBreakerOptions` completo.
+El argumento `env` es opcional y permite inyectar valores en pruebas sin tocar `process.env`.
+
+```ts
+// En tests:
+const opts = createBreakerFromEnv('my-dep', {
+  CB_FAILURE_THRESHOLD: '2',
+  CB_OPEN_TIMEOUT_MS: '1000',
+});
+```
+
+### `MemoryFallbackCache` (LRU + TTL, para servicios)
+
+```ts
+const cache = new MemoryFallbackCache<string>({
+  maxEntries: 100,   // evicts LRU when exceeded
+  ttlMs: 60_000,     // entries older than 1 min are ignored
+});
+await cache.set('key', 'value');
+const entry = await cache.get('key'); // { value: 'value', storedAt: 1234567890 }
+```
+
+### `FileFallbackCache` (persiste entre reinicios, para el CLI / GitHub Action)
+
+```ts
+const cache = new FileFallbackCache<Report>({
+  directory: join(homedir(), '.gyde', 'cache'),
+  ttlMs: 24 * 60 * 60_000,  // 24 h
+});
+await cache.set('last-report', report);
+// Next run:
+const cached = await cache.get('last-report');
+```
+
 ## Dónde se usa (un breaker por dependencia)
 
 | Llamada saliente | Fallback esperado |
@@ -39,22 +106,6 @@ Parámetros por defecto, leídos del entorno (ver `.env.example`):
 | Normalization → fuentes externas | Servir conocimiento previo |
 | Web → Stripe | Reintentar luego; no bloquear la UI |
 
-## Uso previsto
-
-```ts
-const breaker = new CircuitBreaker({ name: 'retrieval->llm-analysis', ...defaultsFromEnv });
-const cache = new MemoryFallbackCache<AiResult>({ maxEntries: 500 });
-
-const result = await breaker.execute(
-  async () => {
-    const fresh = await client.analyze(request);
-    await cache.set(key, fresh);
-    return fresh;
-  },
-  { fallback: async () => (await cache.get(key))?.value ?? degradedResult },
-);
-```
-
 ## Criterios de aceptación
 
-Están como `it.todo` en `test/circuit-breaker.test.ts`, tomados de la tabla 3.3 y de los diagramas de secuencia (éxito y error). Conviértelos en pruebas reales con el reloj inyectable `now`.
+Todos los `it.todo` de `test/circuit-breaker.test.ts` fueron convertidos en pruebas reales y verdes. El reloj es inyectable (`now`) para que ninguna prueba use timers reales.

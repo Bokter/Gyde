@@ -22,6 +22,7 @@ export function createBreakerFromEnv(
     name,
     failureThreshold: parsePositiveInt(env['CB_FAILURE_THRESHOLD'], 5),
     failureRate: parsePositiveFloat(env['CB_FAILURE_RATE'], 0.5),
+    minCalls: parsePositiveInt(env['CB_MIN_CALLS'], 5),
     windowMs: parsePositiveInt(env['CB_WINDOW_MS'], 30_000),
     openTimeoutMs: parsePositiveInt(env['CB_OPEN_TIMEOUT_MS'], 15_000),
     halfOpenMaxCalls: parsePositiveInt(env['CB_HALF_OPEN_MAX_CALLS'], 2),

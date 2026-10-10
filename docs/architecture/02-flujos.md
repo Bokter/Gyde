@@ -79,7 +79,7 @@ El cliente también degrada: si el gateway no responde, su Circuit Breaker sirve
 ```mermaid
 stateDiagram-v2
     [*] --> Cerrado
-    Cerrado --> Abierto: 5 fallos seguidos o 50% en la ventana
+    Cerrado --> Abierto: 5 fallos seguidos o 50% en la ventana (al menos CB_MIN_CALLS)
     Abierto --> Semiabierto: pasa el tiempo de espera
     Semiabierto --> Cerrado: las llamadas de prueba funcionan
     Semiabierto --> Abierto: una prueba falla y se reinicia el temporizador
@@ -87,7 +87,7 @@ stateDiagram-v2
 
 | Situación | Decisión (documento, tabla 3.3) |
 |---|---|
-| Los fallos superan el umbral (5 fallos o 50 % de las solicitudes en una ventana de tiempo) | Pasa a **abierto**: deja de llamar al servicio y responde de inmediato con el fallback (última respuesta cacheada o mensaje de análisis parcial) |
+| Los fallos superan el umbral (5 fallos consecutivos o 50 % de las solicitudes en una ventana de tiempo, con al menos `CB_MIN_CALLS` llamadas) | Pasa a **abierto**: deja de llamar al servicio y responde de inmediato con el fallback (última respuesta cacheada o mensaje de análisis parcial) |
 | Transcurre el tiempo de espera en abierto | Pasa a **semiabierto**: permite un número limitado de solicitudes de prueba |
 | Las pruebas tienen éxito | Vuelve a **cerrado** y reanuda el tráfico normal |
 | Las pruebas fallan | Vuelve a **abierto**, reiniciando el temporizador |

@@ -2,7 +2,7 @@
 
 Cara visible de Gyde y su "caja registradora": **interfaz web**, **suscripciones con Stripe**, **API keys** y **llaves de LLM de cada estudio (BYOK)**. Es una aplicación **Next.js** (UI + rutas de servidor) que cuenta como **un solo contenedor** del diagrama.
 
-> **Estado:** carpeta estructurada, **sin código**. Lo primero que hace el **Área 2** es crear la app de Next.js aquí (`docs/tasks/area-2-web-pagos-y-superficies.md`).
+> **Estado:** App Next.js creada con bootstrap (día 1). Autenticación, API keys, Stripe y BYOK pendientes.
 
 - Puerto: `WEB_PORT` (3000).
 - Datos propios: schema `web` de PostgreSQL (usuarios, suscripciones, API keys, configuración LLM cifrada).
@@ -18,6 +18,10 @@ Cara visible de Gyde y su "caja registradora": **interfaz web**, **suscripciones
 | `src/modules/llm-config` | Alta, prueba de conexión y rotación de la llave LLM del estudio; **cifrada en reposo** |
 | `src/app` | Rutas y páginas de Next.js: **delgadas**, llaman casos de uso de los módulos |
 | `src/ui` | Componentes de interfaz sobre `@gyde/design-tokens` |
+| `src/lib/auth` | Configuración de Auth.js (NextAuth v5) |
+| `src/lib/db` | Cliente Drizzle ORM + schema |
+| `src/lib/fonts.ts` | Configuración de fuentes con `next/font` |
+| `src/middleware.ts` | Protección de rutas autenticadas |
 
 Las reglas de capas aplican dentro de cada módulo (`domain` no importa Next, Stripe ni la base de datos): ESLint las comprueba.
 
@@ -45,6 +49,42 @@ Los planes (Free / Pro / Studio) son **datos**: `PLAN_CATALOG` en `@gyde/contrac
 
 Interfaz limpia, verde y blanco, con Bricolage Grotesque + Figtree. Todo viene de `@gyde/design-tokens` (variables CSS `--gyde-*`) y de `docs/design/sistema-de-diseno.md`. Respeta el contraste mínimo WCAG AA.
 
+## Scripts
+
+```bash
+pnpm --filter @gyde/web dev          # Desarrollo (puerto 3000)
+pnpm --filter @gyde/web build        # Build producción (standalone)
+pnpm --filter @gyde/web start        # Ejecutar build de producción
+pnpm --filter @gyde/web typecheck    # Verificar tipos TypeScript
+pnpm --filter @gyde/web lint         # ESLint
+pnpm --filter @gyde/web test         # Vitest
+pnpm --filter @gyde/web db:generate  # Generar migraciones Drizzle
+pnpm --filter @gyde/web db:push      # Push schema a DB
+pnpm --filter @gyde/web db:migrate   # Ejecutar migraciones
+pnpm --filter @gyde/web db:studio    # Drizzle Studio
+```
+
 ## Configuración
 
-Ver `.env.example`: `WEB_PORT`, `WEB_DATABASE_URL`, `AUTH_SECRET`, `GITHUB_CLIENT_ID/SECRET`, `STRIPE_*`, `LLM_KEY_ENCRYPTION_KEYS`, `LLM_KEY_ACTIVE_KID`, `INTERNAL_SERVICE_TOKEN`.
+Ver `.env.example` (raíz del repo): `WEB_PORT`, `WEB_DATABASE_URL`, `AUTH_SECRET`, `GITHUB_CLIENT_ID/SECRET`, `STRIPE_*`, `LLM_KEY_ENCRYPTION_KEYS`, `LLM_KEY_ACTIVE_KID`, `INTERNAL_SERVICE_TOKEN`.
+
+## Docker
+
+```bash
+# Desarrollo con live reload
+docker compose -f infra/compose/compose.yaml watch
+
+# Build de producción
+docker build -f services/web/Dockerfile -t gyde-web .
+```
+
+## Pruebas
+
+```bash
+pnpm --filter @gyde/web test
+```
+
+Las pruebas cubren:
+- Bootstrap: scripts, config Next.js, fonts, tokens CSS
+- Base de datos: schema Drizzle con todas las tablas requeridas
+- Design tokens: integración correcta de variables semánticas

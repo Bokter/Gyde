@@ -15,7 +15,7 @@
 | `ReportComponent` (Component) | `report-component.ts` |
 | `BasicAnalysisReport` (ConcreteComponent) | `basic-analysis-report.ts` |
 | `ReportDecorator` (Decorator) | `report-decorator.ts` |
-| `SeverityScoreDecorator`, `LicenseComplianceDecorator`, `AIEnrichmentDecorator` | `decorators/*.decorator.ts` |
+| `SeverityScoreDecorator`, `LicenseComplianceDecorator`, `AIEnrichmentDecorator` (PDF) | `decorators/*.decorator.ts`; la clase del código se llama `AiEnrichmentDecorator` |
 | Composición según la API key | `compose-report.ts` (`composeReport`) |
 
 Las capas se combinan **en tiempo de ejecución según los permisos del plan** (`Entitlements`), sin una clase por combinación. Los decoradores devuelven objetos nuevos: nunca mutan lo que envuelven. La IA ya trabajó en `llm-analysis`; aquí `AiEnrichmentDecorator` solo **mezcla** su `AiResult`.
@@ -34,6 +34,13 @@ retrieval-error ──▶ failed
 
 - Un reporte es **degradado** solo si se esperaba IA y no pudo correr (`llm-unavailable`, `llm-not-configured`, `llm-error`). Si el plan o el cliente no pidieron IA, **no** es degradado.
 - Nunca se queda colgado: si el resultado de IA no llega en `REPORTS_AI_TIMEOUT_MS`, pasa a `ready` y degradado.
+
+## Formato del Markdown (`renderMarkdown`)
+
+1. Título con el id del análisis y la fecha.
+2. Aviso de **degradado** (solo si lo es): qué falta (la explicación de IA) y por qué (`llm-unavailable`, `llm-not-configured` o `llm-error`), y que los hallazgos siguen siendo válidos.
+3. Resumen: conteo por severidad y `riskScore` (si la capa de severidad corrió).
+4. Hallazgos ordenados por severidad (luego CVSS): cada uno con título, paquete y versión, **evidencia**, **impacto** y **recomendación**, y su explicación de IA cuando exista.
 
 ## API interna
 

@@ -21,12 +21,14 @@ La familia es **Unity → parser C# + OSV** y **Unreal → parser C++ (`Build.cs
 ## Template Method: el orden es ley
 
 ```
-1 authenticateKey ─ 2 parseDependencies (hook) ─ submitAnalysis ─ 3 fetchVulnerabilities
-   ─ 4 analyzeLicenses ─ 5 generateReport ─ 6 publishResult (hook)
+authenticateKey ─ parseDependencies (hook) ─ submitAnalysis ─ fetchVulnerabilities
+   ─ analyzeLicenses ─ generateReport ─ publishResult (hook)
 ```
 
+Son siete métodos: los **cinco pasos del documento** (autenticar, parsear, vulnerabilidades, licencias y reporte) más `submitAnalysis` (el envío de la solicitud única, ADR 0004) y `publishResult`.
+
 - Un test de arquitectura exige que ningún pipeline concreto sobrescriba `runAnalysis()`.
-- Autenticar, parsear y publicar son **locales**. Los pasos 3 a 5 son **etapas del mismo trabajo remoto** (`retrieving` → `analyzing` → `ready`): el backend orquesta (ver `docs/adr/`).
+- Autenticar, parsear y publicar son **locales**. `fetchVulnerabilities`, `analyzeLicenses` y `generateReport` son **etapas del mismo trabajo remoto** (`retrieving` → `analyzing` → `ready`): el backend orquesta (ver `docs/adr/`).
 - `VulnerabilityFetcher` **no consulta NVD/OSV directamente**: lee la etapa de vulnerabilidades del análisis a través del gateway.
 
 ## Privacidad
@@ -38,4 +40,4 @@ La familia es **Unity → parser C# + OSV** y **Unreal → parser C++ (`Build.cs
 1. `CsharpDependencyParser` y `CppDependencyParser` contra `fixtures/projects/*`; `detectGameEngine`.
 2. `GydeApiClient` (Bearer, validación de respuestas, Circuit Breaker, caché local).
 3. `analyzeLicenses`, `generateReport` (polling con tiempo límite, resultado degradado).
-4. Las dos implementaciones de `publishResult` (consola y comentario de PR) y `parseDependencies` de cada pipeline.
+4. `parseDependencies` de **los dos** pipelines (CLI y Action, la misma lógica sobre `buildAnalysisRequest`) y `publishResult` del CLI (consola). El `publishResult` de la Action (comentario de PR) es del **Área 2**.

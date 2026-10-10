@@ -24,7 +24,7 @@ Viven como **módulos de este servicio** (no como tres microservicios), comparti
 3. Ejecuta los analizadores que permite el plan.
 4. Publica el **resultado determinístico** a Reports (`DeterministicResult`): desde aquí el reporte ya puede entregarse.
 5. Si el plan permite IA y el cliente la pidió, envía la evidencia a **llm-analysis** (`LlmAnalysisRequest`).
-6. Si algo falla, publica un `AnalysisFailure` en vez de colgarse.
+6. Si algo falla, publica un `AnalysisFailure` en vez de colgarse: `retrieval-error` si falla su propio trabajo, y `llm-unavailable` (etapa `llm`) si **llm-analysis no responde** o su Circuit Breaker está abierto (es el único que se entera cuando ese servicio está caído).
 
 ## API interna
 

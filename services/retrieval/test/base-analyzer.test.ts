@@ -70,15 +70,8 @@ describe('BaseAnalyzer (Template Method)', () => {
   });
 });
 
-/** Acceptance criteria for Area 3. Turn each `it.todo` into a real test as you build it. */
-describe('VulnerabilityAnalyzer', () => {
-  it.todo('flags Acme.Serialization 1.4.0 against the sample advisory (introduced 0, fixed 1.5.0)');
-  it.todo('does not flag 1.5.0 (the first fixed version) nor later versions');
-  it.todo('honors lastAffected and explicit version lists');
-  it.todo('matches by ecosystem AND name, never by name alone');
-  it.todo('puts the advisory evidence, impact and recommendation in the finding');
-});
-
+/** Acceptance criteria for Area 3. Turn each `it.todo` into a real test as you build it
+ * (the VulnerabilityAnalyzer ones live in vulnerability-analyzer.test.ts). */
 describe('LicenseAnalyzer', () => {
   it.todo('flags GPL-3.0-only as a copyleft risk for proprietary distribution');
   it.todo('understands SPDX expressions (MIT OR Apache-2.0 is fine, GPL-3.0-only AND MIT is not)');

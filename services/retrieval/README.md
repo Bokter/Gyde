@@ -2,7 +2,7 @@
 
 Recupera la información pertinente por **tres vías** y la cruza con el proyecto del cliente. Dos de ellas son **determinísticas**: no usan IA y siguen funcionando aunque el proveedor de LLM falle.
 
-> **Estado:** esqueleto ejecutable (501) con la **base del Template Method** de los analizadores implementada y probada. Analizadores y caso de uso: **Área 3** (`docs/tasks/area-3-conocimiento.md`).
+> **Estado:** `BaseAnalyzer` y `VulnerabilityAnalyzer` (con la comparación de versiones por ecosistema) están implementados y probados. Faltan `LicenseAnalyzer`, `CompatibilityAnalyzer`, el caso de uso y los adaptadores (el endpoint sigue en 501). Implementación: **Área 3** (`docs/tasks/area-3-conocimiento.md`).
 
 - Puerto: `RETRIEVAL_PORT` (4300) · Solo red interna · Su único cliente es **Reports**.
 - Origen en el documento: contenedor *Servicio de retrieval* ("Filtra evidencia relevante") y el "Servicio de Análisis (vulnerabilidad y licencias) determinístico".
@@ -35,14 +35,22 @@ Viven como **módulos de este servicio** (no como tres microservicios), comparti
 ## Estructura
 
 ```
-src/domain/analyzers/    BaseAnalyzer (hecho) · vulnerabilities/ · compatibility/ · licenses/
+src/domain/analyzers/    BaseAnalyzer (hecho) · vulnerabilities/ (hecho) · compatibility/ · licenses/
+src/domain/versions/     comparación de versiones por ecosistema y rangos afectados (puro)
 src/application/         RetrieveEvidence y puertos: KnowledgeSource, ReportsClient, LlmClient
 src/infrastructure/      adaptadores HTTP hacia normalization, reports y llm-analysis (con breaker)
 src/http/                controladores NestJS (ya declarados como stubs 501)
 src/app.module.ts        composition root: enlaza puertos con adaptadores (ADR 0011)
 ```
 
-Los criterios de aceptación están como `it.todo` en `test/base-analyzer.test.ts`.
+Los criterios de aceptación pendientes están como `it.todo` en `test/base-analyzer.test.ts`.
+
+## Cruce de vulnerabilidades
+
+- **Versiones** (`domain/versions/`): se comparan por número, no como texto (`1.10.0` > `1.9.0`). Las partes que faltan valen cero (`1.4` = `1.4.0`), NuGet admite cuatro partes, un *pre-release* es menor que su versión final y los metadatos de compilación (`+abc`) se ignoran. Una versión que no se puede interpretar (un rango declarado, un comodín) **nunca** produce un hallazgo.
+- **Rangos** (estilo OSV): `introduced` es inclusivo (`0` o ausente = desde el inicio), `fixed` es el primer arreglo y **exclusivo** (`1.5.0` no es vulnerable con «fixed 1.5.0»), `lastAffected` es inclusivo, y `versions` es una lista explícita alternativa. La coincidencia exige **ecosistema y nombre** (sin distinguir mayúsculas).
+- **Duplicados:** el mismo aviso publicado por varias fuentes (comparten un alias) es **un** hallazgo con la evidencia de cada fuente; se nombra por su CVE si lo tiene o, si no, por el identificador que más fuentes comparten. La recomendación es la versión corregida más alta entre las copias.
+- Solo producen hallazgos los objetos de tipo `vulnerability` de fuentes que no son de comunidad.
 
 ## Configuración
 

@@ -1,13 +1,16 @@
 import { HEADERS } from '@gyde/contracts';
 import { createLogger } from '@gyde/service-kit';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 
 import { configSchema } from '../src/config';
 import { createApp } from '../src/http/app';
 
 const token = 'test-internal-token-123456';
 const config = configSchema.parse({ INTERNAL_SERVICE_TOKEN: token });
-const app = createApp({ config, logger: createLogger({ name: 'registry-test', level: 'silent' }) });
+const app = await createApp({
+  config,
+  logger: createLogger({ name: 'registry-test', level: 'silent' }),
+});
 const auth = { [HEADERS.internalToken]: token };
 
 const registration = {
@@ -16,6 +19,8 @@ const registration = {
   baseUrl: 'http://reports:4500',
   version: '0.0.0',
 };
+
+afterAll(() => app.close());
 
 describe('registry skeleton', () => {
   it('keeps /healthz public so the platform can probe it', async () => {

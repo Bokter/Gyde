@@ -28,7 +28,8 @@ Mantiene la lista actualizada de **instancias activas y saludables** de cada ser
 src/domain/          InstanceRegistry (registro con TTL, reglas puras y reloj inyectable)
 src/application/     casos de uso (register, heartbeat, deregister, resolve) y puerto HealthProbe
 src/infrastructure/  HealthProbe sobre HTTP y el bucle del Health Checker
-src/http/            rutas (ya declaradas como stubs)
+src/http/            controladores NestJS (ya declarados como stubs 501)
+src/app.module.ts    composition root: enlaza puertos con adaptadores (ADR 0011)
 ```
 
 ## Configuración

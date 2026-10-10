@@ -15,6 +15,8 @@ Ingiere fuentes **heterogéneas** y las transforma en objetos de conocimiento (`
 | `official` | Documentación y *changelogs* de los motores (Unity, Unreal) | media/alta | según la fuente |
 | `community` | GitHub Issues, foros | baja: procesamiento más liviano | `INGEST_COMMUNITY_CRON` (diaria) |
 
+**Adaptador OSV (`infrastructure/sources/structured/osv.adapter.ts`):** con fixtures lee `fixtures/sources/osv/*.json`; en modo real consulta el listado de cambios del bucket de OSV (`OSV_BUCKET_URL`) y cada aviso en `OSV_API_URL`, siempre detrás de un Circuit Breaker (en la primera ingesta toma solo los últimos 30 días). La transformación es pura (`domain/osv-normalizer.ts`): cada par `introduced` → `fixed`/`last_affected` es un rango, `database_specific.severity` manda sobre el puntaje CVSS (calculado con `domain/cvss.ts`), y `aliases` incluye el id del propio aviso. Se omiten los avisos retirados y los de ecosistemas que Gyde no cubre (solo NuGet por ahora).
+
 > Un CVE no se estructura igual que un GitHub Issue: el riesgo de este servicio es mantener esquemas consistentes para fuentes muy distintas. Por eso el esquema común vive en `@gyde/contracts` y cada fuente tiene su adaptador.
 
 ## API interna

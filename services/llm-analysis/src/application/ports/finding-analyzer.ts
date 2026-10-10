@@ -11,3 +11,6 @@ import type { AiResult, InternalLlmConfig, LlmAnalysisRequest } from '@gyde/cont
 export interface FindingAnalyzer {
   analyze(request: LlmAnalysisRequest, credentials: InternalLlmConfig): Promise<AiResult>;
 }
+
+/** DI token of the `FindingAnalyzer` port: `app.module.ts` binds it to an adapter (see ADR 0011). */
+export const FINDING_ANALYZER = Symbol('FindingAnalyzer');

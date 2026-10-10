@@ -30,7 +30,8 @@ src/application/ports/     TenantLlmConfigProvider, FindingAnalyzer, ReportsClie
 src/application/           AnalyzeFindings (caso de uso documentado)
 src/domain/                construcción del prompt y reglas puras
 src/infrastructure/providers/  adaptadores Anthropic / OpenAI y un proveedor mock determinístico
-src/http/                  ruta (ya declarada como stub)
+src/http/                  controladores NestJS (ya declarados como stubs 501)
+src/app.module.ts          composition root: enlaza puertos con adaptadores (ADR 0011)
 ```
 
 ## Configuración

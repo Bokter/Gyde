@@ -12,3 +12,6 @@ export interface TenantLlmConfigProvider {
   /** `undefined` when the tenant has not configured a key yet. */
   getConfig(tenantId: string): Promise<InternalLlmConfig | undefined>;
 }
+
+/** DI token of the `TenantLlmConfigProvider` port: `app.module.ts` binds it to an adapter (see ADR 0011). */
+export const TENANT_LLM_CONFIG_PROVIDER = Symbol('TenantLlmConfigProvider');

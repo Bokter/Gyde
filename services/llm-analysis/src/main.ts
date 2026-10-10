@@ -5,6 +5,6 @@ import { createApp } from './http/app';
 
 const config = loadConfig(configSchema);
 const logger = createLogger({ name: 'llm-analysis', level: config.LOG_LEVEL });
-const app = createApp({ config, logger });
+const app = await createApp({ config, logger });
 
 await startService(app, { port: config.LLM_ANALYSIS_PORT });

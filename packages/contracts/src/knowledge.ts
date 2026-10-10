@@ -81,3 +81,37 @@ export const KnowledgeQueryResult = z.strictObject({
   objects: z.array(KnowledgeObject),
 });
 export type KnowledgeQueryResult = z.infer<typeof KnowledgeQueryResult>;
+
+/** One source as reported by GET /internal/sources (Normalization, for operators and dashboards). */
+export const SourceStatus = z.strictObject({
+  /** Same as `KnowledgeObject.source`: "osv", "nvd", "ghsa"… */
+  name: z.string().min(1).max(50),
+  kind: SourceKind,
+  trust: Trust,
+  /**
+   * `never`: not ingested yet. `ok`: the last attempt succeeded. `failed`: the last attempt
+   * failed; the knowledge stored by earlier ingestions keeps being served.
+   */
+  status: z.enum(['never', 'ok', 'failed']),
+  /** Finish time of the last SUCCESSFUL ingestion. */
+  lastIngestedAt: IsoDateTime.optional(),
+  lastAttemptAt: IsoDateTime.optional(),
+  /** Short reason of the last failed attempt. Never carries secrets. */
+  lastError: z.string().max(500).optional(),
+});
+export type SourceStatus = z.infer<typeof SourceStatus>;
+
+export const SourcesStatus = z.strictObject({ sources: z.array(SourceStatus) });
+export type SourcesStatus = z.infer<typeof SourcesStatus>;
+
+/** Answer of POST /internal/ingest/:source once the ingestion finished successfully. */
+export const IngestResult = z.strictObject({
+  source: z.string().min(1).max(50),
+  /** Objects stored (inserted or updated). */
+  recordsProcessed: z.number().int().min(0),
+  /** Records the source delivered that were not stored (malformed, or not relevant to Gyde). */
+  recordsSkipped: z.number().int().min(0),
+  startedAt: IsoDateTime,
+  finishedAt: IsoDateTime,
+});
+export type IngestResult = z.infer<typeof IngestResult>;

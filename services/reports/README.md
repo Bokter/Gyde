@@ -2,7 +2,7 @@
 
 **Consolida** lo determinístico (Retrieval) y lo producido por el LLM en un **reporte de riesgo priorizado y explicable** (evidencia, impacto, recomendación). Es el **orquestador** del análisis: crea el trabajo, pide la evidencia a Retrieval y arma el reporte final.
 
-> **Estado:** esqueleto ejecutable (501) con la **estructura del Decorator** implementada y probada. Ciclo de vida, decoradores concretos, persistencia y render: **Área 4** (`docs/tasks/area-4-motor-llm-y-reportes.md`).
+> **Estado:** `POST /internal/analyses` y `GET /internal/analyses/:id` **en vivo** (repositorio en memoria, cliente HTTP de Retrieval con Circuit Breaker). Decorator (base hecha); decoradores concretos, transiciones `record*`, persistencia PostgreSQL y render Markdown: **Área 4** (`docs/tasks/area-4-motor-llm-y-reportes.md`).
 
 - Puerto: `REPORTS_PORT` (4500) · Solo red interna (el gateway es su cliente).
 - Datos propios: schema `reports` de PostgreSQL.
@@ -34,6 +34,7 @@ retrieval-error ──▶ failed
 
 - Un reporte es **degradado** solo si se esperaba IA y no pudo correr (`llm-unavailable`, `llm-not-configured`, `llm-error`). Si el plan o el cliente no pidieron IA, **no** es degradado.
 - Nunca se queda colgado: si el resultado de IA no llega en `REPORTS_AI_TIMEOUT_MS`, pasa a `ready` y degradado.
+- Si Retrieval no responde al crear el trabajo, este queda `failed` con un error claro y el `202` se responde igualmente (el cliente lo ve en el `GET`).
 
 ## Formato del Markdown (`renderMarkdown`)
 
@@ -44,22 +45,22 @@ retrieval-error ──▶ failed
 
 ## API interna
 
-| Método y ruta | Cuerpo | Respuesta |
-|---|---|---|
-| `POST /internal/analyses` | `CreateAnalysisJob` | `202 AnalysisAccepted` |
-| `GET /internal/analyses/:analysisId` | — | `Report` |
-| `GET /internal/analyses/:analysisId/markdown` | — | `text/markdown` |
-| `POST /internal/analyses/:analysisId/deterministic` | `DeterministicResult` | `204` (desde Retrieval) |
-| `POST /internal/analyses/:analysisId/ai-result` | `AiResult` | `204` (desde llm-analysis) |
-| `POST /internal/analyses/:analysisId/failure` | `AnalysisFailure` | `204` |
+| Método y ruta | Cuerpo | Respuesta | Estado |
+|---|---|---|---|
+| `POST /internal/analyses` | `CreateAnalysisJob` | `202 AnalysisAccepted` | **en vivo** |
+| `GET /internal/analyses/:analysisId` | — | `Report` | **en vivo** |
+| `GET /internal/analyses/:analysisId/markdown` | — | `text/markdown` | stub 501 |
+| `POST /internal/analyses/:analysisId/deterministic` | `DeterministicResult` | `204` (desde Retrieval) | stub 501 |
+| `POST /internal/analyses/:analysisId/ai-result` | `AiResult` | `204` (desde llm-analysis) | stub 501 |
+| `POST /internal/analyses/:analysisId/failure` | `AnalysisFailure` | `204` | stub 501 |
 
 ## Estructura
 
 ```
 src/domain/report/       Decorator (hecho) y composeReport, decoradores, renderMarkdown (TODO)
-src/application/         AnalysisLifecycle y puertos: ReportRepository, RetrievalClient
-src/infrastructure/      repositorio PostgreSQL y cliente HTTP de Retrieval (con breaker)
-src/http/                controladores NestJS (ya declarados como stubs 501)
+src/application/         AnalysisLifecycle (create/get hechos; record* TODO) y puertos
+src/infrastructure/      InMemoryReportRepository y HttpRetrievalClient (con breaker)
+src/http/                controlador NestJS (create/get en vivo; resto stubs 501)
 src/app.module.ts        composition root: enlaza puertos con adaptadores (ADR 0011)
 ```
 

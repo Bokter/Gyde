@@ -9,6 +9,7 @@
     "build": "tsup",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate --name=knowledge_objects",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {

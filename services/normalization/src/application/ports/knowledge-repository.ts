@@ -1,5 +1,16 @@
 import type { KnowledgeObject, KnowledgeQuery } from '@gyde/contracts';
 
+/** Outcome of one ingestion attempt of a source. */
+export interface IngestionRun {
+  source: string;
+  status: 'success' | 'failed';
+  startedAt: Date;
+  finishedAt: Date;
+  recordsProcessed: number;
+  /** Short, secret-free reason when `status` is `failed`. */
+  error?: string;
+}
+
 /** Port to the "base de datos utilizable" of the Pipeline de Normalización. */
 export interface KnowledgeRepository {
   /** Idempotent: objects are keyed by `id`, re-ingesting the same record updates it. */
@@ -10,6 +21,9 @@ export interface KnowledgeRepository {
    * filtered by version: the deterministic dependency/version matching belongs to Retrieval.
    */
   query(query: KnowledgeQuery): Promise<KnowledgeObject[]>;
+
+  /** Records the outcome of an ingestion attempt (successful or not). */
+  recordRun(run: IngestionRun): Promise<void>;
 
   /** When a source was last ingested successfully (drives incremental fetches and /sources). */
   lastIngestedAt(source: string): Promise<Date | undefined>;

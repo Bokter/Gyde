@@ -1,0 +1,25 @@
+# Used only by infra/scripts/smoke-retrieval.sh, on top of infra/compose/compose.yaml.
+# Replaces Reports (whose endpoints are not built yet) with a stand-in that records what
+# Retrieval publishes. It answers to the name "reports" inside the compose network.
+services:
+  reports-stub:
+    image: node:24-alpine
+    command: node /stub/reports-stub.mjs
+    volumes:
+      - ../scripts/smoke/reports-stub.mjs:/stub/reports-stub.mjs:ro
+    ports:
+      - '${SMOKE_REPORTS_PORT:-4590}:4500'
+    networks:
+      default:
+        aliases: [reports]
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4500/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 3s
+      timeout: 3s
+      retries: 10

@@ -24,13 +24,15 @@ COPY packages/design-tokens packages/design-tokens
 RUN --mount=type=cache,id=gyde-pnpm-store,target=/pnpm/store \
     pnpm --filter @gyde/design-tokens build
 
-# Generate Prisma/Drizzle client and build web
+# Generate Prisma/Drizzle client and build web + migration runner
 FROM tokens AS builder
 COPY . .
 RUN --mount=type=cache,id=gyde-pnpm-store,target=/pnpm/store \
     pnpm --filter @gyde/web db:generate
 RUN --mount=type=cache,id=gyde-pnpm-store,target=/pnpm/store \
     pnpm --filter @gyde/web build
+RUN --mount=type=cache,id=gyde-pnpm-store,target=/pnpm/store \
+    pnpm --filter @gyde/web build:migrate
 
 # Production image with standalone output
 FROM base AS runner
@@ -44,6 +46,9 @@ COPY --from=builder /repo/services/web/.next/static ./.next/static
 
 # Copy migrations for runtime execution
 COPY --from=builder /repo/services/web/drizzle ./drizzle
+
+# Copy compiled migration runner
+COPY --from=builder /repo/services/web/dist/migrate ./dist/migrate
 
 # Copy entrypoint script
 COPY --from=builder /repo/services/web/docker-entrypoint.sh ./docker-entrypoint.sh

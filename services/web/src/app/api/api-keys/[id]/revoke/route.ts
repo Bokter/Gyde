@@ -53,7 +53,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (error.message === 'ALREADY_REVOKED') {
         return NextResponse.json({ error: 'API key already revoked' }, { status: 400 });
       }
-      return NextResponse.json({ error: error.message }, { status: 400 });
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

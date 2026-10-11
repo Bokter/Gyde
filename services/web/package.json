@@ -14,7 +14,8 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "build:migrate": "tsup --config tsup.migrate.config.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "catalog:",
@@ -40,6 +41,7 @@
     "@types/react-dom": "catalog:",
     "drizzle-kit": "catalog:",
     "eslint": "catalog:",
+    "tsup": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

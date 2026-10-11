@@ -14,6 +14,12 @@
 #   bash infra/scripts/smoke-retrieval.sh
 #   KEEP_STACK=1 bash infra/scripts/smoke-retrieval.sh     leave the containers running
 #
+# The gateway part (the public /v1 API with a real API key) runs only when SMOKE_API_KEY is set
+# (a key issued by the web, see docs/workflow/dia-de-integracion.md) and the gateway is implemented;
+# otherwise it is skipped, and the final line says so.
+#
+#   SMOKE_API_KEY=<key> bash infra/scripts/smoke-retrieval.sh
+#
 # Needs Docker and Node. It creates .env (with generated local secrets) if there is none, and
 # needs LLM_MOCK_ENABLED=true in it (the default of .env.example). llm-analysis asks `web` for the
 # tenant's LLM settings, so `web` is started too.
@@ -27,6 +33,8 @@ RETRIEVAL="http://localhost:${RETRIEVAL_PORT:-4300}"
 REPORTS="http://localhost:${REPORTS_PORT:-4500}"
 LLM_ANALYSIS="http://localhost:${LLM_ANALYSIS_PORT:-4400}"
 WEB="http://localhost:${WEB_PORT:-3000}"
+GATEWAY="${GATEWAY_URL:-http://localhost:${GATEWAY_PORT:-4000}}"
+SMOKE_API_KEY="${SMOKE_API_KEY:-}"
 
 [ -f .env ] || node infra/scripts/bootstrap-env.mjs
 TOKEN="$(grep '^INTERNAL_SERVICE_TOKEN=' .env | cut -d= -f2-)"
@@ -56,13 +64,14 @@ wait_for() { # url, label
 auth=(-H "x-internal-token: $TOKEN")
 json=(-H 'content-type: application/json')
 
-step "Starting postgres, registry, normalization, retrieval, reports, llm-analysis and web"
-"${COMPOSE[@]}" up -d --build postgres registry normalization retrieval reports llm-analysis web >/dev/null
+step "Starting postgres, registry, normalization, retrieval, reports, llm-analysis, web and the gateway"
+"${COMPOSE[@]}" up -d --build postgres registry normalization retrieval reports llm-analysis web gateway >/dev/null
 wait_for "$NORMALIZATION/readyz" "normalization (readyz: the database must answer)"
 wait_for "$RETRIEVAL/healthz" "retrieval"
 wait_for "$REPORTS/healthz" "reports"
 wait_for "$LLM_ANALYSIS/healthz" "llm-analysis"
 wait_for "$WEB/healthz" "web"
+wait_for "$GATEWAY/healthz" "gateway"
 
 step "Ingesting the OSV fixtures (twice: the second run must change nothing)"
 first="$(curl -sf -X POST "${auth[@]}" "$NORMALIZATION/internal/ingest/osv")"
@@ -162,4 +171,61 @@ step "Case 3: Pro plan, AI requested, llm-analysis stopped (ready, degraded: llm
 "${COMPOSE[@]}" stop llm-analysis >/dev/null
 check_report "pro+ai, llm down" "$(run_analysis pro ai)" true llm-unavailable no || fail "case 3"
 
-printf '\nSMOKE TEST PASSED\n'
+# The public API, through the gateway, with a real API key. Same project, same expected result.
+gateway_part="skipped: SMOKE_API_KEY is not set"
+gateway_status() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
+
+if [ -n "$SMOKE_API_KEY" ]; then
+  if [ "$(gateway_status "$GATEWAY/v1/auth/verify")" = "501" ]; then
+    gateway_part="skipped: the gateway still answers 501 (not implemented)"
+  else
+    step "Gateway: GET /v1/auth/verify (valid key, wrong key, no key)"
+    bearer=(-H "Authorization: Bearer $SMOKE_API_KEY")
+    [ "$(gateway_status "${bearer[@]}" "$GATEWAY/v1/auth/verify")" = "200" ] || fail "a valid key was not accepted (200 expected)"
+    [ "$(gateway_status -H 'Authorization: Bearer gyde_test_invalid' "$GATEWAY/v1/auth/verify")" = "401" ] || fail "a wrong key was not refused with 401"
+    [ "$(gateway_status "$GATEWAY/v1/auth/verify")" = "401" ] || fail "a missing key was not refused with 401"
+    echo "200 / 401 / 401"
+
+    step "Gateway: /internal/* is never routed"
+    internal="$(gateway_status "${auth[@]}" "$GATEWAY/internal/analyses")"
+    case "$internal" in
+      401 | 403 | 404) echo "answered $internal (not served)" ;;
+      *) fail "the gateway answered $internal for /internal/analyses (401, 403 or 404 expected)" ;;
+    esac
+
+    # The AnalysisRequest, without AI (so the report is not degraded whatever the plan of the key).
+    gateway_request() {
+      "${COMPOSE[@]}" exec -T retrieval pnpm --filter @gyde/retrieval exec \
+        tsx ../../infra/scripts/smoke/make-job.ts request noai | tail -n 1
+    }
+
+    step "Gateway: POST /v1/analyses, then GET until ready, then the Markdown"
+    created="$(curl -s -w '\n%{http_code}' -X POST "${bearer[@]}" "${json[@]}" "$GATEWAY/v1/analyses" -d "$(gateway_request)")"
+    [ "$(printf '%s' "$created" | tail -n 1)" = "202" ] || fail "POST /v1/analyses did not answer 202: $created"
+    id="$(node -e 'console.log(JSON.parse(process.argv[1]).analysisId)' "$(printf '%s' "$created" | head -n 1)")"
+    report=""
+    for _ in $(seq 1 90); do
+      report="$(curl -sf "${bearer[@]}" "$GATEWAY/v1/analyses/$id" || true)"
+      if [ -n "$report" ] && [ "$(node -e 'console.log(JSON.parse(process.argv[1]).status)' "$report")" = "ready" ]; then break; fi
+      report=""
+      sleep 1
+    done
+    [ -n "$report" ] || fail "the analysis $id never reached ready through the gateway"
+    check_report "gateway" "$report" false none no || fail "the report read through the gateway"
+    markdown="$(curl -sf "${bearer[@]}" "$GATEWAY/v1/analyses/$id/markdown")" || fail "GET .../markdown failed"
+    # Reports escapes Markdown punctuation ("SAMPLE\-0001"), so the hyphen may carry a backslash.
+    printf '%s' "$markdown" | grep -Eq 'SAMPLE[\]?-0001' || fail "the Markdown does not list the SAMPLE-0001 finding"
+    echo "markdown lists SAMPLE-0001"
+
+    step "Gateway: with Reports stopped it answers 503 upstream_unavailable instead of hanging"
+    "${COMPOSE[@]}" stop reports >/dev/null
+    down_status="$(curl -s -m 30 -o /dev/null -w '%{http_code}' -X POST "${bearer[@]}" "${json[@]}" "$GATEWAY/v1/analyses" -d "$(gateway_request)")"
+    "${COMPOSE[@]}" start reports >/dev/null
+    [ "$down_status" = "503" ] || fail "with Reports down the gateway answered $down_status (503 expected)"
+    echo "503"
+
+    gateway_part="ran: key, wrong key, /internal not routed, analysis, markdown and 503"
+  fi
+fi
+
+printf '\nSMOKE TEST PASSED (gateway part %s)\n' "$gateway_part"

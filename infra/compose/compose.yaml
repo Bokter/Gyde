@@ -208,6 +208,9 @@ services:
     depends_on:
       registry:
         condition: service_healthy
+      # llm-analysis asks web for the tenant's BYOK key on every analysis.
+      web:
+        condition: service_healthy
     healthcheck:
       test:
         [

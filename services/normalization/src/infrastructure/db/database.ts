@@ -38,8 +38,23 @@ export function resolveMigrationsFolder(): string {
   return found;
 }
 
-export function connectPostgres(connectionString: string): DatabaseHandle {
+/**
+ * The connection pool. An idle connection can be cut by the server (restart, failover, a network
+ * blip): `pg` then emits `error` on the pool, and with no listener Node treats it as an uncaught
+ * exception and the whole service dies. The pool already discards that client and opens another
+ * on the next query, so the right reaction is to note it and carry on.
+ */
+export function createPool(connectionString: string, onError?: (error: Error) => void): Pool {
   const pool = new Pool({ connectionString });
+  pool.on('error', (error) => onError?.(error));
+  return pool;
+}
+
+export function connectPostgres(
+  connectionString: string,
+  onError?: (error: Error) => void,
+): DatabaseHandle {
+  const pool = createPool(connectionString, onError);
   const db = drizzle(pool, { schema });
   return {
     db,

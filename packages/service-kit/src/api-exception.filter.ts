@@ -49,6 +49,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
       );
     }
     if (
+      exception instanceof UpstreamServiceError ||
       (exception as Error)?.name === 'NoHealthyInstanceError' ||
       (exception as Error)?.name === 'CircuitOpenError'
     ) {

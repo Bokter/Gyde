@@ -2,7 +2,7 @@
 
 Motor del **cliente** (corre en la máquina del usuario o en el runner de CI). Lo usan `apps/cli`, `apps/github-action` y `apps/vscode-extension`. Aquí viven los patrones de diseño **Template Method** y **Abstract Factory** del documento de arquitectura, y la **puerta de privacidad**.
 
-> **Estado:** la *estructura* de los patrones está implementada y probada; la lógica pesada es del **Área 4** (`docs/tasks/area-4-motor-llm-y-reportes.md`). Los criterios de aceptación pendientes están en `test/acceptance.test.ts`.
+> **Estado:** los patrones y los pasos del pipeline están implementados y probados; falta `detectGameEngine` y `CppDependencyParser` (**Área 4**) (`docs/tasks/area-4-motor-llm-y-reportes.md`). Los criterios de aceptación pendientes están en `test/acceptance.test.ts`.
 
 ## Cómo se corresponde con el documento
 
@@ -35,9 +35,28 @@ Son siete métodos: los **cinco pasos del documento** (autenticar, parsear, vuln
 
 `buildAnalysisRequest()` es la **única** forma de construir lo que sale del entorno del cliente: copia una lista explícita de campos y valida contra el esquema estricto de `@gyde/contracts`. Aunque un parser adjunte una ruta o un fragmento de código por error, no sale. No la rodees.
 
+## Esperar al backend: `waitForReport`
+
+`fetchVulnerabilities`, `analyzeLicenses` y `generateReport` son etapas del mismo trabajo remoto, así que comparten un helper (`src/pipeline/wait-for-report.ts`) que sondea `gateway.getReport`:
+
+| Etapa | Espera hasta | Devuelve |
+|---|---|---|
+| `fetchVulnerabilities` (OSV / NVD) | `analyzing` o `ready` | hallazgos `vulnerability` con evidencia de su fuente (`osv` / `nvd`; basta una evidencia de esa fuente) |
+| `analyzeLicenses` | `analyzing` o `ready` | hallazgos `license` |
+| `generateReport` | `ready` | el `Report` completo |
+
+- `pollIntervalMs` (500), `timeoutMs` (60 000) y `sleep` son inyectables (`AnalysisPipelineDeps.wait`, `ToolchainOptions.wait`); las pruebas no usan temporizadores reales.
+- Si el análisis termina `failed` o se agota el tiempo, lanza `AnalysisWaitError` (`reason: "failed" | "timeout"`) con el mensaje del reporte. Si el gateway no responde, `GydeApiClient` sirve el último reporte en caché marcado `degraded`.
+- La última respuesta se guarda por trabajo (`WeakMap`), de modo que las tres etapas de una ejecución hacen una sola consulta si la primera ya basta.
+- `AnalysisGateway.getMarkdown(id)` (`GET /v1/analyses/:id/markdown`) trae el Markdown que renderiza Reports; el cliente no lo reimplementa.
+
+## Salida del CLI
+
+`LocalCLIPipeline.publishResult` imprime `formatReportText(report)` por el `output` inyectado (sin `output`, no imprime; nunca usa `console.log`): resumen por severidad, aviso de degradado y hallazgos ordenados por severidad con evidencia, impacto y recomendación. El pipeline **no toca `process`**: el código de salida lo calcula quien lo llama con `exitCodeForReport(report, failOn)` (1 si hay hallazgos de `failOn` o peor; el 2 y el 3 son del CLI).
+
 ## Tareas del Área 4 en este paquete
 
 1. ~~`CsharpDependencyParser`~~ (hecho: UPM, NuGet con licencia `.nuspec`, versión del editor) · `CppDependencyParser` y `detectGameEngine` (pendientes).
-2. ~~`GydeApiClient`~~ (hecho: `Authorization: Bearer`, validación de respuestas con `@gyde/contracts`, Circuit Breaker, caché local que sirve el último reporte como degradado, `GydeApiError` accionable para 401/402/429; nunca registra la API key).
-3. `analyzeLicenses`, `generateReport` (polling con tiempo límite, resultado degradado).
-4. `parseDependencies` de **los dos** pipelines (CLI y Action, la misma lógica sobre `buildAnalysisRequest`) y `publishResult` del CLI (consola). El `publishResult` de la Action (comentario de PR) es del **Área 2**.
+2. ~~`GydeApiClient`~~ (hecho: `Authorization: Bearer`, validación de respuestas con `@gyde/contracts`, Circuit Breaker, caché local que sirve el último reporte como degradado, `GydeApiError` accionable para 401/402/429, `getMarkdown`; nunca registra la API key).
+3. ~~`fetchVulnerabilities`, `analyzeLicenses`, `generateReport`~~ (hecho: `waitForReport`). El `NvdVulnerabilityFetcher` usa el mismo filtro con la fuente `nvd`.
+4. ~~`parseDependencies` de los dos pipelines y `publishResult` del CLI~~ (hecho, con `includeAi`). El `publishResult` de la **Action** (comentario de PR) es del **Área 2**.

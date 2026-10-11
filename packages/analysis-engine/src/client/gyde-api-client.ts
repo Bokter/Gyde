@@ -14,7 +14,7 @@ import {
   createBreakerFromEnv,
   type FallbackCache,
 } from '@gyde/resilience';
-import type { z } from 'zod';
+import { z } from 'zod';
 
 import type { AnalysisGateway } from '../types';
 
@@ -142,6 +142,13 @@ export class GydeApiClient implements AnalysisGateway {
     return report;
   }
 
+  async getMarkdown(analysisId: string): Promise<string> {
+    return this.request(buildPath(ROUTES.gateway.analysisMarkdown, { analysisId }), z.string(), {
+      method: 'GET',
+      responseType: 'text',
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
@@ -159,12 +166,12 @@ export class GydeApiClient implements AnalysisGateway {
   private async request<T>(
     path: string,
     schema: z.ZodType<T>,
-    init: { method: 'GET' | 'POST'; body?: unknown },
+    init: { method: 'GET' | 'POST'; body?: unknown; responseType?: 'json' | 'text' },
     fallback?: () => Promise<T>,
   ): Promise<T> {
     const url = joinUrl(this.options.apiUrl, path);
     const headers: Record<string, string> = {
-      accept: 'application/json',
+      accept: init.responseType === 'text' ? 'text/markdown' : 'application/json',
       authorization: `Bearer ${this.options.apiKey}`,
     };
     const body = init.body === undefined ? undefined : JSON.stringify(init.body);
@@ -199,7 +206,11 @@ export class GydeApiClient implements AnalysisGateway {
               throw error;
             }
 
-            const parsed = schema.safeParse(await readJson(response));
+            const payload =
+              init.responseType === 'text'
+                ? await response.text().catch(() => undefined)
+                : await readJson(response);
+            const parsed = schema.safeParse(payload);
             if (!parsed.success) {
               const issues = parsed.error.issues
                 .map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`)

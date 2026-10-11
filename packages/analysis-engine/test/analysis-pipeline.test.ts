@@ -21,6 +21,7 @@ function fakeGateway(calls: string[], overrides: Partial<AnalysisGateway> = {}):
       return { analysisId: 'analysis-1', status: 'pending' };
     },
     getReport: async () => sampleReportReady,
+    getMarkdown: async () => '# report',
     ...overrides,
   };
 }

@@ -5,57 +5,9 @@ import type { ApiKeyRepository } from '../domain/repositories';
 import type { TenantRepository } from '@/modules/auth/application/ports/tenant-repository';
 import { PLAN_CATALOG } from '@gyde/contracts';
 import { createHash } from 'node:crypto';
-import { timingSafeEqual } from 'node:crypto';
-import pino from 'pino';
-
-const REDACT_PATHS_BASE = [
-  'req.headers.authorization',
-  'req.headers["x-internal-token"]',
-  'headers.authorization',
-  'headers["x-internal-token"]',
-  'authorization',
-  'apiKey',
-  'password',
-  'secret',
-  'token',
-];
-const EXTRA_KEYS = [
-  'authorization',
-  'apiKey',
-  'api_key',
-  'password',
-  'secret',
-  'token',
-  'accessToken',
-];
-const REDACT_PATHS_EXTRA = EXTRA_KEYS.flatMap((key) => [`*.${key}`, `*.*.${key}`]);
-const REDACT_PATHS = [...REDACT_PATHS_BASE, ...REDACT_PATHS_EXTRA];
-
-pino({
-  name: 'api-key-verify-test',
-  level: 'silent',
-  base: { service: 'api-key-verify-test' },
-  timestamp: pino.stdTimeFunctions.isoTime,
-  redact: { paths: REDACT_PATHS, censor: '[REDACTED]' },
-});
 
 function sha256Hex(input: string): string {
   return createHash('sha256').update(input).digest('hex');
-}
-
-function verifyInternalToken(token: string | null): boolean {
-  const expected = process.env.INTERNAL_SERVICE_TOKEN;
-  if (!expected) {
-    return false;
-  }
-  if (!token) {
-    return false;
-  }
-  if (token.length !== expected.length) {
-    return false;
-  }
-  const encoder = new TextEncoder();
-  return timingSafeEqual(encoder.encode(token), encoder.encode(expected));
 }
 
 function makeTestApiKey(
@@ -252,27 +204,6 @@ describe('VerifyApiKey - security tests with fake repositories', () => {
       if (!result.valid) {
         expect(result.reason).toBe('unknown');
       }
-    });
-  });
-
-  describe('Internal verify endpoint token verification', () => {
-    it('returns 401 without token', () => {
-      process.env.INTERNAL_SERVICE_TOKEN = 'test-token-1234567890123456';
-
-      expect(verifyInternalToken(null)).toBe(false);
-      expect(verifyInternalToken('')).toBe(false);
-      expect(verifyInternalToken('wrong-token')).toBe(false);
-      expect(verifyInternalToken('test-token-123456789012345')).toBe(false);
-      expect(verifyInternalToken('test-token-1234567890123456')).toBe(true);
-
-      delete process.env.INTERNAL_SERVICE_TOKEN;
-    });
-
-    it('rejects when INTERNAL_SERVICE_TOKEN is not configured', () => {
-      delete process.env.INTERNAL_SERVICE_TOKEN;
-
-      expect(verifyInternalToken('any-token')).toBe(false);
-      expect(verifyInternalToken(null)).toBe(false);
     });
   });
 

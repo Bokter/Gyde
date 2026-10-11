@@ -3,30 +3,9 @@ import { auth } from '@/modules/auth/infrastructure/auth.config';
 import { createApiKey, listApiKeys } from '@/modules/api-keys/infrastructure/composition-root';
 import { toApiKeyView } from '@/modules/api-keys/application/api-key-view';
 import { z } from 'zod';
-import pino from 'pino';
+import { createLogger } from '@/lib/logger';
 
-const REDACT_PATHS = [
-  'req.headers.authorization',
-  'req.headers["x-internal-token"]',
-  'headers.authorization',
-  'headers["x-internal-token"]',
-  'authorization',
-  'apiKey',
-  'password',
-  'secret',
-  'token',
-  ...['authorization', 'apiKey', 'api_key', 'password', 'secret', 'token', 'accessToken'].flatMap(
-    (key) => [`*.${key}`, `*.*.${key}`],
-  ),
-];
-
-const logger = pino({
-  name: 'api-keys',
-  level: process.env.LOG_LEVEL || 'info',
-  base: { service: 'api-keys' },
-  timestamp: pino.stdTimeFunctions.isoTime,
-  redact: { paths: REDACT_PATHS, censor: '[REDACTED]' },
-});
+const logger = createLogger('api-keys');
 
 const createApiKeySchema = z.object({
   name: z.string().max(100).optional().nullable(),

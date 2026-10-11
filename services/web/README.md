@@ -2,7 +2,7 @@
 
 Cara visible de Gyde y su "caja registradora": **interfaz web**, **suscripciones con Stripe**, **API keys** y **llaves de LLM de cada estudio (BYOK)**. Es una aplicación **Next.js** (UI + rutas de servidor) que cuenta como **un solo contenedor** del diagrama.
 
-> **Estado:** inicio de sesión con GitHub, tenant `free` al primer ingreso, API keys (pantalla, rutas y `POST /internal/api-keys/verify`) y `/healthz` listos. Stripe y BYOK pendientes; las pantallas de facturación y llave de IA siguen siendo maquetas.
+> **Estado:** inicio de sesión con GitHub, tenant `free` al primer ingreso, API keys (pantalla, rutas y `POST /internal/api-keys/verify`), `/healthz` y el backend de la llave de IA (BYOK: rutas `/api/llm-config` y `GET /internal/tenants/:tenantId/llm-config`) listos. Pendientes: la pantalla de la llave de IA y Stripe; la pantalla de facturación sigue siendo una maqueta.
 
 - Puerto: `WEB_PORT` (3000).
 - Datos propios: schema `web` de PostgreSQL (usuarios, suscripciones, API keys, configuración LLM cifrada).
@@ -40,9 +40,11 @@ Sin Tailwind: cada componente y pantalla usa **CSS Modules** (`*.module.css`) co
 | Ruta | Quién llama | Contrato |
 |---|---|---|
 | `POST /internal/api-keys/verify` | Gateway | `VerifyApiKeyRequest` → `VerifyApiKeyResponse` (tenant + `Entitlements`) |
-| `GET /internal/tenants/:tenantId/llm-config` | llm-analysis | → `InternalLlmConfig` (**con la llave descifrada**) |
+| `GET /internal/tenants/:tenantId/llm-config` | llm-analysis | → `InternalLlmConfig` (**con la llave descifrada**), `404` si el estudio no tiene llave, `401` sin token |
 
 Y el webhook público de Stripe (firma verificada con `STRIPE_WEBHOOK_SECRET`).
+
+Todas pasan por `src/lib/internal-auth.ts` (`rejectUnlessInternal`): compara `x-internal-token` en tiempo constante (sobre digests SHA-256, así tampoco filtra la longitud) y rechaza todo si falta `INTERNAL_SERVICE_TOKEN`. Los logs salen de `src/lib/logger.ts` (pino con los mismos campos censurados que `@gyde/service-kit`, más `plainKey` y `encryptedKey`); no se usa `console.*`.
 
 ## Seguridad de la llave LLM (BYOK)
 
@@ -50,6 +52,22 @@ Y el webhook público de Stripe (firma verificada con `STRIPE_WEBHOOK_SECRET`).
 - La llave en claro **nunca** se devuelve a la UI (solo `keyLast4`), **nunca** se registra en logs y solo sale por el endpoint interno hacia llm-analysis.
 - El endpoint interno no se expone por el gateway y exige el token interno.
 - "Probar conexión" valida la llave contra el proveedor antes de guardarla.
+
+Cómo está implementado (`src/modules/llm-config`):
+
+| Pieza | Detalle |
+|---|---|
+| Proveedores | Solo `anthropic`, el único que `llm-analysis` sabe usar. Otro proveedor responde `400 unsupported-provider` sin probar nada |
+| Prueba de conexión | Puerto `LlmConnectionTester`. `LLM_CONNECTION_TESTER=anthropic` llama `GET /v1/models/{model}` con el SDK oficial (no gasta tokens; valida llave y modelo). `offline` solo revisa la forma (`sk-ant-…`, modelo `claude-…`) y no usa la red: para demos sin conexión. Fallo → `422 connection-test-failed` con `reason` (`invalid-key`, `model-not-found`, `unreachable`) |
+| Cifrado | AES-256-GCM, IV aleatorio de 12 bytes por cifrado; se guardan `kid`, `iv`, `auth_tag` y `encrypted_key` en `llm_configs`. El `tenantId` va como dato autenticado (AAD): un texto cifrado copiado a la fila de otro tenant no descifra |
+| Rotación | Agrega `k2:<base64>` a `LLM_KEY_ENCRYPTION_KEYS` y pon `LLM_KEY_ACTIVE_KID=k2`. Lo nuevo se cifra con `k2`; lo existente se sigue descifrando con el `kid` guardado. Retira `k1` solo cuando ninguna fila lo use (`select kid, count(*) from llm_configs group by kid`) |
+| Reemplazar | Guardar otra vez: nueva prueba, nuevo IV, `kid` activo y `rotated_at` |
+| Revocar | Borra la fila (el texto cifrado desaparece); desde ese momento el endpoint interno responde `404` y llm-analysis publica `llm-not-configured` |
+| Arranque | Una llave maestra mal formada o un `LLM_KEY_ACTIVE_KID` inexistente hace fallar la petición con un error claro; los mensajes nombran el `kid`, nunca material de llave |
+
+Rutas del panel (con sesión): `GET /api/llm-config` → `{ config: LlmProviderConfigView | null }`, `PUT /api/llm-config` (`LlmProviderConfigInput`) → `{ config }`, `DELETE /api/llm-config` → `{ revoked: true }` o `404`. Los errores de validación devuelven solo `path` y `code`, nunca el valor recibido.
+
+En producción la llave maestra viene de un gestor de secretos (AWS Secrets Manager, GCP Secret Manager, Vault…) y se inyecta como variable solo al contenedor de web; perderla deja ilegibles todas las llaves guardadas. En desarrollo la genera `infra/scripts/bootstrap-env.mjs`.
 
 ## Planes y límites
 
@@ -101,7 +119,7 @@ Las pruebas cubren:
 
 ## Configuración
 
-Ver `.env.example` (raíz del repo): `WEB_PORT`, `WEB_DATABASE_URL`, `AUTH_SECRET`, `GITHUB_CLIENT_ID/SECRET`, `STRIPE_*`, `LLM_KEY_ENCRYPTION_KEYS`, `LLM_KEY_ACTIVE_KID`, `INTERNAL_SERVICE_TOKEN`.
+Ver `.env.example` (raíz del repo): `WEB_PORT`, `WEB_DATABASE_URL`, `AUTH_SECRET`, `GITHUB_CLIENT_ID/SECRET`, `STRIPE_*`, `LLM_KEY_ENCRYPTION_KEYS`, `LLM_KEY_ACTIVE_KID`, `LLM_CONNECTION_TESTER`, `INTERNAL_SERVICE_TOKEN`.
 
 ## Docker
 
@@ -140,7 +158,7 @@ Las pruebas cubren:
 
 ## Configuración
 
-Ver `.env.example` (raíz del repo): `WEB_PORT`, `WEB_DATABASE_URL`, `AUTH_SECRET`, `GITHUB_CLIENT_ID/SECRET`, `STRIPE_*`, `LLM_KEY_ENCRYPTION_KEYS`, `LLM_KEY_ACTIVE_KID`, `INTERNAL_SERVICE_TOKEN`.
+Ver `.env.example` (raíz del repo): `WEB_PORT`, `WEB_DATABASE_URL`, `AUTH_SECRET`, `GITHUB_CLIENT_ID/SECRET`, `STRIPE_*`, `LLM_KEY_ENCRYPTION_KEYS`, `LLM_KEY_ACTIVE_KID`, `LLM_CONNECTION_TESTER`, `INTERNAL_SERVICE_TOKEN`.
 
 ## Docker
 

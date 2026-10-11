@@ -108,6 +108,7 @@ const response = await httpClient.fetch('web', '/internal/api-keys/verify', {
 3. **Circuit Breaker**: Cada dependencia tiene su propio Circuit Breaker (`caller->target`) configurado mediante las variables `CB_*`. Tras fallas consecutivas o tasa de error superada, el circuito se abre y protege al sistema.
 4. **Caché de respaldo (`FallbackCache`)**: Si se pasa un `FallbackCache`, las respuestas válidas se almacenan y pueden servirse cuando la dependencia se caiga.
 5. **Propagación de contexto**: Inyecta automáticamente `x-internal-token` y `x-request-id`.
+6. **Errores sin cuerpo del vecino**: `getJson`, `postJson` y `UpstreamServiceError` usan mensajes genéricos (`reports returned 404`), porque el mensaje llega al cliente. El cuerpo de la respuesta fallida se registra (truncado a 500 caracteres) en el `logger` opcional del cliente: `new ResilientHttpClient({ ..., logger })`.
 
 ## Variables de entorno de auto-registro
 

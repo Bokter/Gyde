@@ -1,4 +1,4 @@
-import { HEADERS, type ErrorCode, type ServiceName } from '@gyde/contracts';
+import { HEADERS, type ServiceName } from '@gyde/contracts';
 import { NoHealthyInstanceError, type ServiceResolver } from '@gyde/discovery';
 import {
   CircuitBreaker,

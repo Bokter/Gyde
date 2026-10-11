@@ -64,6 +64,31 @@ pnpm --filter @gyde/web db:migrate   # Ejecutar migraciones
 pnpm --filter @gyde/web db:studio    # Drizzle Studio
 ```
 
+## Pruebas
+
+```bash
+pnpm --filter @gyde/web test
+```
+
+Las pruebas cubren:
+- Bootstrap: scripts, config Next.js, fonts, tokens CSS
+- Base de datos: schema Drizzle con todas las tablas requeridas
+- Design tokens: integración correcta de variables semánticas
+- API keys: security tests con repositorios falsos (sin BD), aislamiento entre tenants, 401/403
+
+## Migraciones
+
+- Se generan con `pnpm --filter @gyde/web db:generate` (usa drizzle-kit).
+- drizzle-kit pone el prefijo `"public".` en las claves foráneas (p.ej. `REFERENCES "public"."users"`).
+  **Hay que quitar ese prefijo manualmente** del SQL generado en `drizzle/*.sql` antes de commitearlo,
+  porque el rol `web` usa `search_path = web` y no tiene acceso a `public`.
+- Se aplican **al arrancar el servicio**, antes de escuchar peticiones, usando un ejecutor propio
+  (`src/infrastructure/db/migrate.ts`) que:
+  - Aplica las migraciones bajo un candado consultivo (varias instancias a la vez no se pisan).
+  - Verifica integridad: se niega a arrancar si una migración ya aplicada fue editada (crea una nueva en su lugar).
+  - No usa el migrador de Drizzle porque este ejecuta `CREATE SCHEMA IF NOT EXISTS`, que el rol `web` no puede (no tiene `CREATE` sobre la base, por diseño).
+- En pruebas se usa PGlite (PostgreSQL en memoria, sin Docker ni red) con las mismas migraciones.
+
 ## Configuración
 
 Ver `.env.example` (raíz del repo): `WEB_PORT`, `WEB_DATABASE_URL`, `AUTH_SECRET`, `GITHUB_CLIENT_ID/SECRET`, `STRIPE_*`, `LLM_KEY_ENCRYPTION_KEYS`, `LLM_KEY_ACTIVE_KID`, `INTERNAL_SERVICE_TOKEN`.
@@ -88,3 +113,31 @@ Las pruebas cubren:
 - Bootstrap: scripts, config Next.js, fonts, tokens CSS
 - Base de datos: schema Drizzle con todas las tablas requeridas
 - Design tokens: integración correcta de variables semánticas
+- API keys: security tests con repositorios falsos (sin BD), aislamiento entre tenants, 401/403
+
+## Migraciones
+
+- Se generan con `pnpm --filter @gyde/web db:generate` (usa drizzle-kit).
+- drizzle-kit pone el prefijo `"public".` en las claves foráneas (p.ej. `REFERENCES "public"."users"`).
+  **Hay que quitar ese prefijo manualmente** del SQL generado en `drizzle/*.sql` antes de commitearlo,
+  porque el rol `web` usa `search_path = web` y no tiene acceso a `public`.
+- Se aplican **al arrancar el servicio**, antes de escuchar peticiones, usando un ejecutor propio
+  (`src/infrastructure/db/migrate.ts`) que:
+  - Aplica las migraciones bajo un candado consultivo (varias instancias a la vez no se pisan).
+  - Verifica integridad: se niega a arrancar si una migración ya aplicada fue editada (crea una nueva en su lugar).
+  - No usa el migrador de Drizzle porque este ejecuta `CREATE SCHEMA IF NOT EXISTS`, que el rol `web` no puede (no tiene `CREATE` sobre la base, por diseño).
+- En pruebas se usa PGlite (PostgreSQL en memoria, sin Docker ni red) con las mismas migraciones.
+
+## Configuración
+
+Ver `.env.example` (raíz del repo): `WEB_PORT`, `WEB_DATABASE_URL`, `AUTH_SECRET`, `GITHUB_CLIENT_ID/SECRET`, `STRIPE_*`, `LLM_KEY_ENCRYPTION_KEYS`, `LLM_KEY_ACTIVE_KID`, `INTERNAL_SERVICE_TOKEN`.
+
+## Docker
+
+```bash
+# Desarrollo con live reload
+docker compose -f infra/compose/compose.yaml watch
+
+# Build de producción
+docker build -f services/web/Dockerfile -t gyde-web .
+```

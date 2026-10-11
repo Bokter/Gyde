@@ -1,12 +1,7 @@
-import {
-  CircuitBreaker,
-  type CircuitBreakerOptions,
-  MemoryFallbackCache,
-  createBreakerFromEnv,
-} from '@gyde/resilience';
+import { MemoryFallbackCache } from '@gyde/resilience';
 import type { KnowledgeQueryResult } from '@gyde/contracts';
 import type { ServiceResolver } from '@gyde/discovery';
-import { APP_CONFIG } from '@gyde/service-kit';
+import { APP_CONFIG, ResilientHttpClient } from '@gyde/service-kit';
 import { type DynamicModule, Logger, Module } from '@nestjs/common';
 
 import { BackgroundJobs } from './application/background-jobs';
@@ -21,19 +16,17 @@ import { RetrievalController } from './http/retrieval.controller';
 import { HttpKnowledgeSource } from './infrastructure/http-knowledge-source';
 import { HttpLlmClient } from './infrastructure/http-llm-client';
 import { HttpReportsClient } from './infrastructure/http-reports-client';
-import { InternalHttpClient } from './infrastructure/internal-http-client';
-import { ServiceLocator } from './infrastructure/service-locator';
+import { createServiceResolver, staticUrls } from './infrastructure/service-resolver';
 
 export interface AppModuleOptions {
-  /** Service Registry client. Absent until it is wired: the static `*_URL` are used. */
+  /** Replaces discovery (`REGISTRY_URL`), e.g. a fake registry in a test. */
   resolver?: ServiceResolver;
-  /** Test seams: the network, the pause between retries and settings that override the `CB_*` of the breakers. */
+  /** Test seams: the network and the pause between retries. */
   fetch?: typeof fetch;
-  breakerOverrides?: Partial<CircuitBreakerOptions>;
   sleep?: (ms: number) => Promise<void>;
 }
 
-const INTERNAL_CLIENT = Symbol('InternalHttpClient');
+const INTERNAL_CLIENT = Symbol('ResilientHttpClient');
 
 /**
  * Composition root of the service: the only place that knows concrete implementations.
@@ -43,41 +36,28 @@ const INTERNAL_CLIENT = Symbol('InternalHttpClient');
 @Module({})
 export class AppModule {
   static register(options: AppModuleOptions = {}): DynamicModule {
-    const breakerOptions = (name: string): CircuitBreakerOptions => ({
-      ...createBreakerFromEnv(name),
-      ...options.breakerOverrides,
-    });
     return {
       module: AppModule,
       controllers: [RetrievalController],
       providers: [
         {
-          // Every outgoing call goes through this client: one circuit breaker per dependency and
-          // addresses from discovery (the `*_URL` of the environment only as a fallback).
+          // Every outgoing call goes through this client: discovery first (the `*_URL` of the
+          // environment only as a fallback), one circuit breaker per dependency (`CB_*`) and the
+          // internal token on every request.
           provide: INTERNAL_CLIENT,
           useFactory: (config: Config) =>
-            new InternalHttpClient({
-              locator: new ServiceLocator({
-                ...(options.resolver && { resolver: options.resolver }),
-                staticUrls: {
-                  normalization: config.NORMALIZATION_URL,
-                  'llm-analysis': config.LLM_ANALYSIS_URL,
-                  reports: config.REPORTS_URL,
-                },
-              }),
+            new ResilientHttpClient({
+              serviceName: 'retrieval',
+              resolver: options.resolver ?? createServiceResolver(config),
               internalToken: config.INTERNAL_SERVICE_TOKEN,
-              breakers: {
-                normalization: new CircuitBreaker(breakerOptions('retrieval->normalization')),
-                'llm-analysis': new CircuitBreaker(breakerOptions('retrieval->llm-analysis')),
-                reports: new CircuitBreaker(breakerOptions('retrieval->reports')),
-              },
+              fallbackUrls: staticUrls(config),
               ...(options.fetch && { fetch: options.fetch }),
             }),
           inject: [APP_CONFIG],
         },
         {
           provide: KNOWLEDGE_SOURCE,
-          useFactory: (client: InternalHttpClient): KnowledgeSource =>
+          useFactory: (client: ResilientHttpClient): KnowledgeSource =>
             new HttpKnowledgeSource(
               client,
               new MemoryFallbackCache<KnowledgeQueryResult>({ maxEntries: 200, ttlMs: 3_600_000 }),
@@ -86,13 +66,13 @@ export class AppModule {
         },
         {
           provide: REPORTS_CLIENT,
-          useFactory: (client: InternalHttpClient): ReportsClient =>
+          useFactory: (client: ResilientHttpClient): ReportsClient =>
             new HttpReportsClient(client, options.sleep ? { sleep: options.sleep } : {}),
           inject: [INTERNAL_CLIENT],
         },
         {
           provide: LLM_CLIENT,
-          useFactory: (client: InternalHttpClient): LlmClient => new HttpLlmClient(client),
+          useFactory: (client: ResilientHttpClient): LlmClient => new HttpLlmClient(client),
           inject: [INTERNAL_CLIENT],
         },
         {

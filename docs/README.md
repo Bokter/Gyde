@@ -7,6 +7,7 @@
 | [Decisiones (ADR)](adr/README.md) | Por qué se decidió lo que se decidió, incluidos los puntos donde los documentos difieren |
 | [Sistema de diseño](design/sistema-de-diseno.md) | Fuente, paleta, tokens, componentes y accesibilidad |
 | [Configuración de GitHub](workflow/configuracion-github.md) | Protección de ramas, merges y seguridad (se hace una vez) |
+| [Día de integración](workflow/dia-de-integracion.md) | Lista de verificación: compose completo, gateway, los tres casos de reporte, privacidad y la demo, con qué área responde de cada fallo |
 | [Infraestructura](../infra/README.md) | Docker, compose, PostgreSQL y problemas conocidos en Windows |
 | [Fixtures](../fixtures/README.md) | Proyectos y fuentes de ejemplo, con resultados esperados |
 | [Guía de contribución](../CONTRIBUTING.md) | Ramas, commits, PRs, capas y secretos |

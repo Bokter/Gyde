@@ -122,9 +122,9 @@ services:
       NORMALIZATION_PORT: '4200'
       SERVICE_BASE_URL: http://normalization:4200
       INSTANCE_ID: normalization-1
-      NORMALIZATION_DATABASE_URL: ${NORMALIZATION_DATABASE_URL:-postgres://normalization:change-me-local-only@postgres:5432/gyde}
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-change-me-long-random-string}
-      INGEST_USE_FIXTURES: ${INGEST_USE_FIXTURES:-true}
+      # NORMALIZATION_DATABASE_URL, INTERNAL_SERVICE_TOKEN and INGEST_USE_FIXTURES come from the
+      # root .env through `env_file`. Do not interpolate them here: compose reads ${...} from the
+      # shell or infra/compose/.env, never from the root .env, so a default would silently win.
     ports:
       - '${NORMALIZATION_PORT:-4200}:4200'
     depends_on:

@@ -16,6 +16,6 @@ export const apiKeyRepositories = {
 };
 
 export const createApiKey = new CreateApiKey(apiKeyRepository);
-export const listApiKeys = new ListApiKeys(apiKeyRepository);
+export const listApiKeys = new ListApiKeys(apiKeyRepository, tenantRepository);
 export const revokeApiKey = new RevokeApiKey(apiKeyRepository);
 export const verifyApiKey = new VerifyApiKey(apiKeyRepository, tenantRepository);

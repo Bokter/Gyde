@@ -14,7 +14,8 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "build:migrate": "tsup --config tsup.migrate.config.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "catalog:",
@@ -23,17 +24,13 @@
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@gyde/contracts": "workspace:*",
     "@gyde/design-tokens": "workspace:*",
-    "@oslojs/crypto": "catalog:",
-    "@oslojs/encoding": "catalog:",
     "drizzle-orm": "catalog:",
-    "jose": "catalog:",
     "next": "catalog:",
     "next-auth": "catalog:",
     "pg": "catalog:",
     "pino": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "stripe": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -44,6 +41,7 @@
     "@types/react-dom": "catalog:",
     "drizzle-kit": "catalog:",
     "eslint": "catalog:",
+    "tsup": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

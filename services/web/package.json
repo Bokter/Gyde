@@ -5,7 +5,8 @@
   "description": "Servicio Web: UI, Stripe subscriptions, API keys and tenant LLM keys (BYOK). Next.js app.",
   "type": "module",
   "scripts": {
-    "dev": "pnpm --filter @gyde/design-tokens build && next dev -p 3000",
+    "dev": "pnpm --filter @gyde/design-tokens build && pnpm migrate && next dev -p 3000",
+    "migrate": "tsx src/infrastructure/db/migrate-cli.ts --skip-if-no-db",
     "build": "next build",
     "start": "next start -p 3000",
     "typecheck": "tsc --noEmit",

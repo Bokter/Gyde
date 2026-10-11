@@ -1,4 +1,4 @@
-import type { InstanceInfo, ServiceRegistration } from '@gyde/contracts';
+import type { InstanceInfo, ResolveResponse, ServiceRegistration } from '@gyde/contracts';
 import { describe, expect, it, vi } from 'vitest';
 
 import { NoHealthyInstanceError, RegistryClient, startRegistration } from '../src';
@@ -20,6 +20,12 @@ const sampleInstance: InstanceInfo = {
   registeredAt: new Date().toISOString(),
   lastHeartbeatAt: new Date().toISOString(),
 };
+
+/** The body the registry really sends for GET /v1/services/:name. */
+function resolveBody(instances: InstanceInfo[], serviceName = 'reports'): string {
+  const body: ResolveResponse = { serviceName: serviceName as 'reports', instances };
+  return JSON.stringify(body);
+}
 
 describe('NoHealthyInstanceError', () => {
   it('names the service so callers can build a controlled error or degraded result', () => {
@@ -136,26 +142,93 @@ describe('registration (doc 3.1: Service Registry keeps the list of healthy inst
   });
 });
 
+describe('request headers', () => {
+  function recorder() {
+    const seen: { method?: string; headers: Headers; body?: unknown }[] = [];
+    const fetchFn: typeof fetch = (async (_url, init) => {
+      seen.push({ method: init?.method, headers: new Headers(init?.headers), body: init?.body });
+      return new Response(null, { status: 200 });
+    }) as typeof fetch;
+    const client = new RegistryClient({
+      registryUrl: 'http://registry:4100',
+      internalToken: 'test-token',
+      fetch: fetchFn,
+    });
+    return { seen, client };
+  }
+
+  it('sends Content-Type only on register, the one call with a body', async () => {
+    const { seen, client } = recorder();
+
+    await client.register(sampleRegistration);
+    await client.heartbeat('reports-1');
+    await client.deregister('reports-1');
+
+    expect(seen.map((r) => r.method)).toEqual(['POST', 'PUT', 'DELETE']);
+    expect(seen[0]?.headers.get('content-type')).toBe('application/json');
+    expect(seen[1]?.headers.has('content-type')).toBe(false);
+    expect(seen[2]?.headers.has('content-type')).toBe(false);
+    for (const request of seen) {
+      expect(request.headers.get('x-internal-token')).toBe('test-token');
+    }
+  });
+});
+
 describe('resolve and pick (doc 3.2, steps II-III)', () => {
-  it('resolve returns only healthy instances', async () => {
+  it('resolve returns the instances of the registry ResolveResponse', async () => {
     const mockFetch: typeof fetch = (async () => {
       const instances: InstanceInfo[] = [
         sampleInstance,
-        { ...sampleInstance, instanceId: 'reports-2', healthy: false },
+        { ...sampleInstance, instanceId: 'reports-2', baseUrl: 'http://localhost:4501' },
       ];
-      return new Response(JSON.stringify(instances), { status: 200 });
+      return new Response(resolveBody(instances), { status: 200 });
     }) as typeof fetch;
 
     const client = new RegistryClient({
       registryUrl: 'http://registry:4100',
       internalToken: 'test-token',
       fetch: mockFetch,
+      staticUrls: { reports: 'http://static:1' },
     });
 
     const resolved = await client.resolve('reports');
 
-    expect(resolved).toHaveLength(1);
-    expect(resolved[0]?.instanceId).toBe('reports-1');
+    expect(resolved.map((i) => i.instanceId)).toEqual(['reports-1', 'reports-2']);
+  });
+
+  it('logs why it fell back when the registry answers an unexpected shape', async () => {
+    const warnings: Record<string, unknown>[] = [];
+    const mockFetch: typeof fetch = (async () =>
+      new Response(JSON.stringify([sampleInstance]), { status: 200 })) as typeof fetch;
+
+    const client = new RegistryClient({
+      registryUrl: 'http://registry:4100',
+      internalToken: 'test-token',
+      fetch: mockFetch,
+      staticUrls: { reports: 'http://static:1' },
+      logger: { warn: (obj) => void warnings.push(obj) },
+    });
+
+    const resolved = await client.resolve('reports');
+
+    expect(resolved[0]?.instanceId).toBe('static-reports');
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatchObject({ serviceName: 'reports' });
+  });
+
+  it('logs the status when the registry answers an error', async () => {
+    const warnings: Record<string, unknown>[] = [];
+    const client = new RegistryClient({
+      registryUrl: 'http://registry:4100',
+      internalToken: 'test-token',
+      fetch: (async () => new Response('nope', { status: 401 })) as typeof fetch,
+      staticUrls: { reports: 'http://static:1' },
+      logger: { warn: (obj) => void warnings.push(obj) },
+    });
+
+    await client.resolve('reports');
+
+    expect(warnings[0]).toMatchObject({ serviceName: 'reports', status: 401 });
   });
 
   it('pick balances round-robin across the healthy instances', async () => {
@@ -164,7 +237,7 @@ describe('resolve and pick (doc 3.2, steps II-III)', () => {
         sampleInstance,
         { ...sampleInstance, instanceId: 'reports-2', baseUrl: 'http://localhost:4501' },
       ];
-      return new Response(JSON.stringify(instances), { status: 200 });
+      return new Response(resolveBody(instances), { status: 200 });
     }) as typeof fetch;
 
     const client = new RegistryClient({
@@ -187,7 +260,7 @@ describe('resolve and pick (doc 3.2, steps II-III)', () => {
     let callCount = 0;
     const mockFetch: typeof fetch = (async () => {
       callCount++;
-      return new Response(JSON.stringify([sampleInstance]), { status: 200 });
+      return new Response(resolveBody([sampleInstance]), { status: 200 });
     }) as typeof fetch;
 
     const client = new RegistryClient({
@@ -206,7 +279,7 @@ describe('resolve and pick (doc 3.2, steps II-III)', () => {
 
   it('pick throws NoHealthyInstanceError when no healthy instance exists (doc 3.3)', async () => {
     const mockFetch: typeof fetch = (async () => {
-      return new Response(JSON.stringify([]), { status: 200 });
+      return new Response(resolveBody([]), { status: 200 });
     }) as typeof fetch;
 
     const client = new RegistryClient({
@@ -244,7 +317,7 @@ describe('registry unavailable', () => {
       if (shouldFail) {
         throw new Error('Registry down');
       }
-      return new Response(JSON.stringify([sampleInstance]), { status: 200 });
+      return new Response(resolveBody([sampleInstance]), { status: 200 });
     }) as typeof fetch;
 
     const client = new RegistryClient({

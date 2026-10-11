@@ -2,6 +2,7 @@ import {
   buildPath,
   HEADERS,
   type InstanceInfo,
+  ResolveResponse,
   ROUTES,
   type ServiceName,
   type ServiceRegistration,
@@ -37,6 +38,13 @@ export interface RegistryClientOptions {
    * itself being down). Example: `{ reports: 'http://reports:4500' }`.
    */
   staticUrls?: Partial<Record<ServiceName, string>>;
+  /** Receives the reason why `resolve` fell back (registry unreachable, bad status or shape). */
+  logger?: DiscoveryLogger;
+}
+
+/** The slice of the pino logger the client needs. */
+export interface DiscoveryLogger {
+  warn(obj: Record<string, unknown>, msg?: string): void;
 }
 
 interface CacheEntry {
@@ -57,18 +65,21 @@ export class RegistryClient implements ServiceResolver {
     return this.options.fetch ?? globalThis.fetch;
   }
 
+  /** Headers of every call. `Content-Type` is added only where there is a body (see `jsonHeaders`). */
   private get defaultHeaders(): Record<string, string> {
-    return {
-      [HEADERS.internalToken]: this.options.internalToken,
-      'Content-Type': 'application/json',
-    };
+    return { [HEADERS.internalToken]: this.options.internalToken };
+  }
+
+  /** Fastify answers 400 to a `Content-Type: application/json` request with an empty body. */
+  private get jsonHeaders(): Record<string, string> {
+    return { ...this.defaultHeaders, 'Content-Type': 'application/json' };
   }
 
   async register(registration: ServiceRegistration): Promise<void> {
     const url = `${this.options.registryUrl}${ROUTES.registry.instances}`;
     const res = await this.fetchFn(url, {
       method: 'POST',
-      headers: this.defaultHeaders,
+      headers: this.jsonHeaders,
       body: JSON.stringify(registration),
     });
 
@@ -129,13 +140,20 @@ export class RegistryClient implements ServiceResolver {
       });
 
       if (res.ok) {
-        const instances = (await res.json()) as InstanceInfo[];
-        const healthy = instances.filter((i) => i.healthy);
-        this.resolveCache.set(serviceName, { instances: healthy, fetchedAt: now });
-        return healthy;
+        // The registry answers `ResolveResponse`, not a bare array, and lists only healthy instances.
+        const { instances } = ResolveResponse.parse(await res.json());
+        this.resolveCache.set(serviceName, { instances, fetchedAt: now });
+        return instances;
       }
-    } catch {
-      // Registry call failed (network or server error)
+      this.options.logger?.warn(
+        { serviceName, status: res.status },
+        'registry resolve failed, using the fallback',
+      );
+    } catch (error) {
+      this.options.logger?.warn(
+        { serviceName, err: error instanceof Error ? error.message : String(error) },
+        'registry resolve failed, using the fallback',
+      );
     }
 
     // Fallback 1: return static URL if available in options.staticUrls
@@ -164,7 +182,8 @@ export class RegistryClient implements ServiceResolver {
 
   async pick(serviceName: ServiceName): Promise<InstanceInfo> {
     const instances = await this.resolve(serviceName);
-    const healthy = instances.filter((i) => i.healthy);
+    // The registry lists healthy instances only, so there is nothing left to filter.
+    const healthy = instances;
 
     if (healthy.length === 0) {
       throw new NoHealthyInstanceError(serviceName);

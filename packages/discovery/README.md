@@ -2,7 +2,7 @@
 
 Cliente de **Service Discovery** (documento de arquitectura, patrón 2). Las instancias de los servicios aparecen y desaparecen con el autoescalado, así que nadie "hardcodea" una dirección: cada servicio se **registra** en el Service Registry y quien necesita llamar a otro le **pregunta** por una instancia saludable.
 
-> **Estado:** API tipada y criterios de aceptación como pruebas pendientes. Implementación: **Área 1** (`docs/tasks/area-1-plataforma-y-borde.md`). El servidor es `services/registry`.
+> **Estado:** implementado (**Área 1**, `docs/tasks/area-1-plataforma-y-borde.md`). El servidor es `services/registry`.
 
 ## Qué ofrece
 
@@ -23,9 +23,15 @@ Cliente de **Service Discovery** (documento de arquitectura, patrón 2). Las ins
 
 > **Decisión:** el discovery lo hace el **Gateway** (el cliente solo conoce su URL), coherente con el diagrama de contenedores y los de secuencia. Ver `docs/adr/`.
 
+## Contrato con el registry
+
+- `resolve` lee la respuesta con el esquema `ResolveResponse` de `@gyde/contracts` (`{ serviceName, instances }`), no como un arreglo. El registry ya lista solo instancias saludables, así que el cliente no vuelve a filtrar.
+- `Content-Type: application/json` se envía solo cuando hay cuerpo (`register`). `heartbeat` y `deregister` no llevan cuerpo y Fastify responde `400` si el encabezado va sin él.
+- Pruebas contra el registry real: `services/registry/test/discovery-client.test.ts` (enruta el `fetch` del cliente a `app.inject`).
+
 ## Si el registry no responde
 
-El cliente cae a las URLs estáticas del entorno (`staticUrls`) para que el desarrollo local y un registry caído no detengan el sistema.
+El cliente cae a las URLs estáticas del entorno (`staticUrls`) para que el desarrollo local y un registry caído no detengan el sistema. El motivo (error de red, estado HTTP o forma inesperada de la respuesta) se registra con el `logger` opcional de `RegistryClient` (`warn`); sin él, el fallback sería silencioso.
 
 ## Criterios de aceptación
 

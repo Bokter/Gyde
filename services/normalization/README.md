@@ -75,6 +75,11 @@ El repositorio (`PostgresKnowledgeRepository`) vive en el schema `normalization`
 - Se aplican **al arrancar, antes de escuchar**, con el rol del servicio, y son idempotentes. Usamos un ejecutor propio (`infrastructure/db/migrate.ts`) en lugar del migrador de Drizzle porque este ejecuta `CREATE SCHEMA IF NOT EXISTS`, que el rol `normalization` no puede (no tiene `CREATE` sobre la base, por diseño). El ejecutor aplica todo bajo un candado consultivo (varias instancias a la vez no se pisan) y se niega a arrancar si una migración ya aplicada fue editada: crea una nueva en su lugar.
 - Las pruebas usan PGlite (PostgreSQL en memoria, sin Docker ni red) con las mismas migraciones.
 
+## Límites conocidos
+
+- **Avisos retirados.** Cuando una fuente retira un aviso (en OSV, el campo `withdrawn`), el adaptador **lo omite al ingerir y lo cuenta en `recordsSkipped`**, pero **no borra** la copia que ya se guardó antes: el puerto `KnowledgeRepository` no tiene operación de borrado. Mientras esa copia exista, `POST /internal/knowledge/query` la sigue devolviendo y Retrieval puede seguir marcando un aviso que la fuente ya reconoció como falso. Es una posible **fuente de falsos positivos**; la solución prevista es ampliar el puerto con un borrado (o con una marca de «retirado» que la consulta excluya) y que el adaptador la use.
+- **Dependencias.** Normalization solo depende de PostgreSQL y de las fuentes que ingiere (cada una detrás de su Circuit Breaker). **No llama a Reports ni a ningún otro servicio**: quien la consulta es Retrieval, así que si normalization cae, el análisis sigue con la última respuesta guardada o sin conocimiento (`partialSources`) y no depende de que Reports lo sepa.
+
 ## Configuración
 
 Ver `src/config.ts`. Las variables están documentadas en `.env.example` (`INGEST_*`, `OSV_API_URL`, `NVD_API_URL`, `NVD_API_KEY`, `GITHUB_TOKEN`, `NORMALIZATION_DATABASE_URL`, obligatoria para arrancar).

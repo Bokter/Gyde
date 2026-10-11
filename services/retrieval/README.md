@@ -89,3 +89,14 @@ La política es para un juego que se distribuye como **producto propietario**. L
 | `RETRIEVAL_PORT` | 4300 | Puerto |
 | `INTERNAL_SERVICE_TOKEN` | — | Obligatoria |
 | `NORMALIZATION_URL`, `LLM_ANALYSIS_URL`, `REPORTS_URL` | — | URLs estáticas de respaldo si el registry no resuelve (desarrollo local) |
+
+## Dependencia de Reports y límites conocidos
+
+Retrieval **no guarda estado**: lo que calcula solo existe hasta que Reports lo recibe.
+
+- **Si Reports no contesta**, el resultado determinístico se reintenta (3 intentos con espera corta, siempre detrás del breaker). Si sigue sin entregarse, se intenta avisar con un `AnalysisFailure` (`retrieval-error`) y, si tampoco se puede, queda **solo en el log** del servicio. Retrieval no se cae ni bloquea a nadie: responde `202` y trabaja en segundo plano.
+- **Un 4xx de Reports** (p. ej. `404` por un análisis que no existe) no se reintenta: reintentar fallaría igual.
+- **Un análisis puede quedarse en `retrieving`.** Reports solo arranca su temporizador (`REPORTS_AI_TIMEOUT_MS`) cuando el análisis pasa a `analyzing`. Si Retrieval aceptó la solicitud (`202`) pero no logra entregar ni el resultado ni el fallo —o el proceso se reinicia a mitad de trabajo—, Reports no recibe nada y el análisis queda en `retrieving` para siempre. Retrieval no puede resolverlo solo (no tiene dónde guardar el trabajo pendiente): hace falta un temporizador para el estado `retrieving` en Reports. **Pendiente del Área 4.**
+- **El análisis con IA depende de llm-analysis y de `web`** (este le entrega la configuración del tenant). Si llm-analysis no puede conseguirla, es él quien avisa a Reports; Retrieval solo avisa cuando **no logra llegar** a llm-analysis (`llm-unavailable`).
+- **Conocimiento retirado:** Retrieval consulta lo que normalization tiene guardado (ver el README de normalization sobre los avisos retirados).
+

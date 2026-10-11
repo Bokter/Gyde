@@ -10,7 +10,7 @@ WORKDIR /repo
 
 # Install dependencies only (cached layer)
 FROM base AS deps
-COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/contracts/package.json packages/contracts/
 COPY packages/design-tokens/package.json packages/design-tokens/
 COPY packages/service-kit/package.json packages/service-kit/
@@ -39,20 +39,20 @@ FROM base AS runner
 ENV NODE_ENV=production
 WORKDIR /app
 
-# Copy standalone output
-COPY --from=builder /repo/services/web/public ./public
+# Next standalone output keeps the monorepo layout: the server lives in /app/services/web, next to
+# the node_modules (pg included) that it traces. Everything below goes there too, so the entrypoint
+# and the migration runner resolve `pg` and the migrations folder from the same place.
 COPY --from=builder /repo/services/web/.next/standalone ./
-COPY --from=builder /repo/services/web/.next/static ./.next/static
+COPY --from=builder /repo/services/web/public ./services/web/public
+COPY --from=builder /repo/services/web/.next/static ./services/web/.next/static
 
-# Copy migrations for runtime execution
-COPY --from=builder /repo/services/web/drizzle ./drizzle
+# Migrations and the compiled runner (dist/migrate/migrate-cli.mjs) used by the entrypoint
+COPY --from=builder /repo/services/web/drizzle ./services/web/drizzle
+COPY --from=builder /repo/services/web/dist/migrate ./services/web/dist/migrate
 
-# Copy compiled migration runner
-COPY --from=builder /repo/services/web/dist/migrate ./dist/migrate
-
-# Copy entrypoint script
-COPY --from=builder /repo/services/web/docker-entrypoint.sh ./docker-entrypoint.sh
-RUN chmod +x ./docker-entrypoint.sh
+COPY --from=builder /repo/services/web/docker-entrypoint.sh ./services/web/docker-entrypoint.sh
+RUN chmod +x ./services/web/docker-entrypoint.sh
+WORKDIR /app/services/web
 
 EXPOSE 3000
 ENV PORT=3000

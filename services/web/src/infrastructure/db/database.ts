@@ -27,10 +27,11 @@ export const DATABASE = Symbol('DatabaseHandle');
 
 /**
  * Where drizzle-kit writes the SQL migrations (`services/web/drizzle`). The code runs
- * from `src/infrastructure/db/` (tests, tsx) and from the bundle `dist/main.js` (production).
+ * from `src/infrastructure/db/` (tests, tsx) and from the bundle `dist/migrate/migrate-cli.mjs`,
+ * where the Docker image keeps the folder at `../../drizzle`.
  */
 export function resolveMigrationsFolder(): string {
-  const candidates = ['../../../drizzle', '../drizzle'].map((relative) =>
+  const candidates = ['../../../drizzle', '../drizzle', '../../drizzle'].map((relative) =>
     fileURLToPath(new URL(relative, import.meta.url)),
   );
   const found = candidates.find((candidate) => existsSync(candidate));

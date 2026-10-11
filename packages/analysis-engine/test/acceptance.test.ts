@@ -67,7 +67,6 @@ describe('parsers (use fixtures/projects)', () => {
 
   it('CppDependencyParser reads plugins from the .uproject and modules from *.Build.cs', () => {});
   it('CppDependencyParser reads vcpkg.json / conanfile.txt when present', () => {});
-  it('detectGameEngine tells a Unity project from an Unreal one and fails clearly otherwise', () => {});
   it('parsers never read or return source code, only names, versions and licenses', async () => {
     const result = await parser.parseDependencies();
     const wire = JSON.stringify(result);

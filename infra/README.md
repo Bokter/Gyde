@@ -77,3 +77,7 @@ Cada servicio expone `GET /healthz` (vivo) y `GET /readyz` (listo).
 ## Contraseñas locales
 
 Los scripts de `postgres/init/` usan contraseñas de **desarrollo** (`change-me-*`) que coinciden con `.env.example`. No son secretos y **no** deben reutilizarse en ningún entorno compartido.
+
+## De dónde salen las variables
+
+Cada servicio recibe su configuración del `.env` de la raíz por `env_file`. Compose **no** lee ese archivo para interpolar `${VARIABLE:-valor}` en `compose.yaml`: esas expresiones se resuelven con el shell o con `infra/compose/.env`, y si no están, gana el valor por defecto. Por eso `${...:-...}` solo se usa para valores propios de compose (puertos publicados y los datos del contenedor de PostgreSQL). Un secreto, una URL de base de datos o un interruptor de un servicio no lleva valor por defecto en `compose.yaml`: se define en `.env.example` y llega por `env_file`.

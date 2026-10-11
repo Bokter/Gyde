@@ -1,5 +1,7 @@
-import type { Entitlements } from '@gyde/contracts';
+import type { Entitlements, Plan } from '@gyde/contracts';
+import { PLAN_CATALOG } from '@gyde/contracts';
 import type { ApiKeyRepository } from '../domain/repositories';
+import type { TenantRepository } from '@/modules/auth/application/ports/tenant-repository';
 
 export interface VerifyApiKeyResult {
   valid: true;
@@ -16,7 +18,10 @@ export interface VerifyApiKeyFailure {
 export type VerifyApiKeyOutput = VerifyApiKeyResult | VerifyApiKeyFailure;
 
 export class VerifyApiKey {
-  constructor(private readonly apiKeyRepository: ApiKeyRepository) {}
+  constructor(
+    private readonly apiKeyRepository: ApiKeyRepository,
+    private readonly tenantRepository: TenantRepository,
+  ) {}
 
   async execute(apiKey: string): Promise<VerifyApiKeyOutput> {
     // Extract prefix and hash the provided key
@@ -58,29 +63,18 @@ export class VerifyApiKey {
     await this.apiKeyRepository.updateLastUsedAt(storedKey.id);
 
     // Get entitlements based on tenant's plan
-    const entitlements = this.getEntitlements(storedKey.tenantId);
+    const tenant = await this.tenantRepository.findById(storedKey.tenantId);
+    if (!tenant) {
+      return { valid: false, reason: 'unknown' };
+    }
+
+    const entitlements = PLAN_CATALOG[tenant.plan as Plan];
 
     return {
       valid: true,
       tenantId: storedKey.tenantId,
       apiKeyId: storedKey.id,
       entitlements,
-    };
-  }
-
-  private getEntitlements(_tenantId: string): Entitlements {
-    // This would normally fetch from a tenant repository
-    // For now, return free plan entitlements as default
-    // The actual implementation will be wired with the tenant repository
-    return {
-      plan: 'free',
-      limits: { analysesPerMonth: 30, projects: 1 },
-      features: {
-        licenseCompliance: true,
-        compatibilityAnalysis: false,
-        severityScoring: true,
-        aiEnrichment: false,
-      },
     };
   }
 }

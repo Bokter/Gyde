@@ -84,12 +84,12 @@ catalogs:
     rxjs:
       specifier: ^7.8.2
       version: 7.8.2
-    stripe:
-      specifier: ^17.5.0
-      version: 17.7.0
     spdx-expression-parse:
       specifier: ^5.0.0
       version: 5.0.0
+    stripe:
+      specifier: ^17.5.0
+      version: 17.7.0
     tsup:
       specifier: ^8.5.1
       version: 8.5.1
@@ -696,6 +696,9 @@ importers:
       pg:
         specifier: 'catalog:'
         version: 8.23.1
+      pino:
+        specifier: 'catalog:'
+        version: 10.4.0
       react:
         specifier: 'catalog:'
         version: 19.3.0

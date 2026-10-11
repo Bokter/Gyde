@@ -30,6 +30,7 @@
     "next": "catalog:",
     "next-auth": "catalog:",
     "pg": "catalog:",
+    "pino": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "stripe": "catalog:",

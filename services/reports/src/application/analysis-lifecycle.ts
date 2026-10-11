@@ -12,14 +12,22 @@ import type {
   ReportSummary,
   SeverityCounts,
 } from '@gyde/contracts';
+import { HttpError } from '@gyde/service-kit';
 
 import { composeReport } from '../domain/report/compose-report';
 import type { ReportRepository, StoredAnalysis } from './ports/report-repository';
 import type { RetrievalClient } from './ports/retrieval-client';
 
+/** Where the watchdog reports its own failures. Kept minimal so `application` stays framework-free. */
+export interface LifecycleLogger {
+  error(message: string): void;
+}
+
 export interface AnalysisLifecycleDeps {
   repository: ReportRepository;
   retrieval: RetrievalClient;
+  /** Receives a watchdog failure (e.g. the repository being down when the timeout fires). */
+  logger?: LifecycleLogger;
   /** Injectable for tests. */
   now?: () => Date;
   newId?: () => string;
@@ -109,8 +117,10 @@ function toReport(stored: StoredAnalysis): Report {
  * - A report is `degraded` only when AI was expected and could not run.
  * - `partialSources` from Retrieval does NOT make a report degraded: it only means some knowledge
  *   sources were unavailable, but the deterministic findings are still valid.
+ * - Reading or recording an analysis that does not exist is a 404 (`HttpError('not_found')`), so
+ *   the gateway never turns a missing id into a 500.
  * - NOTE: the in-memory timer does not survive a service restart. A startup sweep that transitions
- *   stale `analyzing` jobs to `ready + degraded` is planned for PR E (PostgreSQL persistence).
+ *   stale `analyzing` jobs to `ready + degraded` is planned for PR H (PostgreSQL persistence).
  */
 export class AnalysisLifecycle {
   private readonly deps: AnalysisLifecycleDeps;
@@ -168,10 +178,14 @@ export class AnalysisLifecycle {
    * Called by Retrieval when the deterministic pass finishes.
    * - If AI was expected: moves to `analyzing` and starts the timeout watchdog.
    * - If AI was not expected: moves directly to `ready`.
+   * - A delivery that is no longer `retrieving` is a duplicate and is ignored: it must never
+   *   overwrite a result nor drag a finished analysis back into `analyzing`.
    */
   async recordDeterministic(result: DeterministicResult): Promise<void> {
     const stored = await this.deps.repository.get(result.analysisId);
-    if (!stored) throw new Error(`Analysis ${result.analysisId} not found`);
+    if (!stored) throw notFound(result.analysisId);
+
+    if (stored.status !== 'retrieving') return;
 
     if (stored.aiExpected) {
       await this.deps.repository.update({
@@ -197,7 +211,7 @@ export class AnalysisLifecycle {
    */
   async recordAi(result: AiResult): Promise<void> {
     const stored = await this.deps.repository.get(result.analysisId);
-    if (!stored) throw new Error(`Analysis ${result.analysisId} not found`);
+    if (!stored) throw notFound(result.analysisId);
 
     // Late delivery: the timeout already fired and the job is done.
     if (stored.status === 'ready' || stored.status === 'failed') return;
@@ -218,7 +232,7 @@ export class AnalysisLifecycle {
    */
   async recordFailure(failure: AnalysisFailure): Promise<void> {
     const stored = await this.deps.repository.get(failure.analysisId);
-    if (!stored) throw new Error(`Analysis ${failure.analysisId} not found`);
+    if (!stored) throw notFound(failure.analysisId);
 
     // Already done (timeout fired, duplicate delivery, etc.).
     if (stored.status === 'ready' || stored.status === 'failed') return;
@@ -246,18 +260,16 @@ export class AnalysisLifecycle {
 
   async getReport(analysisId: string): Promise<Report> {
     const stored = await this.deps.repository.get(analysisId);
-    if (!stored) {
-      throw new Error(`Analysis ${analysisId} was not found`);
-    }
+    if (!stored) throw notFound(analysisId);
     return toReport(stored);
   }
 
   /**
    * Fires after REPORTS_AI_TIMEOUT_MS: if the job is still `analyzing`, it transitions to
    * `ready + degraded(llm-unavailable)`.
-   * Errors are caught and logged so a broken repository cannot crash the process.
-   * NOTE: this timer lives in memory and does not survive a service restart. PR E will add a
-   * startup sweep that handles stale `analyzing` jobs when PostgreSQL persistence lands.
+   * Errors are caught and sent to the injected logger so a broken repository cannot crash the
+   * process. NOTE: this timer lives in memory and does not survive a service restart. PR H will
+   * add a startup sweep that handles stale `analyzing` jobs when PostgreSQL persistence lands.
    */
   private scheduleAiTimeout(analysisId: string): void {
     const schedule = this.deps.schedule ?? setTimeout;
@@ -281,8 +293,15 @@ export class AnalysisLifecycle {
         });
       } catch (err) {
         // Do not rethrow: a timer callback must not crash the process.
-        console.error(`[reports] AI timeout update failed for ${analysisId}:`, err);
+        this.deps.logger?.error(
+          `[reports] AI timeout update failed for ${analysisId}: ${err instanceof Error ? err.message : 'unknown error'}`,
+        );
       }
     }, ms);
   }
+}
+
+/** The analysis does not exist (yet): a 404 for the caller, never a 500. */
+function notFound(analysisId: string): HttpError {
+  return new HttpError('not_found', `Analysis ${analysisId} was not found`);
 }

@@ -34,8 +34,10 @@ retrieval-error ──▶ failed
 
 - Un reporte es **degradado** solo si se esperaba IA y no pudo correr (`llm-unavailable`, `llm-not-configured`, `llm-error`). Si el plan o el cliente no pidieron IA, **no** es degradado.
 - Nunca se queda colgado: si el resultado de IA no llega en `REPORTS_AI_TIMEOUT_MS`, pasa a `ready` y degradado (`llm-unavailable`).
-  > **Nota sobre el temporizador:** el temporizador en memoria no sobrevive a un reinicio del proceso; esta limitación se resuelve en el PR E con un barrido al arrancar cuando la persistencia en PostgreSQL esté conectada.
+  > **Nota sobre el temporizador:** el temporizador en memoria no sobrevive a un reinicio del proceso; esta limitación se resuelve en el PR H con un barrido al arrancar cuando la persistencia en PostgreSQL esté conectada.
 - Si Retrieval no responde al crear el trabajo, este queda `failed` con un error claro y el `202` se responde igualmente (el cliente lo ve en el `GET`).
+- Leer o registrar un análisis que **no existe** responde `404 not_found` (nunca un 500), igual para `GET`, `markdown` y los tres `POST` de resultados.
+- Un `deterministic` repetido (estado que ya no es `retrieving`) se **ignora**: no sobrescribe el resultado ni devuelve el análisis a `analyzing`.
 
 ## Formato del Markdown (`renderMarkdown`)
 

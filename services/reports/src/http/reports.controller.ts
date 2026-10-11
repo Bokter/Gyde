@@ -7,7 +7,8 @@ import {
 } from '@gyde/contracts';
 import type { AnalysisAccepted, Report } from '@gyde/contracts';
 import { ZodValidationPipe } from '@gyde/service-kit';
-import { Body, Controller, Get, Header, HttpCode, Inject, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Param, Post, Res } from '@nestjs/common';
+import type { FastifyReply } from 'fastify';
 
 import { ANALYSIS_LIFECYCLE } from '../application/analysis-lifecycle';
 import type { AnalysisLifecycle } from '../application/analysis-lifecycle';
@@ -36,10 +37,17 @@ export class ReportsController {
     return this.lifecycle.getReport(analysisId);
   }
 
+  /**
+   * The header is set only on the success path: with a `@Header` decorator Fastify would refuse
+   * to send the JSON error envelope of a missing analysis (it would answer 500 instead of 404).
+   */
   @Get(ROUTES.reports.getMarkdown)
-  @Header('Content-Type', 'text/markdown; charset=utf-8')
-  async getMarkdown(@Param('analysisId') analysisId: string): Promise<string> {
+  async getMarkdown(
+    @Param('analysisId') analysisId: string,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ): Promise<string> {
     const report = await this.lifecycle.getReport(analysisId);
+    reply.header('content-type', 'text/markdown; charset=utf-8');
     return renderMarkdown(report);
   }
 

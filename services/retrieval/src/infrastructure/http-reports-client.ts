@@ -1,7 +1,8 @@
 import { type AnalysisFailure, type DeterministicResult, ROUTES, buildPath } from '@gyde/contracts';
+import type { ResilientHttpClient } from '@gyde/service-kit';
 
 import type { ReportsClient } from '../application/ports/downstream';
-import type { InternalHttpClient } from './internal-http-client';
+import { ServiceUnavailableError, toUnavailable } from './unavailable';
 
 export interface HttpReportsClientOptions {
   /** Attempts per message: Reports may be restarting, and a lost result leaves the report waiting. */
@@ -18,7 +19,7 @@ export class HttpReportsClient implements ReportsClient {
   private readonly sleep: (ms: number) => Promise<void>;
 
   constructor(
-    private readonly client: InternalHttpClient,
+    private readonly http: ResilientHttpClient,
     options: HttpReportsClientOptions = {},
   ) {
     this.attempts = options.attempts ?? 3;
@@ -38,12 +39,13 @@ export class HttpReportsClient implements ReportsClient {
   private async post(path: string, body: unknown): Promise<void> {
     for (let attempt = 1; ; attempt++) {
       try {
-        await this.client.postJson('reports', path, body);
+        await this.http.postJson('reports', path, body);
         return;
       } catch (error) {
-        // Only an outage is worth retrying; a rejection (4xx) would fail the same way again.
-        const outage = error instanceof Error && error.name === 'ServiceUnavailableError';
-        if (!outage || attempt >= this.attempts) throw error;
+        const failure = toUnavailable('reports', error);
+        // Only an outage is worth retrying; a refusal (4xx) would fail the same way again.
+        const retry = failure instanceof ServiceUnavailableError && attempt < this.attempts;
+        if (!retry) throw failure;
         await this.sleep(BACKOFF_MS[Math.min(attempt - 1, BACKOFF_MS.length - 1)]!);
       }
     }

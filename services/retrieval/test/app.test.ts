@@ -1,5 +1,12 @@
-import { type Entitlements, HEADERS, PLAN_CATALOG } from '@gyde/contracts';
+import {
+  type Entitlements,
+  HEADERS,
+  type InstanceInfo,
+  PLAN_CATALOG,
+  type ServiceName,
+} from '@gyde/contracts';
 import { sampleAnalysisRequest } from '@gyde/contracts/samples';
+import { NoHealthyInstanceError, type ServiceResolver } from '@gyde/discovery';
 import { createLogger } from '@gyde/service-kit';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -24,17 +31,17 @@ afterEach(async () => {
 });
 
 /** A Retrieval wired to fake downstream services (the real HTTP adapters, breakers included). */
-async function start(services = new FakeServices(token)) {
+async function start(
+  services = new FakeServices(token),
+  extra: { resolver?: ServiceResolver; config?: typeof config } = {},
+) {
   const app = await createApp({
-    config,
+    config: extra.config ?? config,
     logger: createLogger({ name: 'retrieval-test', level: 'silent' }),
     module: {
       fetch: services.fetch,
       sleep: async () => undefined,
-      // Only the "5 failures in a row" rule opens a circuit in these tests: with the default
-      // 50 % rule, the breaker of @gyde/resilience opens on the very first failure (no minimum
-      // number of calls), which would hide what is being tested. See the PR notes for Area 1.
-      breakerOverrides: { failureRate: 2 },
+      ...(extra.resolver && { resolver: extra.resolver }),
     },
   });
   open.push(app);
@@ -383,5 +390,74 @@ describe('when Retrieval itself fails', () => {
     expect(services.failures[0]?.message).toBe(
       'Retrieval could not complete the deterministic analysis.',
     );
+  });
+});
+
+describe('service discovery', () => {
+  const instance = (serviceName: ServiceName, baseUrl: string): InstanceInfo => ({
+    instanceId: `${serviceName}-1`,
+    serviceName,
+    baseUrl,
+    version: '1.0.0',
+    healthy: true,
+    registeredAt: '2026-10-01T12:00:00Z',
+    lastHeartbeatAt: '2026-10-01T12:00:00Z',
+  });
+  const hosts: Partial<Record<ServiceName, string>> = {
+    normalization: HOSTS.normalization,
+    reports: HOSTS.reports,
+    'llm-analysis': HOSTS.llm,
+  };
+  const registry: ServiceResolver = {
+    resolve: async () => [],
+    pick: async (name) => {
+      const baseUrl = hosts[name];
+      if (!baseUrl) throw new NoHealthyInstanceError(name);
+      return instance(name, baseUrl);
+    },
+  };
+  const down: ServiceResolver = {
+    resolve: async () => [],
+    pick: async (name) => {
+      throw new NoHealthyInstanceError(name);
+    },
+  };
+  // Static URLs that lead nowhere: only a resolver can find the services.
+  const unreachableStatics = configSchema.parse({
+    INTERNAL_SERVICE_TOKEN: token,
+    NORMALIZATION_URL: 'http://static-normalization.invalid',
+    REPORTS_URL: 'http://static-reports.invalid',
+    LLM_ANALYSIS_URL: 'http://static-llm.invalid',
+  });
+
+  it('finds every service through discovery, ahead of the static URLs', async () => {
+    const services = new FakeServices(token);
+    const { retrieve } = await start(services, { resolver: registry, config: unreachableStatics });
+    await retrieve(pro);
+
+    expect(services.deterministicResults).toHaveLength(1);
+    expect(services.deterministicResults[0]?.partialSources).toBe(false);
+    expect(services.llmRequests).toHaveLength(1);
+    expect(services.calls.every((call) => call.service !== ('unknown' as never))).toBe(true);
+  });
+
+  it('falls back to the static URLs when the registry has no healthy instance', async () => {
+    const services = new FakeServices(token);
+    const { retrieve } = await start(services, { resolver: down });
+    await retrieve(pro);
+
+    expect(services.deterministicResults).toHaveLength(1);
+    expect(services.deterministicResults[0]?.partialSources).toBe(false);
+  });
+
+  it('with neither discovery nor static URLs, normalization counts as unavailable and Reports is the one left unreachable', async () => {
+    const services = new FakeServices(token);
+    const nothing = configSchema.parse({ INTERNAL_SERVICE_TOKEN: token });
+    const { retrieve } = await start(services, { resolver: down, config: nothing });
+    const res = await retrieve(pro, noAi);
+
+    // The answer is still 202: nothing here can block the caller, and nobody can be told.
+    expect(res.statusCode).toBe(202);
+    expect(services.calls).toEqual([]);
   });
 });

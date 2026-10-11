@@ -38,7 +38,7 @@ Viven como **módulos de este servicio** (no como tres microservicios), comparti
 src/domain/analyzers/    BaseAnalyzer (hecho) · vulnerabilities/ (hecho) · licenses/ (hecho) · compatibility/
 src/domain/versions/     comparación de versiones por ecosistema y rangos afectados (puro)
 src/application/         RetrieveEvidence, BackgroundJobs y puertos: KnowledgeSource, ReportsClient, LlmClient
-src/infrastructure/      InternalHttpClient (breaker por dependencia), ServiceLocator (discovery + `*_URL`) y los adaptadores HTTP hacia normalization, reports y llm-analysis
+src/infrastructure/      adaptadores HTTP hacia normalization, reports y llm-analysis sobre `ResilientHttpClient` (discovery + `*_URL`, breaker por dependencia)
 src/http/                controlador NestJS de `POST /internal/retrieve`
 src/app.module.ts        composition root: enlaza puertos con adaptadores (ADR 0011)
 ```
@@ -57,7 +57,7 @@ Los criterios de aceptación pendientes (`CompatibilityAnalyzer`) están como `i
 
 ## Llamadas salientes
 
-Toda llamada pasa por `InternalHttpClient`: un **Circuit Breaker por dependencia** (`CB_*`), la dirección sale del `ServiceLocator` (discovery primero; las `NORMALIZATION_URL`, `LLM_ANALYSIS_URL` y `REPORTS_URL` solo como respaldo mientras el cliente del registry no esté conectado) y se envía `x-internal-token`. Una caída (red, tiempo agotado, 5xx, circuito abierto) es `ServiceUnavailableError`; un 4xx es `ServiceRejectedError` y no cuenta como fallo del servicio.
+Toda llamada pasa por el `ResilientHttpClient` de `@gyde/service-kit`: la dirección sale de **discovery** (`REGISTRY_URL`; las `NORMALIZATION_URL`, `LLM_ANALYSIS_URL` y `REPORTS_URL` solo como respaldo cuando el registry no responde o no hay instancia sana, y las únicas que se usan si `REGISTRY_URL` no está definida), hay un **Circuit Breaker por dependencia** (`CB_*`) y se envía `x-internal-token`. Los adaptadores traducen lo que lanza el cliente: una **caída** (sin instancia, circuito abierto, tiempo agotado, red, 5xx) es `ServiceUnavailableError`; un **4xx** (`HttpError`) es un rechazo, no cuenta como caída del servicio y no se reintenta.
 
 ## Cruce de vulnerabilidades
 
@@ -88,6 +88,7 @@ La política es para un juego que se distribuye como **producto propietario**. L
 |---|---|---|
 | `RETRIEVAL_PORT` | 4300 | Puerto |
 | `INTERNAL_SERVICE_TOKEN` | — | Obligatoria |
+| `REGISTRY_URL` | — | El Service Registry (discovery). Sin ella solo se usan las URLs estáticas |
 | `NORMALIZATION_URL`, `LLM_ANALYSIS_URL`, `REPORTS_URL` | — | URLs estáticas de respaldo si el registry no resuelve (desarrollo local) |
 
 ## Dependencia de Reports y límites conocidos

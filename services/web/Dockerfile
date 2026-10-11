@@ -10,7 +10,7 @@ WORKDIR /repo
 
 # Install dependencies only (cached layer)
 FROM base AS deps
-COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/contracts/package.json packages/contracts/
 COPY packages/design-tokens/package.json packages/design-tokens/
 COPY packages/service-kit/package.json packages/service-kit/

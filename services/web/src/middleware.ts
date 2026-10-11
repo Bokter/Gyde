@@ -3,7 +3,7 @@ export const runtime = 'nodejs';
 import { auth } from '@/modules/auth/infrastructure/auth.config';
 import { NextResponse } from 'next/server';
 
-const publicPaths = ['/', '/auth/login', '/api/auth'];
+const publicPaths = ['/', '/auth/login', '/api/auth', '/healthz'];
 
 export default auth((req) => {
   const { nextUrl } = req;

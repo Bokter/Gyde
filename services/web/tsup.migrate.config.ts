@@ -7,5 +7,6 @@ export default {
   dts: false,
   sourcemap: false,
   clean: true,
+  noExternal: ['drizzle-orm', 'drizzle-orm/pg-core'],
   external: ['pg'],
 };

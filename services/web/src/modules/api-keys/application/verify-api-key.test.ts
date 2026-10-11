@@ -312,4 +312,79 @@ describe('VerifyApiKey - security tests with fake repositories', () => {
       expect(createdCall.keyHash).not.toMatch(/^gyde_live_/);
     });
   });
+
+  describe('RevokeApiKey - tenant isolation', () => {
+    it("returns NOT_FOUND when revoking another tenant's key", async () => {
+      const { RevokeApiKey } = await import('./revoke-api-key');
+
+      const tenantA = makeTestTenant({ id: 'tenant-a', plan: 'pro' });
+      const _tenantB = makeTestTenant({ id: 'tenant-b', plan: 'free' });
+
+      const plainKey = 'gyde_live_tenantakey1234567890123456';
+      const keyHash = sha256Hex(plainKey);
+
+      const apiKeyTenantA = makeTestApiKey({
+        id: 'api-key-a',
+        tenantId: tenantA.id,
+        keyHash,
+      });
+
+      const fakeApiKeyRepo: ApiKeyRepository = {
+        findByTenantId: vi.fn(),
+        findById: vi.fn(async (id: string) => {
+          return id === apiKeyTenantA.id ? apiKeyTenantA : null;
+        }),
+        findByKeyHash: vi.fn(),
+        create: vi.fn(),
+        update: vi.fn(),
+        revoke: vi.fn(),
+        updateLastUsedAt: vi.fn(),
+      };
+
+      const revokeApiKey = new RevokeApiKey(fakeApiKeyRepo);
+
+      // Tenant B tries to revoke Tenant A's key
+      await expect(revokeApiKey.execute(apiKeyTenantA.id, _tenantB.id)).rejects.toThrow(
+        'NOT_FOUND',
+      );
+
+      // Verify the key was not revoked
+      expect(fakeApiKeyRepo.revoke).not.toHaveBeenCalled();
+    });
+
+    it('allows tenant to revoke their own key', async () => {
+      const { RevokeApiKey } = await import('./revoke-api-key');
+
+      const tenantA = makeTestTenant({ id: 'tenant-a', plan: 'pro' });
+
+      const plainKey = 'gyde_live_tenantakey1234567890123456';
+      const keyHash = sha256Hex(plainKey);
+
+      const apiKeyTenantA = makeTestApiKey({
+        id: 'api-key-a',
+        tenantId: tenantA.id,
+        keyHash,
+      });
+
+      const fakeApiKeyRepo: ApiKeyRepository = {
+        findByTenantId: vi.fn(),
+        findById: vi.fn(async (id: string) => {
+          return id === apiKeyTenantA.id ? apiKeyTenantA : null;
+        }),
+        findByKeyHash: vi.fn(),
+        create: vi.fn(),
+        update: vi.fn(),
+        revoke: vi.fn(),
+        updateLastUsedAt: vi.fn(),
+      };
+
+      const revokeApiKey = new RevokeApiKey(fakeApiKeyRepo);
+
+      // Tenant A revokes their own key
+      await expect(revokeApiKey.execute(apiKeyTenantA.id, tenantA.id)).resolves.toBeUndefined();
+
+      // Verify the key was revoked
+      expect(fakeApiKeyRepo.revoke).toHaveBeenCalledWith(apiKeyTenantA.id);
+    });
+  });
 });

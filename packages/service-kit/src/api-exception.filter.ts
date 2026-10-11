@@ -47,6 +47,19 @@ export class ApiExceptionFilter implements ExceptionFilter {
         envelope(exception.code, exception.message, request.id, exception.details),
       );
     }
+    if (
+      (exception as Error)?.name === 'NoHealthyInstanceError' ||
+      (exception as Error)?.name === 'CircuitOpenError'
+    ) {
+      return send(
+        503,
+        envelope(
+          'upstream_unavailable',
+          (exception as Error).message || 'Upstream service unavailable',
+          request.id,
+        ),
+      );
+    }
     if (exception instanceof ZodError) {
       return send(
         400,

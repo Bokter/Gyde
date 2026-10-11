@@ -311,6 +311,12 @@ importers:
       '@gyde/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@gyde/discovery':
+        specifier: workspace:*
+        version: link:../discovery
+      '@gyde/resilience':
+        specifier: workspace:*
+        version: link:../resilience
       '@nestjs/common':
         specifier: 'catalog:'
         version: 12.1.2(reflect-metadata@0.2.2)(rxjs@7.8.2)

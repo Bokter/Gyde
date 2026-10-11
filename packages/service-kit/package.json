@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@gyde/contracts": "workspace:*",
+    "@gyde/discovery": "workspace:*",
+    "@gyde/resilience": "workspace:*",
     "@nestjs/common": "catalog:",
     "@nestjs/core": "catalog:",
     "@nestjs/platform-fastify": "catalog:",

@@ -7,3 +7,6 @@ export const APP_CONFIG = Symbol('APP_CONFIG');
 
 /** Options of the health module (service identity and readiness checks). */
 export const HEALTH_OPTIONS = Symbol('HEALTH_OPTIONS');
+
+/** Service identity metadata (name and version) supplied to createService. */
+export const SERVICE_METADATA = Symbol('SERVICE_METADATA');

@@ -77,7 +77,19 @@ export async function startService(
           (config['INTERNAL_SERVICE_TOKEN'] as string | undefined) ??
           process.env['INTERNAL_SERVICE_TOKEN'];
 
-        if (baseUrl && (explicit?.client || (registryUrl && internalToken))) {
+        if (!baseUrl || (!explicit?.client && (!registryUrl || !internalToken))) {
+          const missing = [
+            !baseUrl && 'SERVICE_BASE_URL',
+            !explicit?.client && !registryUrl && 'REGISTRY_URL',
+            !explicit?.client && !internalToken && 'INTERNAL_SERVICE_TOKEN',
+          ]
+            .filter(Boolean)
+            .join(', ');
+          log.warn(
+            { serviceName, missing },
+            'auto-registration skipped: missing required variables',
+          );
+        } else {
           const instanceId =
             explicit?.instanceId ??
             (config['INSTANCE_ID'] as string | undefined) ??

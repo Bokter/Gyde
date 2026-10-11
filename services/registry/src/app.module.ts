@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { APP_CONFIG } from '@gyde/service-kit';
 
 import { DEREGISTER_INSTANCE, DeregisterInstance } from './application/deregister-instance';
@@ -75,6 +75,7 @@ export class AppModule {
               instanceTtlMs: config.INSTANCE_TTL_MS,
               fetch: overrides.fetch,
               now: overrides.now,
+              logger: new Logger('HealthChecker'),
             }),
           inject: [REGISTRY_REPOSITORY, APP_CONFIG],
         },

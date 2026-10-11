@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOutAction } from './actions/auth';
+import styles from './layout.module.css';
 
 const navigation = [
   { name: 'Panel', href: '/dashboard', icon: HomeIcon },
@@ -15,6 +16,8 @@ function HomeIcon({ className }: { className?: string }) {
   return (
     <svg
       className={className}
+      width={20}
+      height={20}
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"
@@ -34,6 +37,8 @@ function KeyIcon({ className }: { className?: string }) {
   return (
     <svg
       className={className}
+      width={20}
+      height={20}
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"
@@ -53,6 +58,8 @@ function CreditCardIcon({ className }: { className?: string }) {
   return (
     <svg
       className={className}
+      width={20}
+      height={20}
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"
@@ -72,6 +79,8 @@ function BrainIcon({ className }: { className?: string }) {
   return (
     <svg
       className={className}
+      width={20}
+      height={20}
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"
@@ -91,56 +100,48 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
 
   return (
-    <div className="min-h-screen bg-[var(--gyde-color-bg-canvas)]">
-      <header className="border-b border-[var(--gyde-color-border-subtle)] bg-[var(--gyde-color-bg-surface)] sticky top-0 z-40">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center gap-8">
-              <Link
-                href="/dashboard"
-                className="text-xl font-bold text-[var(--gyde-color-fg-brand)]"
-              >
-                Gyde
-              </Link>
-              <nav className="hidden md:flex items-center gap-1" aria-label="Navegación principal">
-                {navigation.map((item) => {
-                  const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-                  return (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                        isActive
-                          ? 'bg-[var(--gyde-color-bg-brand-subtle)] text-[var(--gyde-color-fg-brand)]'
-                          : 'text-[var(--gyde-color-fg-muted)] hover:text-[var(--gyde-color-fg-default)] hover:bg-[var(--gyde-color-bg-brand-subtle)]'
-                      }`}
-                      aria-current={isActive ? 'page' : undefined}
-                    >
-                      <item.icon className="h-5 w-5" />
-                      {item.name}
-                    </Link>
-                  );
-                })}
-              </nav>
-            </div>
-            <div className="flex items-center gap-4">
-              <SignOutButton />
-            </div>
-          </div>
+    <div className={styles.shell}>
+      <a href="#contenido" className={styles.skipLink}>
+        Saltar al contenido
+      </a>
+      <header className={styles.header}>
+        <div className={styles.bar}>
+          <Link href="/dashboard" className={styles.brand}>
+            Gyde
+          </Link>
+          <nav className={styles.nav} aria-label="Navegación principal">
+            {navigation.map((item) => {
+              const isActive =
+                item.href === '/dashboard'
+                  ? pathname === item.href
+                  : pathname === item.href || pathname.startsWith(item.href + '/');
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={styles.navLink}
+                  aria-current={isActive ? 'page' : undefined}
+                >
+                  <item.icon className={styles.navIcon} />
+                  {item.name}
+                </Link>
+              );
+            })}
+          </nav>
+          <SignOutButton />
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">{children}</main>
+      <main id="contenido" className={styles.main}>
+        {children}
+      </main>
     </div>
   );
 }
 
 function SignOutButton() {
   return (
-    <form action={signOutAction}>
-      <button
-        type="submit"
-        className="rounded-lg border border-[var(--gyde-color-border-control)] px-3 py-1.5 text-sm font-medium text-[var(--gyde-color-fg-muted)] hover:text-[var(--gyde-color-fg-default)] hover:bg-[var(--gyde-color-bg-brand-subtle)] transition-colors"
-      >
+    <form action={signOutAction} className={styles.signOut}>
+      <button type="submit" className={styles.signOutButton}>
         Cerrar sesión
       </button>
     </form>

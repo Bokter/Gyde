@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/modules/auth/infrastructure/auth.config';
 import { createApiKey, listApiKeys } from '@/modules/api-keys/infrastructure/composition-root';
+import { toApiKeyView } from '@/modules/api-keys/application/api-key-view';
 import { z } from 'zod';
 import pino from 'pino';
 
@@ -47,18 +48,8 @@ export async function GET() {
 
   const apiKeys = await listApiKeys.execute(tenant.id);
 
-  return NextResponse.json({
-    apiKeys: apiKeys.map((k) => ({
-      id: k.id,
-      prefix: k.prefix,
-      keyLast4: k.keyLast4,
-      name: k.name,
-      environment: k.environment,
-      expiresAt: k.expiresAt?.toISOString() ?? null,
-      createdAt: k.createdAt.toISOString(),
-      revokedAt: k.revokedAt?.toISOString() ?? null,
-    })),
-  });
+  const now = new Date();
+  return NextResponse.json({ apiKeys: apiKeys.map((k) => toApiKeyView(k, now)) });
 }
 
 export async function POST(request: NextRequest) {
@@ -92,16 +83,7 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(
-      {
-        id: result.apiKey.id,
-        prefix: result.apiKey.prefix,
-        keyLast4: result.apiKey.keyLast4,
-        name: result.apiKey.name,
-        environment: result.apiKey.environment,
-        expiresAt: result.apiKey.expiresAt?.toISOString() ?? null,
-        createdAt: result.apiKey.createdAt.toISOString(),
-        plainKey: result.plainKey,
-      },
+      { ...toApiKeyView(result.apiKey), plainKey: result.plainKey },
       { status: 201 },
     );
   } catch (error) {

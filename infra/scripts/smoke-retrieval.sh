@@ -1,35 +1,44 @@
 #!/usr/bin/env bash
-# Smoke test of the knowledge path, end to end, on the real stack:
+# Smoke test of the analysis path, end to end, on the real stack (no stand-ins):
 #
-#   PostgreSQL -> normalization (ingest the OSV fixtures) -> retrieval (POST /internal/retrieve)
-#   -> the deterministic result Retrieval publishes to Reports
+#   PostgreSQL -> normalization (ingest the OSV fixtures)
+#   Reports (POST /internal/analyses) -> retrieval -> [llm-analysis] -> Reports (GET .../:id = ready)
 #
-# Reports is replaced by a stand-in that records what it receives (its endpoints are not built
-# yet), see infra/scripts/smoke/. It checks the exact result written in fixtures/README.md:
-# one finding for Acme.Serialization (SAMPLE-0001), the license finding of Acme.GplToolkit,
-# nothing for SAMPLE-0002 / SAMPLE-0003, and the same answer when asked twice.
+# Three cases, each checked against the exact result of fixtures/README.md (one finding for
+# Acme.Serialization by SAMPLE-0001, the license finding of Acme.GplToolkit, nothing for
+# SAMPLE-0002 / SAMPLE-0003, always in that order):
+#   1. Free plan, no AI            -> ready, NOT degraded
+#   2. Pro plan, AI, mock enabled  -> ready, NOT degraded, every finding has an aiExplanation
+#   3. Pro plan, AI, llm-analysis stopped -> ready, degraded with llm-unavailable
 #
 #   bash infra/scripts/smoke-retrieval.sh
 #   KEEP_STACK=1 bash infra/scripts/smoke-retrieval.sh     leave the containers running
 #
-# Needs Docker and Node. It creates .env (with generated local secrets) if there is none.
+# Needs Docker and Node. It creates .env (with generated local secrets) if there is none, and
+# needs LLM_MOCK_ENABLED=true in it (the default of .env.example). llm-analysis asks `web` for the
+# tenant's LLM settings, so `web` is started too.
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 
+export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-gyde-smoke}"
 NORMALIZATION="http://localhost:${NORMALIZATION_PORT:-4200}"
 RETRIEVAL="http://localhost:${RETRIEVAL_PORT:-4300}"
-REPORTS_STUB="http://localhost:${SMOKE_REPORTS_PORT:-4590}"
+REPORTS="http://localhost:${REPORTS_PORT:-4500}"
+LLM_ANALYSIS="http://localhost:${LLM_ANALYSIS_PORT:-4400}"
+WEB="http://localhost:${WEB_PORT:-3000}"
 
 [ -f .env ] || node infra/scripts/bootstrap-env.mjs
 TOKEN="$(grep '^INTERNAL_SERVICE_TOKEN=' .env | cut -d= -f2-)"
 
-# --env-file: the compose file lives in infra/compose, so without it the variables of the root
-# .env would not reach the ${...} defaults of the compose file.
-COMPOSE=(docker compose --env-file .env -f infra/compose/compose.yaml -f infra/scripts/smoke/compose.smoke.yaml)
-
 step() { printf '\n== %s\n' "$1"; }
 fail() { printf '\nSMOKE TEST FAILED: %s\n' "$1" >&2; exit 1; }
+
+grep -q '^LLM_MOCK_ENABLED=true' .env || fail "set LLM_MOCK_ENABLED=true in .env (the AI case runs on the mock)"
+
+# --env-file: the compose file lives in infra/compose, so without it the variables of the root
+# .env would not reach the ${...} defaults of the compose file.
+COMPOSE=(docker compose --env-file .env -f infra/compose/compose.yaml)
 
 cleanup() {
   if [ "${KEEP_STACK:-0}" != "1" ]; then "${COMPOSE[@]}" down >/dev/null 2>&1 || true; fi
@@ -44,14 +53,18 @@ wait_for() { # url, label
   fail "$2 did not become ready ($1)"
 }
 
-step "Starting postgres, registry, normalization, retrieval and the Reports stand-in"
-"${COMPOSE[@]}" up -d --build postgres registry normalization retrieval reports-stub >/dev/null
+auth=(-H "x-internal-token: $TOKEN")
+json=(-H 'content-type: application/json')
+
+step "Starting postgres, registry, normalization, retrieval, reports, llm-analysis and web"
+"${COMPOSE[@]}" up -d --build postgres registry normalization retrieval reports llm-analysis web >/dev/null
 wait_for "$NORMALIZATION/readyz" "normalization (readyz: the database must answer)"
 wait_for "$RETRIEVAL/healthz" "retrieval"
-wait_for "$REPORTS_STUB/healthz" "the Reports stand-in"
+wait_for "$REPORTS/healthz" "reports"
+wait_for "$LLM_ANALYSIS/healthz" "llm-analysis"
+wait_for "$WEB/healthz" "web"
 
 step "Ingesting the OSV fixtures (twice: the second run must change nothing)"
-auth=(-H "x-internal-token: $TOKEN")
 first="$(curl -sf -X POST "${auth[@]}" "$NORMALIZATION/internal/ingest/osv")"
 second="$(curl -sf -X POST "${auth[@]}" "$NORMALIZATION/internal/ingest/osv")"
 echo "first : $first"
@@ -64,8 +77,7 @@ node -e '
 ' "$first" "$second" || fail "unexpected ingestion counts"
 
 step "Asking normalization for the sample packages"
-candidates="$(curl -sf -X POST "${auth[@]}" -H 'content-type: application/json' \
-  "$NORMALIZATION/internal/knowledge/query" \
+candidates="$(curl -sf -X POST "${auth[@]}" "${json[@]}" "$NORMALIZATION/internal/knowledge/query" \
   -d '{"packages":[{"ecosystem":"nuget","name":"Acme.Serialization","version":"1.4.0"}]}')"
 node -e '
   const ids = JSON.parse(process.argv[1]).objects.map((object) => object.id);
@@ -74,65 +86,80 @@ node -e '
   if (JSON.stringify(ids) !== JSON.stringify(["osv:SAMPLE-0001", "osv:SAMPLE-0003"])) process.exit(1);
 ' "$candidates" || fail "normalization returned the wrong candidates"
 
-request_for() { # analysis id
+# The body of POST /internal/analyses for the shared sample project (the one the fixtures are
+# written for), built from @gyde/contracts inside the dev image.
+job_for() { # plan, ai|noai
   "${COMPOSE[@]}" exec -T retrieval pnpm --filter @gyde/retrieval exec \
-    tsx ../../infra/scripts/smoke/make-request.ts "$1" | tail -n 1
+    tsx ../../infra/scripts/smoke/make-job.ts "$1" "$2" | tail -n 1
 }
 
-retrieve() { # analysis id
-  local body code
-  body="$(request_for "$1")"
-  code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "${auth[@]}" \
-    -H 'content-type: application/json' "$RETRIEVAL/internal/retrieve" -d "$body")"
-  [ "$code" = "202" ] || fail "POST /internal/retrieve answered $code, expected 202"
-}
-
-published() { # analysis id -> the deterministic result Retrieval published, or empty
-  for _ in $(seq 1 30); do
-    local found
-    found="$(curl -sf "$REPORTS_STUB/captured" | node -e '
-      let text = "";
-      process.stdin.on("data", (chunk) => (text += chunk)).on("end", () => {
-        const url = `/internal/analyses/${process.argv[1]}/deterministic`;
-        const hit = JSON.parse(text).find((call) => call.url === url);
-        if (hit) console.log(JSON.stringify(hit));
-      });
-    ' "$1")"
-    if [ -n "$found" ]; then printf '%s' "$found"; return 0; fi
+# Creates an analysis in Reports and waits until it is ready; prints the report as JSON.
+run_analysis() { # plan, ai|noai
+  local created id report
+  created="$(curl -sf -X POST "${auth[@]}" "${json[@]}" "$REPORTS/internal/analyses" -d "$(job_for "$1" "$2")")" \
+    || fail "POST /internal/analyses was refused ($1, $2)"
+  id="$(node -e 'console.log(JSON.parse(process.argv[1]).analysisId)' "$created")"
+  for _ in $(seq 1 90); do
+    report="$(curl -sf "${auth[@]}" "$REPORTS/internal/analyses/$id")"
+    if [ "$(node -e 'console.log(JSON.parse(process.argv[1]).status)' "$report")" = "ready" ]; then
+      printf '%s' "$report"
+      return 0
+    fi
     sleep 1
   done
-  return 1
+  fail "the analysis $id never reached ready ($1, $2)"
 }
 
-step "POST /internal/retrieve with the sample request (twice)"
-retrieve smoke-1
-retrieve smoke-2
-one="$(published smoke-1)" || fail "Retrieval never published the result of smoke-1 to Reports"
-two="$(published smoke-2)" || fail "Retrieval never published the result of smoke-2 to Reports"
+# Checks one report. expectations: <degraded true|false> <degradedReason|none> <ai yes|no>
+check_report() { # label, report, degraded, reason, ai
+  node -e '
+    const [label, text, degraded, reason, ai] = process.argv.slice(1);
+    const report = JSON.parse(text);
+    const titles = report.findings.map((finding) => finding.title);
+    console.log(`${label}: status=${report.status} degraded=${report.degraded} reason=${report.degradedReason ?? "-"}`);
+    console.log(titles.map((title) => "  - " + title).join("\n"));
+    console.log("  layers:", report.appliedLayers.join(", "));
 
-step "Checking the exact result of fixtures/README.md"
+    const expected = [
+      "Acme.Serialization 1.4.0 is affected by SAMPLE-0001",
+      "Acme.GplToolkit is GPL-3.0-only: review compatibility with proprietary distribution",
+    ];
+    const problems = [];
+    if (report.status !== "ready") problems.push("not ready");
+    if (JSON.stringify(titles) !== JSON.stringify(expected)) problems.push("findings differ from the expected ones, or their order");
+    if (/SAMPLE-0002|SAMPLE-0003/.test(JSON.stringify(report.findings))) problems.push("a finding mentions SAMPLE-0002 or SAMPLE-0003");
+    const vulnerability = report.findings[0];
+    if (vulnerability?.severity !== "high" || vulnerability?.cvss !== 7.5) problems.push("SAMPLE-0001 is not high / CVSS 7.5");
+    if (String(report.degraded) !== degraded) problems.push(`degraded is ${report.degraded}, expected ${degraded}`);
+    if (reason !== "none" && report.degradedReason !== reason) problems.push(`degradedReason is ${report.degradedReason}, expected ${reason}`);
+    if (reason === "none" && report.degradedReason) problems.push(`unexpected degradedReason ${report.degradedReason}`);
+    const explained = report.findings.every((finding) => typeof finding.aiExplanation === "string" && finding.aiExplanation.length > 0);
+    const anyExplained = report.findings.some((finding) => finding.aiExplanation);
+    if (ai === "yes" && !explained) problems.push("a finding has no aiExplanation");
+    if (ai === "yes" && !report.appliedLayers.includes("ai-enrichment")) problems.push("the ai-enrichment layer was not applied");
+    if (ai === "no" && anyExplained) problems.push("a finding has an aiExplanation although the AI did not run");
+    if (!report.appliedLayers.includes("license-compliance")) problems.push("the license-compliance layer was not applied");
+    if (problems.length > 0) { console.error(problems.join("\n")); process.exit(1); }
+  ' "$@"
+}
+
+step "Case 1: Free plan, no AI (ready, not degraded)"
+free_one="$(run_analysis free noai)"
+check_report "free" "$free_one" false none no || fail "case 1"
+
+step "Case 1 again: the same request must give the same findings in the same order"
+free_two="$(run_analysis free noai)"
 node -e '
-  const [one, two] = process.argv.slice(1).map((text) => JSON.parse(text));
-  const result = one.body;
-  const titles = result.findings.map((finding) => finding.title);
-  console.log(titles.map((title) => "  - " + title).join("\n"));
+  const findings = (text) => JSON.stringify(JSON.parse(text).findings);
+  if (findings(process.argv[1]) !== findings(process.argv[2])) process.exit(1);
+' "$free_one" "$free_two" || fail "the second run did not give the same findings"
+echo "identical findings"
 
-  const expected = [
-    "Acme.Serialization 1.4.0 is affected by SAMPLE-0001",
-    "Acme.GplToolkit is GPL-3.0-only: review compatibility with proprietary distribution",
-  ];
-  const problems = [];
-  if (JSON.stringify(titles) !== JSON.stringify(expected)) problems.push("findings differ from the expected ones, or their order");
-  if (/SAMPLE-0002|SAMPLE-0003/.test(JSON.stringify(result))) problems.push("a finding mentions SAMPLE-0002 or SAMPLE-0003");
-  const vulnerability = result.findings[0];
-  if (vulnerability?.severity !== "high" || vulnerability?.cvss !== 7.5) problems.push("SAMPLE-0001 is not high / CVSS 7.5");
-  if (result.partialSources !== false) problems.push("partialSources is not false");
-  if (!one.hasInternalToken) problems.push("Retrieval did not send the internal token to Reports");
-  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-  const strip = (body) => ({ ...body, analysisId: "same" });
-  if (!same(strip(one.body), strip(two.body))) problems.push("the second run did not give the same result");
+step "Case 2: Pro plan, AI requested, llm-analysis on the mock (ready, not degraded, explained)"
+check_report "pro+ai" "$(run_analysis pro ai)" false none yes || fail "case 2"
 
-  if (problems.length > 0) { console.error(problems.join("\n")); process.exit(1); }
-' "$one" "$two" || fail "the published result is not the expected one"
+step "Case 3: Pro plan, AI requested, llm-analysis stopped (ready, degraded: llm-unavailable)"
+"${COMPOSE[@]}" stop llm-analysis >/dev/null
+check_report "pro+ai, llm down" "$(run_analysis pro ai)" true llm-unavailable no || fail "case 3"
 
 printf '\nSMOKE TEST PASSED\n'

@@ -1,8 +1,14 @@
-import type { ReportLayer } from '@gyde/contracts';
+import type { AiResult, DeterministicResult, Finding, Report, ReportLayer } from '@gyde/contracts';
+import { PLAN_CATALOG } from '@gyde/contracts';
 import { sampleLicenseFinding, sampleVulnerabilityFinding } from '@gyde/contracts/samples';
 import { describe, expect, it } from 'vitest';
 
 import { BasicAnalysisReport } from '../src/domain/report/basic-analysis-report';
+import { AiEnrichmentDecorator } from '../src/domain/report/decorators/ai-enrichment.decorator';
+import { LicenseComplianceDecorator } from '../src/domain/report/decorators/license-compliance.decorator';
+import { SeverityScoreDecorator } from '../src/domain/report/decorators/severity-score.decorator';
+import { composeReport } from '../src/domain/report/compose-report';
+import { renderMarkdown } from '../src/domain/report/render-markdown';
 import type { ReportComponent, ReportContent } from '../src/domain/report/report-component';
 import { ReportDecorator } from '../src/domain/report/report-decorator';
 
@@ -78,20 +84,214 @@ describe('Decorator pattern (reports)', () => {
   });
 });
 
-/** Acceptance criteria for Area 4. Turn each `it.todo` into a real test as you build it. */
+/** Acceptance criteria for Area 4. */
 describe('concrete decorators and composeReport', () => {
-  it.todo(
-    'SeverityScoreDecorator computes riskScore (0-100) from severity and CVSS, deterministically',
-  );
-  it.todo('SeverityScoreDecorator runs last so the score covers the layers before it');
-  it.todo(
-    'LicenseComplianceDecorator adds the compliance view for conflicting or unknown licenses',
-  );
-  it.todo(
-    'AiEnrichmentDecorator merges explanations by finding id and honors the AI priority order',
-  );
-  it.todo('AiEnrichmentDecorator leaves findings untouched when the AI result has no matching id');
-  it.todo('composeReport: free plan = basic + license + severity, never the AI layer');
-  it.todo('composeReport: pro and studio plans add the AI layer only when an AiResult is present');
-  it.todo('renderMarkdown shows a degraded banner explaining what is missing and why');
+  it('SeverityScoreDecorator computes riskScore (0-100) from severity and CVSS, deterministically', () => {
+    // sampleVulnerabilityFinding: severity=high, cvss=7.5
+    // sampleLicenseFinding: severity=medium, cvss=undefined
+    const base = new BasicAnalysisReport(findings);
+    const decorated = new SeverityScoreDecorator(base);
+    const content = decorated.generateContent();
+
+    expect(content.riskScore).toBeGreaterThanOrEqual(0);
+    expect(content.riskScore).toBeLessThanOrEqual(100);
+    expect(typeof content.riskScore).toBe('number');
+    expect(content.appliedLayers).toContain('severity-score');
+
+    // Determinism: same input → same output
+    expect(decorated.generateContent().riskScore).toBe(content.riskScore);
+
+    // Sanity: mixed high+medium should produce a mid-range score (not 0, not 100)
+    expect(content.riskScore).toBeGreaterThan(0);
+    expect(content.riskScore).toBeLessThan(100);
+  });
+
+  it('SeverityScoreDecorator runs last so the score covers the layers before it', () => {
+    // The score must be based on all findings in the chain, including ones added by prior decorators.
+    const criticalFinding: Finding = {
+      ...sampleVulnerabilityFinding,
+      id: 'finding-critical-1',
+      severity: 'critical',
+      cvss: 10,
+    };
+    const mixedFindings = [sampleVulnerabilityFinding, criticalFinding]; // high + critical
+
+    const baseWithMixed = new BasicAnalysisReport(mixedFindings);
+
+    // Severity last
+    const scoreOfMixed = new SeverityScoreDecorator(baseWithMixed).generateContent().riskScore!;
+    // Severity second-to-last (simulated via TagDecorator adding no new findings)
+    const tagFirst = new TagDecorator(baseWithMixed, 'license-compliance', 'L');
+    const scoreAfterTag = new SeverityScoreDecorator(tagFirst).generateContent().riskScore!;
+
+    // Both should be the same (TagDecorator doesn't add findings, just tags titles)
+    // The important check: severity-score is in the appliedLayers at the end
+    const layers = new SeverityScoreDecorator(
+      new TagDecorator(baseWithMixed, 'license-compliance', 'L'),
+    ).generateContent().appliedLayers;
+
+    expect(layers[layers.length - 1]).toBe('severity-score');
+    expect(scoreOfMixed).toBeGreaterThan(0);
+    expect(scoreAfterTag).toBe(scoreOfMixed);
+  });
+
+  it('LicenseComplianceDecorator adds the compliance view for conflicting or unknown licenses', () => {
+    // sampleLicenseFinding has no `impact` field (only recommendation set)
+    const findingWithoutImpact: Finding = { ...sampleLicenseFinding, impact: undefined };
+    const base = new BasicAnalysisReport([findingWithoutImpact]);
+    const content = new LicenseComplianceDecorator(base).generateContent();
+
+    expect(content.appliedLayers).toContain('license-compliance');
+
+    const licenseFinding = content.findings.find((f) => f.kind === 'license');
+    expect(licenseFinding).toBeDefined();
+    // Impact was missing; decorator should fill it defensively
+    expect(licenseFinding!.impact).toBeTruthy();
+    // Recommendation was already set; decorator must not overwrite it
+    expect(licenseFinding!.recommendation).toBe(findingWithoutImpact.recommendation);
+
+    // Non-license findings are untouched
+    const vuln = new BasicAnalysisReport([sampleVulnerabilityFinding]);
+    const vulnContent = new LicenseComplianceDecorator(vuln).generateContent();
+    expect(vulnContent.findings[0]).toEqual(sampleVulnerabilityFinding);
+  });
+
+  it('AiEnrichmentDecorator merges explanations by finding id and honors the AI priority order', () => {
+    // AI lists license finding FIRST (higher AI priority), then vulnerability
+    const aiResult: AiResult = {
+      analysisId: 'a-1',
+      findings: [
+        {
+          ...sampleLicenseFinding,
+          aiExplanation: 'GPL can conflict with commercial distribution.',
+        },
+        {
+          ...sampleVulnerabilityFinding,
+          aiExplanation: 'Update to patch the deserialization bug.',
+        },
+      ],
+    };
+
+    const base = new BasicAnalysisReport(findings); // vuln first, license second
+    const content = new AiEnrichmentDecorator(base, aiResult).generateContent();
+
+    expect(content.appliedLayers).toContain('ai-enrichment');
+
+    // AI order: license (index 0) then vuln (index 1)
+    expect(content.findings[0]!.id).toBe(sampleLicenseFinding.id);
+    expect(content.findings[0]!.aiExplanation).toBe(
+      'GPL can conflict with commercial distribution.',
+    );
+    expect(content.findings[1]!.id).toBe(sampleVulnerabilityFinding.id);
+    expect(content.findings[1]!.aiExplanation).toBe('Update to patch the deserialization bug.');
+  });
+
+  it('AiEnrichmentDecorator leaves findings untouched when the AI result has no matching id', () => {
+    const aiResult: AiResult = {
+      analysisId: 'a-1',
+      findings: [
+        {
+          ...sampleVulnerabilityFinding,
+          id: 'non-existent-id',
+          aiExplanation: 'This id does not match any deterministic finding.',
+        },
+      ],
+    };
+
+    const base = new BasicAnalysisReport(findings);
+    const content = new AiEnrichmentDecorator(base, aiResult).generateContent();
+
+    // AI finding id was hallucinated; both original findings come through unmodified
+    expect(content.findings).toHaveLength(2);
+    expect(content.findings[0]).toEqual(sampleVulnerabilityFinding);
+    expect(content.findings[1]).toEqual(sampleLicenseFinding);
+    expect(content.findings[0]!.aiExplanation).toBeUndefined();
+  });
+
+  it('composeReport: free plan = basic + license + severity, never the AI layer', () => {
+    const deterministic: DeterministicResult = {
+      analysisId: 'a-1',
+      findings,
+      evidence: [],
+      coverage: { vulnerabilities: true, compatibility: false, licenses: true },
+      partialSources: false,
+    };
+    const aiResult: AiResult = { analysisId: 'a-1', findings: [] };
+
+    const component = composeReport({
+      deterministic,
+      ai: aiResult, // present, but free plan must ignore it
+      entitlements: PLAN_CATALOG.free,
+    });
+    const content = component.generateContent();
+
+    expect(content.appliedLayers).toContain('basic');
+    expect(content.appliedLayers).toContain('license-compliance');
+    expect(content.appliedLayers).toContain('severity-score');
+    expect(content.appliedLayers).not.toContain('ai-enrichment');
+    // severity-score is last
+    expect(content.appliedLayers[content.appliedLayers.length - 1]).toBe('severity-score');
+  });
+
+  it('composeReport: pro and studio plans add the AI layer only when an AiResult is present', () => {
+    const deterministic: DeterministicResult = {
+      analysisId: 'a-1',
+      findings,
+      evidence: [],
+      coverage: { vulnerabilities: true, compatibility: true, licenses: true },
+      partialSources: false,
+    };
+
+    // Pro WITHOUT ai → no ai-enrichment layer
+    const withoutAi = composeReport({ deterministic, entitlements: PLAN_CATALOG.pro });
+    const layersWithoutAi = withoutAi.generateContent().appliedLayers;
+    expect(layersWithoutAi).not.toContain('ai-enrichment');
+
+    // Pro WITH ai → ai-enrichment layer present, before severity-score
+    const aiResult: AiResult = { analysisId: 'a-1', findings: [] };
+    const withAi = composeReport({ deterministic, ai: aiResult, entitlements: PLAN_CATALOG.pro });
+    const layersWithAi = withAi.generateContent().appliedLayers;
+    expect(layersWithAi).toContain('ai-enrichment');
+    expect(layersWithAi[layersWithAi.length - 1]).toBe('severity-score');
+
+    // Studio behaves the same as pro
+    const studioWithAi = composeReport({
+      deterministic,
+      ai: aiResult,
+      entitlements: PLAN_CATALOG.studio,
+    });
+    expect(studioWithAi.generateContent().appliedLayers).toContain('ai-enrichment');
+  });
+
+  it('renderMarkdown shows a degraded banner explaining what is missing and why', () => {
+    const report: Report = {
+      id: 'analysis-0002',
+      status: 'ready',
+      createdAt: '2026-10-11T12:00:00Z',
+      completedAt: '2026-10-11T12:00:15Z',
+      degraded: true,
+      degradedReason: 'llm-not-configured',
+      appliedLayers: ['basic', 'license-compliance', 'severity-score'],
+      summary: {
+        counts: { critical: 0, high: 1, medium: 1, low: 0, info: 0 },
+        riskScore: 45,
+      },
+      findings: [sampleVulnerabilityFinding, sampleLicenseFinding],
+    };
+
+    const md = renderMarkdown(report);
+
+    // Must contain the degraded banner
+    expect(md).toContain('Reporte degradado');
+    // Reason in Spanish for llm-not-configured
+    expect(md).toContain('clave LLM del estudio no configurada');
+    // The deterministic findings are valid note
+    expect(md).toContain('determinísticos');
+    // riskScore present in summary (layer ran)
+    expect(md).toContain('45/100');
+    // License compliance section present
+    expect(md).toContain('Cumplimiento de licencias');
+    // analysis id in title
+    expect(md).toContain('analysis-0002');
+  });
 });

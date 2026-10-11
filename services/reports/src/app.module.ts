@@ -13,6 +13,8 @@ import type { Config } from './config';
 export interface AppModuleOverrides {
   repository?: ReportRepository;
   retrieval?: RetrievalClient;
+  /** Injectable for tests to simulate or suppress the AI timeout. */
+  schedule?: (fn: () => void, ms: number) => void;
 }
 
 /**
@@ -42,9 +44,14 @@ export class AppModule {
         },
         {
           provide: ANALYSIS_LIFECYCLE,
-          useFactory: (repository: ReportRepository, retrieval: RetrievalClient) =>
-            new AnalysisLifecycle({ repository, retrieval }),
-          inject: [REPORT_REPOSITORY, RETRIEVAL_CLIENT],
+          useFactory: (repository: ReportRepository, retrieval: RetrievalClient, config: Config) =>
+            new AnalysisLifecycle({
+              repository,
+              retrieval,
+              aiTimeoutMs: config.REPORTS_AI_TIMEOUT_MS,
+              schedule: overrides.schedule,
+            }),
+          inject: [REPORT_REPOSITORY, RETRIEVAL_CLIENT, APP_CONFIG],
         },
       ],
       exports: [ANALYSIS_LIFECYCLE],

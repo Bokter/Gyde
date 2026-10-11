@@ -9,6 +9,7 @@ export interface HealthCheckerOptions {
   instanceTtlMs: number;
   fetch?: typeof fetch;
   now?: () => number;
+  logger?: { warn: (obj: unknown, msg?: string) => void };
 }
 
 export const HEALTH_CHECKER = Symbol('HealthChecker');
@@ -87,7 +88,9 @@ export class HealthChecker implements OnModuleInit, OnModuleDestroy {
   start(): void {
     if (this.timer) return;
     this.timer = setInterval(() => {
-      this.runOnce().catch(() => {});
+      this.runOnce().catch((error) => {
+        this.options.logger?.warn({ err: error }, 'health check probe run failed');
+      });
     }, this.options.intervalMs);
   }
 

@@ -7,7 +7,8 @@ Arranque común de los servicios del backend, para que los seis arranquen igual 
 | Pieza | Para qué |
 |---|---|
 | `createService(AppModule, opciones)` | Crea la aplicación NestJS: id de petición (`x-request-id`), **filtro global** que convierte cualquier error en el sobre estándar (`ApiError`), `/healthz` (liveness), `/readyz` (readiness con chequeos propios), logger que censura secretos y la guarda del token interno |
-| `startService(app, opciones)` | Escucha y apaga ordenadamente con SIGTERM/SIGINT; ganchos `onReady` / `onShutdown` |
+| `startService(app, opciones)` | Escucha, auto-registra la instancia en el Service Registry (`startRegistration`), y apaga ordenadamente con SIGTERM/SIGINT desregistrándola; ganchos `onReady` / `onShutdown` |
+| `ResilientHttpClient(opciones)` | Cliente HTTP resiliente para comunicación entre servicios: resolución vía `RegistryClient`, Circuit Breaker por dependencia (`createBreakerFromEnv`), soporte de caché local (`FallbackCache`), respaldo a `*_URL` estáticas, propagación de `x-request-id` y `x-internal-token`. Lanza `NoHealthyInstanceError` (traducido a 503 `upstream_unavailable`) |
 | `ZodValidationPipe(esquema)` | Valida una parte de la petición con un esquema de `@gyde/contracts`: `@Body(new ZodValidationPipe(Esquema))` (400 con la ruta que falla). Reemplaza a los DTO con class-validator |
 | `notImplemented(método, ruta)` | El cuerpo de un controlador que ya está en el contrato pero no se construye todavía: responde `501 not_implemented` |
 | `HttpError` | Lánzalo desde un controlador o adaptador: el filtro global lo convierte en la respuesta con el código y estado correctos |
@@ -15,6 +16,7 @@ Arranque común de los servicios del backend, para que los seis arranquen igual 
 | `loadConfig()` / `baseEnv` | Variables de entorno validadas con zod; falla al arrancar con un mensaje legible |
 | `createLogger()` | Logger JSON (pino) que **censura secretos**: `apiKey`, `authorization`, `token`, `password`, `secret`… También recibe los logs internos de NestJS |
 | `APP_CONFIG` | Token de inyección de la configuración validada (se pasa con `config` a `createService`) |
+| `SERVICE_METADATA` | Token de inyección con el nombre y versión del servicio (`{ name, version }`) |
 | `requireInternalToken()` | La comparación en tiempo constante del token interno, por si necesitas comprobarlo a mano |
 
 ## Cómo luce un servicio
@@ -55,10 +57,67 @@ const app = await createService(AppModule, {
   config,
   internalToken: config.INTERNAL_SERVICE_TOKEN, // guarda todo /internal/*, incluso rutas inexistentes
 });
+
+// startService realiza el auto-registro en el Service Registry automáticamente si
+// SERVICE_BASE_URL, REGISTRY_URL e INTERNAL_SERVICE_TOKEN están definidos en config.
 await startService(app, { port: config.REPORTS_PORT });
 ```
 
-En las pruebas no se escucha en un puerto: `const app = await createService(...)`, `app.inject({ method: 'GET', url: '/healthz' })` y `afterAll(() => app.close())`.
+## Cliente HTTP Resiliente (`ResilientHttpClient`)
+
+Para llamar a otros servicios (por ejemplo, desde el gateway hacia `web` o `reports`, o desde `retrieval` hacia `normalization`), utiliza `ResilientHttpClient`:
+
+```ts
+import { ResilientHttpClient } from '@gyde/service-kit';
+import { RegistryClient } from '@gyde/discovery';
+
+// 1. Instancia el RegistryClient y el ResilientHttpClient
+const registryClient = new RegistryClient({
+  registryUrl: config.REGISTRY_URL,
+  internalToken: config.INTERNAL_SERVICE_TOKEN,
+});
+
+const httpClient = new ResilientHttpClient({
+  serviceName: 'gateway',
+  resolver: registryClient,
+  internalToken: config.INTERNAL_SERVICE_TOKEN,
+  fallbackUrls: {
+    reports: config.REPORTS_URL,
+    web: config.WEB_URL,
+  },
+});
+
+// 2. Realiza peticiones tipadas propagando x-request-id
+const jobResult = await httpClient.postJson('reports', '/internal/analyses', jobPayload, {
+  requestId: req.id,
+});
+
+// 3. O realiza llamadas fetch directas (cuando necesitas inspeccionar status o headers)
+const response = await httpClient.fetch('web', '/internal/api-keys/verify', {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ apiKey }),
+  requestId: req.id,
+});
+```
+
+### Comportamiento y Resiliencia
+
+1. **Resolución dinámica**: Consulta `RegistryClient.pick(serviceName)`. Si el registry está caído o no conoce la instancia, recurre a `fallbackUrls` (las `*_URL` estáticas del compose).
+2. **Error controlado**: Si ninguna instancia sana responde, lanza `NoHealthyInstanceError`, que `ApiExceptionFilter` traduce automáticamente a `503 upstream_unavailable`.
+3. **Circuit Breaker**: Cada dependencia tiene su propio Circuit Breaker (`caller->target`) configurado mediante las variables `CB_*`. Tras fallas consecutivas o tasa de error superada, el circuito se abre y protege al sistema.
+4. **Caché de respaldo (`FallbackCache`)**: Si se pasa un `FallbackCache`, las respuestas válidas se almacenan y pueden servirse cuando la dependencia se caiga.
+5. **Propagación de contexto**: Inyecta automáticamente `x-internal-token` y `x-request-id`.
+
+## Variables de entorno de auto-registro
+
+| Variable | Tipo | Descripción |
+|---|---|---|
+| `SERVICE_BASE_URL` | URL | URL alcanzable de esta instancia en la red interna (ej. `http://reports:4500`). |
+| `INSTANCE_ID` | String | Identificador único de la instancia (ej. `reports-1`). Por defecto genera `${serviceName}-${uuid}`. |
+| `REGISTRY_URL` | URL | Dirección del Service Registry (ej. `http://registry:4100`). |
+| `INTERNAL_SERVICE_TOKEN` | String | Token secreto compartido para autenticación entre servicios (`x-internal-token`). |
+| `HEARTBEAT_INTERVAL_MS` | Number | Intervalo de latidos de vida (por defecto `10000` ms). |
 
 ## Reglas
 
@@ -67,4 +126,4 @@ En las pruebas no se escucha en un puerto: `const app = await createService(...)
 - `domain/` y `application/` **no importan NestJS** (ESLint lo impone): los casos de uso son clases normales que se construyen con `useFactory` en `app.module.ts`.
 - Los servicios con rutas `/internal/*` pasan `internalToken` y esas rutas **no** se exponen en el gateway. El registry guarda `/v1/*` con `internalPrefixes: ['/v1/']`.
 - Los endpoints que trabajan en segundo plano responden `@HttpCode(202)` de inmediato.
-- El auto-registro en el Service Registry se enchufa en `startService({ onReady, onShutdown })` cuando exista `@gyde/discovery` (tarea del Área 1).
+- El auto-registro en el Service Registry se realiza automáticamente en `startService` cuando `SERVICE_BASE_URL` está configurado.

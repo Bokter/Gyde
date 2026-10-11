@@ -11,7 +11,7 @@ import { HealthModule } from './health.module';
 import { internalTokenHook } from './internal-auth';
 import type { Logger } from './logger';
 import { PinoNestLogger } from './nest-logger';
-import { APP_CONFIG } from './tokens';
+import { APP_CONFIG, SERVICE_METADATA } from './tokens';
 
 export interface ServiceOptions {
   /** Service name, e.g. "gateway". Shown in health checks and logs. */
@@ -36,11 +36,14 @@ export interface ServiceOptions {
 @Global()
 @Module({})
 class ServiceKitModule {
-  static register(config: unknown): DynamicModule {
+  static register(config: unknown, metadata: { name: string; version: string }): DynamicModule {
     return {
       module: ServiceKitModule,
-      providers: [{ provide: APP_CONFIG, useValue: config }],
-      exports: [APP_CONFIG],
+      providers: [
+        { provide: APP_CONFIG, useValue: config },
+        { provide: SERVICE_METADATA, useValue: metadata },
+      ],
+      exports: [APP_CONFIG, SERVICE_METADATA],
     };
   }
 }
@@ -80,7 +83,7 @@ export async function createService(
     {
       module: RootModule,
       imports: [
-        ServiceKitModule.register(config),
+        ServiceKitModule.register(config, { name, version }),
         HealthModule.register({ name, version, readiness }),
         appModule,
       ],

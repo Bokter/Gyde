@@ -5,6 +5,7 @@ export {
   type RegistrationOptions,
 } from './registration';
 export {
+  type DiscoveryLogger,
   RegistryClient,
   type RegistryClientOptions,
   type ServiceResolver,

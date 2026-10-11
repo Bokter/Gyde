@@ -33,7 +33,8 @@ retrieval-error ──▶ failed
 ```
 
 - Un reporte es **degradado** solo si se esperaba IA y no pudo correr (`llm-unavailable`, `llm-not-configured`, `llm-error`). Si el plan o el cliente no pidieron IA, **no** es degradado.
-- Nunca se queda colgado: si el resultado de IA no llega en `REPORTS_AI_TIMEOUT_MS`, pasa a `ready` y degradado.
+- Nunca se queda colgado: si el resultado de IA no llega en `REPORTS_AI_TIMEOUT_MS`, pasa a `ready` y degradado (`llm-unavailable`).
+  > **Nota sobre el temporizador:** el temporizador en memoria no sobrevive a un reinicio del proceso; esta limitación se resuelve en el PR E con un barrido al arrancar cuando la persistencia en PostgreSQL esté conectada.
 - Si Retrieval no responde al crear el trabajo, este queda `failed` con un error claro y el `202` se responde igualmente (el cliente lo ve en el `GET`).
 
 ## Formato del Markdown (`renderMarkdown`)
@@ -41,7 +42,8 @@ retrieval-error ──▶ failed
 1. Título con el id del análisis y la fecha.
 2. Aviso de **degradado** (solo si lo es): qué falta (la explicación de IA) y por qué (`llm-unavailable`, `llm-not-configured` o `llm-error`), y que los hallazgos siguen siendo válidos.
 3. Resumen: conteo por severidad y `riskScore` (si la capa de severidad corrió).
-4. Hallazgos ordenados por severidad (luego CVSS): cada uno con título, paquete y versión, **evidencia**, **impacto** y **recomendación**, y su explicación de IA cuando exista.
+4. Sección "Cumplimiento de licencias" (si la capa de licencias corrió): agrupa los hallazgos `kind='license'` (conflictivas y desconocidas).
+5. Hallazgos ordenados por severidad (luego CVSS; si corrió IA, se respeta el orden de prioridad de `AiResult` primero): cada uno con título, paquete y versión, **evidencia**, **impacto**, **recomendación**, y su explicación de IA cuando exista.
 
 ## API interna
 
@@ -49,18 +51,18 @@ retrieval-error ──▶ failed
 |---|---|---|---|
 | `POST /internal/analyses` | `CreateAnalysisJob` | `202 AnalysisAccepted` | **en vivo** |
 | `GET /internal/analyses/:analysisId` | — | `Report` | **en vivo** |
-| `GET /internal/analyses/:analysisId/markdown` | — | `text/markdown` | stub 501 |
-| `POST /internal/analyses/:analysisId/deterministic` | `DeterministicResult` | `204` (desde Retrieval) | stub 501 |
-| `POST /internal/analyses/:analysisId/ai-result` | `AiResult` | `204` (desde llm-analysis) | stub 501 |
-| `POST /internal/analyses/:analysisId/failure` | `AnalysisFailure` | `204` | stub 501 |
+| `GET /internal/analyses/:analysisId/markdown` | — | `text/markdown` | **en vivo** |
+| `POST /internal/analyses/:analysisId/deterministic` | `DeterministicResult` | `204` (desde Retrieval) | **en vivo** |
+| `POST /internal/analyses/:analysisId/ai-result` | `AiResult` | `204` (desde llm-analysis) | **en vivo** |
+| `POST /internal/analyses/:analysisId/failure` | `AnalysisFailure` | `204` | **en vivo** |
 
 ## Estructura
 
 ```
-src/domain/report/       Decorator (hecho) y composeReport, decoradores, renderMarkdown (TODO)
-src/application/         AnalysisLifecycle (create/get hechos; record* TODO) y puertos
+src/domain/report/       Decorator (base, decoradores concretos, composeReport, renderMarkdown)
+src/application/         AnalysisLifecycle (create, get, recordDeterministic, recordAi, recordFailure)
 src/infrastructure/      InMemoryReportRepository y HttpRetrievalClient (con breaker)
-src/http/                controlador NestJS (create/get en vivo; resto stubs 501)
+src/http/                controlador NestJS (todos los endpoints activos)
 src/app.module.ts        composition root: enlaza puertos con adaptadores (ADR 0011)
 ```
 

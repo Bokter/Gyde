@@ -1,4 +1,4 @@
-import { HEADERS, type ServiceName } from '@gyde/contracts';
+import { HEADERS, type ErrorCode, type ServiceName } from '@gyde/contracts';
 import { NoHealthyInstanceError, type ServiceResolver } from '@gyde/discovery';
 import {
   CircuitBreaker,
@@ -63,6 +63,18 @@ export interface ResilientRequestOptions extends Omit<RequestInit, 'body'> {
  * 4. Perform HTTP fetch, propagating `x-request-id` and `x-internal-token`.
  * 5. On failure or when the circuit is open, return cached response from FallbackCache if available.
  */
+/** Maps an HTTP status code to the closest `ErrorCode` for `HttpError`. */
+function statusToCode(status: number): ErrorCode {
+  if (status === 401) return 'unauthorized';
+  if (status === 403) return 'forbidden';
+  if (status === 404) return 'not_found';
+  if (status === 409) return 'conflict';
+  if (status === 429) return 'rate_limited';
+  if (status === 503) return 'upstream_unavailable';
+  if (status >= 400 && status < 500) return 'invalid_request';
+  return 'internal';
+}
+
 export class ResilientHttpClient {
   private readonly breakers = new Map<ServiceName, CircuitBreaker>();
   private readonly fetchFn: typeof fetch;
@@ -212,10 +224,7 @@ export class ResilientHttpClient {
     const res = await this.fetch(service, path, { ...options, method: 'GET' });
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      throw new HttpError(
-        res.status === 503 ? 'upstream_unavailable' : 'internal',
-        `${service} returned ${res.status}: ${text}`,
-      );
+      throw new HttpError(statusToCode(res.status), `${service} returned ${res.status}: ${text}`);
     }
     return res.json() as Promise<T>;
   }
@@ -243,10 +252,7 @@ export class ResilientHttpClient {
 
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      throw new HttpError(
-        res.status === 503 ? 'upstream_unavailable' : 'internal',
-        `${service} returned ${res.status}: ${text}`,
-      );
+      throw new HttpError(statusToCode(res.status), `${service} returned ${res.status}: ${text}`);
     }
 
     const text = await res.text();

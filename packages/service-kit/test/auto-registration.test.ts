@@ -106,4 +106,47 @@ describe('startService auto-registration', () => {
 
     await app.close();
   });
+
+  it('logs a warning with the missing variable name when SERVICE_BASE_URL is absent', async () => {
+    const warnCalls: unknown[] = [];
+
+    const app = await createService(SampleModule, {
+      name: 'reports',
+      logger: createLogger({ name: 'test', level: 'silent' }),
+    });
+
+    // Intercept warn on the underlying Fastify logger (pino instance)
+    const fastifyLog = app.getHttpAdapter().getInstance().log as {
+      warn: (...args: unknown[]) => void;
+    };
+    const original = fastifyLog.warn.bind(fastifyLog);
+    fastifyLog.warn = (...args: unknown[]) => {
+      warnCalls.push(args);
+      original(...args);
+    };
+
+    await startService(app, {
+      port: 0,
+      registration: {
+        serviceName: 'reports',
+        baseUrl: '', // empty → falsy → triggers the missing-var warn
+        registryUrl: 'http://registry:4100',
+        internalToken: 'secret',
+      },
+      onReady: async () => {},
+    });
+
+    const skippedWarn = warnCalls.find((args) => {
+      const obj = (args as unknown[])[0];
+      return (
+        typeof obj === 'object' &&
+        obj !== null &&
+        'missing' in obj &&
+        String((obj as { missing: unknown }).missing).includes('SERVICE_BASE_URL')
+      );
+    });
+    expect(skippedWarn).toBeDefined();
+
+    await app.close();
+  });
 });

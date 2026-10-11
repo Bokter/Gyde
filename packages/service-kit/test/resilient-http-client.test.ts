@@ -301,7 +301,7 @@ describe('ResilientHttpClient', () => {
     expect(getResult).toEqual({ details: 'ok' });
   });
 
-  it('getJson throws HttpError on non-ok status', async () => {
+  it('getJson throws HttpError with not_found code on 404', async () => {
     const resolver = new FakeResolver();
     resolver.setInstances('reports', [
       {
@@ -321,6 +321,63 @@ describe('ResilientHttpClient', () => {
 
     const client = new ResilientHttpClient({ resolver, fetch: fakeFetch });
 
-    await expect(client.getJson('reports', '/analyses/999')).rejects.toThrow(HttpError);
+    const err = await client.getJson('reports', '/analyses/999').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(HttpError);
+    expect((err as HttpError).code).toBe('not_found');
+    expect((err as HttpError).status).toBe(404);
+  });
+
+  it('getJson throws HttpError with unauthorized code on 401', async () => {
+    const resolver = new FakeResolver();
+    resolver.setInstances('web', [
+      {
+        instanceId: 'web-1',
+        serviceName: 'web',
+        baseUrl: 'http://web:3000',
+        version: '0.0.0',
+        healthy: true,
+        registeredAt: new Date().toISOString(),
+        lastHeartbeatAt: new Date().toISOString(),
+      },
+    ]);
+
+    const fakeFetch: typeof fetch = (async () => {
+      return new Response(JSON.stringify({ error: 'invalid key' }), { status: 401 });
+    }) as typeof fetch;
+
+    const client = new ResilientHttpClient({ resolver, fetch: fakeFetch });
+
+    const err = await client.getJson('web', '/internal/api-keys/verify').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(HttpError);
+    expect((err as HttpError).code).toBe('unauthorized');
+    expect((err as HttpError).status).toBe(401);
+  });
+
+  it('postJson throws HttpError with forbidden code on 403', async () => {
+    const resolver = new FakeResolver();
+    resolver.setInstances('web', [
+      {
+        instanceId: 'web-1',
+        serviceName: 'web',
+        baseUrl: 'http://web:3000',
+        version: '0.0.0',
+        healthy: true,
+        registeredAt: new Date().toISOString(),
+        lastHeartbeatAt: new Date().toISOString(),
+      },
+    ]);
+
+    const fakeFetch: typeof fetch = (async () => {
+      return new Response(JSON.stringify({ error: 'forbidden' }), { status: 403 });
+    }) as typeof fetch;
+
+    const client = new ResilientHttpClient({ resolver, fetch: fakeFetch });
+
+    const err = await client
+      .postJson('web', '/some/endpoint', { data: 1 })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(HttpError);
+    expect((err as HttpError).code).toBe('forbidden');
+    expect((err as HttpError).status).toBe(403);
   });
 });

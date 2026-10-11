@@ -1,4 +1,11 @@
 {
   "extends": "../../tooling/tsconfig/node.json",
-  "include": ["src", "test", "tsup.config.ts", "vitest.config.ts", "drizzle.config.ts"]
+  "include": [
+    "src",
+    "test",
+    "tsup.config.ts",
+    "vitest.config.ts",
+    "drizzle.config.ts",
+    "../../packages/*/src"
+  ]
 }

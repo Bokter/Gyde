@@ -23,6 +23,9 @@ export interface LifecycleLogger {
   error(message: string): void;
 }
 
+/** Which watchdog is being scheduled, so a test double can react only to the one it cares about. */
+export type TimerName = 'ai' | 'retrieval';
+
 export interface AnalysisLifecycleDeps {
   repository: ReportRepository;
   retrieval: RetrievalClient;
@@ -36,9 +39,11 @@ export interface AnalysisLifecycleDeps {
    * Pass a synchronous fake that immediately executes fn() to simulate a timeout firing,
    * or a no-op to skip it entirely. Defaults to global setTimeout.
    */
-  schedule?: (fn: () => void, ms: number) => void;
+  schedule?: (fn: () => void, ms: number, timer?: TimerName) => void;
   /** Read from config.REPORTS_AI_TIMEOUT_MS. Defaults to 60 000 ms. */
   aiTimeoutMs?: number;
+  /** Read from config.REPORTS_RETRIEVAL_TIMEOUT_MS. Defaults to 90 000 ms. */
+  retrievalTimeoutMs?: number;
 }
 
 function countBySeverity(findings: Finding[]): SeverityCounts {
@@ -112,6 +117,8 @@ function toReport(stored: StoredAnalysis): Report {
  * Rules:
  * - The report never stays stuck: if the AI result does not arrive within REPORTS_AI_TIMEOUT_MS the
  *   report becomes `ready` and `degraded` (`llm-unavailable`).
+ * - The same goes for Retrieval: if it accepts the job but delivers neither the result nor a failure
+ *   within REPORTS_RETRIEVAL_TIMEOUT_MS, the analysis becomes `failed` (`retrieval-error`).
  * - `aiExpected` = the client asked for AI AND the plan allows it. When it is false the report is
  *   not degraded: the AI layer was simply not part of it.
  * - A report is `degraded` only when AI was expected and could not run.
@@ -119,8 +126,8 @@ function toReport(stored: StoredAnalysis): Report {
  *   sources were unavailable, but the deterministic findings are still valid.
  * - Reading or recording an analysis that does not exist is a 404 (`HttpError('not_found')`), so
  *   the gateway never turns a missing id into a 500.
- * - NOTE: the in-memory timer does not survive a service restart. A startup sweep that transitions
- *   stale `analyzing` jobs to `ready + degraded` is planned for PR H (PostgreSQL persistence).
+ * - NOTE: the in-memory timers do not survive a service restart. A startup sweep that closes stale
+ *   `retrieving` and `analyzing` jobs is planned for PR H (PostgreSQL persistence).
  */
 export class AnalysisLifecycle {
   private readonly deps: AnalysisLifecycleDeps;
@@ -169,8 +176,11 @@ export class AnalysisLifecycle {
           message,
         },
       });
+      return { analysisId: id, status: 'retrieving' };
     }
 
+    // Retrieval accepted the job: if it never delivers a result nor a failure, do not wait forever.
+    this.scheduleRetrievalTimeout(id);
     return { analysisId: id, status: 'retrieving' };
   }
 
@@ -275,29 +285,71 @@ export class AnalysisLifecycle {
     const schedule = this.deps.schedule ?? setTimeout;
     const ms = this.deps.aiTimeoutMs ?? 60_000;
 
-    schedule(async () => {
-      try {
-        const stored = await this.deps.repository.get(analysisId);
-        if (!stored || stored.status !== 'analyzing') return; // AI already arrived
+    schedule(
+      async () => {
+        try {
+          const stored = await this.deps.repository.get(analysisId);
+          if (!stored || stored.status !== 'analyzing') return; // AI already arrived
 
-        await this.deps.repository.update({
-          ...stored,
-          status: 'ready',
-          completedAt: this.now().toISOString(),
-          failure: {
-            analysisId,
-            stage: 'llm',
-            reason: 'llm-unavailable',
-            message: 'AI result did not arrive within the timeout window',
-          },
-        });
-      } catch (err) {
-        // Do not rethrow: a timer callback must not crash the process.
-        this.deps.logger?.error(
-          `[reports] AI timeout update failed for ${analysisId}: ${err instanceof Error ? err.message : 'unknown error'}`,
-        );
-      }
-    }, ms);
+          await this.deps.repository.update({
+            ...stored,
+            status: 'ready',
+            completedAt: this.now().toISOString(),
+            failure: {
+              analysisId,
+              stage: 'llm',
+              reason: 'llm-unavailable',
+              message: 'AI result did not arrive within the timeout window',
+            },
+          });
+        } catch (err) {
+          // Do not rethrow: a timer callback must not crash the process.
+          this.deps.logger?.error(
+            `[reports] AI timeout update failed for ${analysisId}: ${err instanceof Error ? err.message : 'unknown error'}`,
+          );
+        }
+      },
+      ms,
+      'ai',
+    );
+  }
+
+  /**
+   * Fires after REPORTS_RETRIEVAL_TIMEOUT_MS: if the job is still `retrieving`, it transitions to
+   * `failed` (`retrieval-error`). A job that already left `retrieving` is left untouched. Armed only
+   * when `retrieve()` succeeded; if it threw, `create()` already failed the job.
+   * Same in-memory limitation as the AI timer.
+   */
+  private scheduleRetrievalTimeout(analysisId: string): void {
+    const schedule = this.deps.schedule ?? setTimeout;
+    const ms = this.deps.retrievalTimeoutMs ?? 90_000;
+
+    schedule(
+      async () => {
+        try {
+          const stored = await this.deps.repository.get(analysisId);
+          if (!stored || stored.status !== 'retrieving') return; // Retrieval already delivered
+
+          await this.deps.repository.update({
+            ...stored,
+            status: 'failed',
+            completedAt: this.now().toISOString(),
+            failure: {
+              analysisId,
+              stage: 'retrieval',
+              reason: 'retrieval-error',
+              message: 'Retrieval did not deliver a result within the timeout window',
+            },
+          });
+        } catch (err) {
+          this.deps.logger?.error(
+            `[reports] Retrieval timeout update failed for ${analysisId}: ${err instanceof Error ? err.message : 'unknown error'}`,
+          );
+        }
+      },
+      ms,
+      'retrieval',
+    );
   }
 }
 

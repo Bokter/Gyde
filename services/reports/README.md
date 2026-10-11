@@ -30,11 +30,14 @@ create ──▶ pending ──▶ retrieving ──▶ analyzing ──▶ read
                               └─(sin IA)────┼──────▶ ready
                                             └─(falla de IA)──▶ ready + degraded
 retrieval-error ──▶ failed
+retrieving ──(sin respuesta de Retrieval en REPORTS_RETRIEVAL_TIMEOUT_MS)──▶ failed
 ```
 
 - Un reporte es **degradado** solo si se esperaba IA y no pudo correr (`llm-unavailable`, `llm-not-configured`, `llm-error`). Si el plan o el cliente no pidieron IA, **no** es degradado.
 - Nunca se queda colgado: si el resultado de IA no llega en `REPORTS_AI_TIMEOUT_MS`, pasa a `ready` y degradado (`llm-unavailable`).
   > **Nota sobre el temporizador:** el temporizador en memoria no sobrevive a un reinicio del proceso; esta limitación se resuelve en el PR H con un barrido al arrancar cuando la persistencia en PostgreSQL esté conectada.
+- Tampoco se queda en `retrieving`: si Retrieval aceptó el trabajo (202) pero no entrega ni el resultado ni un `AnalysisFailure` en `REPORTS_RETRIEVAL_TIMEOUT_MS`, el análisis pasa a `failed` con `retrieval-error`. El temporizador solo se arma si la llamada a Retrieval tuvo éxito y no hace nada si el análisis ya salió de `retrieving`.
+  > **Nota:** igual que el de IA, este temporizador en memoria no sobrevive a un reinicio; el barrido de arranque es del PR de persistencia.
 - Si Retrieval no responde al crear el trabajo, este queda `failed` con un error claro y el `202` se responde igualmente (el cliente lo ve en el `GET`).
 - Leer o registrar un análisis que **no existe** responde `404 not_found` (nunca un 500), igual para `GET`, `markdown` y los tres `POST` de resultados.
 - Un `deterministic` repetido (estado que ya no es `retrieving`) se **ignora**: no sobrescribe el resultado ni devuelve el análisis a `analyzing`.
@@ -79,3 +82,4 @@ Los criterios de aceptación están como `it.todo` en `test/app.test.ts` y `test
 | `REPORTS_DATABASE_URL` | — | Conexión al schema `reports` |
 | `RETRIEVAL_URL` | — | URL estática de respaldo si el registry no resuelve |
 | `REPORTS_AI_TIMEOUT_MS` | 60000 | Espera máxima del resultado de IA |
+| `REPORTS_RETRIEVAL_TIMEOUT_MS` | 90000 | Espera máxima de Retrieval tras aceptar el trabajo; pasado ese tiempo el análisis queda `failed` (`retrieval-error`). Mantenla por encima de la de IA |

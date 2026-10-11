@@ -6,6 +6,7 @@ import type { NestFastifyApplication } from '@gyde/service-kit';
 
 import type { AppModuleOverrides } from '../src/app.module';
 import type { ReportRepository, StoredAnalysis } from '../src/application/ports/report-repository';
+import type { TimerName } from '../src/application/analysis-lifecycle';
 import type { RetrievalClient } from '../src/application/ports/retrieval-client';
 import { configSchema } from '../src/config';
 import { createApp } from '../src/http/app';
@@ -191,7 +192,7 @@ describe('record methods and full lifecycle', () => {
    * or is suppressed entirely.
    */
   async function createAndInspect(
-    schedule?: (fn: () => void, ms: number) => void,
+    schedule?: (fn: () => void, ms: number, timer?: TimerName) => void,
     overridePayload?: Partial<CreateAnalysisJob>,
   ) {
     const repo = new FakeRepository();
@@ -380,8 +381,8 @@ describe('record methods and full lifecycle', () => {
 
   it('a report whose AI result never arrives becomes degraded after REPORTS_AI_TIMEOUT_MS', async () => {
     // schedule that fires immediately (simulates the timeout expiring right away)
-    const immediateSchedule = (fn: () => void, _ms: number) => {
-      void Promise.resolve().then(fn);
+    const immediateSchedule = (fn: () => void, _ms: number, timer?: TimerName) => {
+      if (timer === 'ai') void Promise.resolve().then(fn);
     };
 
     const { app, analysisId, repo } = await createAndInspect(immediateSchedule);
@@ -609,8 +610,8 @@ describe('lifecycle hardening', () => {
     const repo = new FakeRepository();
     repo.failReadyUpdates = true; // the repository fails exactly when the watchdog finishes the job
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const immediateSchedule = (fn: () => void, _ms: number) => {
-      void Promise.resolve().then(fn);
+    const immediateSchedule = (fn: () => void, _ms: number, timer?: TimerName) => {
+      if (timer === 'ai') void Promise.resolve().then(fn);
     };
 
     const app = await buildApp({
@@ -646,5 +647,88 @@ describe('lifecycle hardening', () => {
 
     await app.close();
     vi.restoreAllMocks();
+  });
+});
+
+describe('retrieval timeout', () => {
+  const deterministicBody = (analysisId: string) => ({
+    analysisId,
+    findings: [],
+    evidence: [],
+    coverage: { vulnerabilities: true, compatibility: true, licenses: true },
+    partialSources: false,
+  });
+
+  /** Captures the retrieval watchdog instead of arming a real timer; ignores the AI one. */
+  function captureRetrievalTimer() {
+    const fired: Array<{ fire: () => void; ms: number }> = [];
+    const schedule = (fn: () => void, ms: number, timer?: TimerName) => {
+      if (timer === 'retrieval') fired.push({ fire: fn, ms });
+    };
+    return { fired, schedule };
+  }
+
+  async function createJob(app: NestFastifyApplication) {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/internal/analyses',
+      headers: auth,
+      payload: jobPayload(),
+    });
+    return (res.json() as { analysisId: string }).analysisId;
+  }
+
+  it('fails an analysis still in retrieving when the retrieval timeout fires', async () => {
+    const repo = new FakeRepository();
+    const { fired, schedule } = captureRetrievalTimer();
+    const app = await buildApp({ repository: repo, retrieval: new FakeRetrieval(), schedule });
+    const analysisId = await createJob(app);
+
+    expect(fired).toHaveLength(1);
+    expect(fired[0]?.ms).toBe(config.REPORTS_RETRIEVAL_TIMEOUT_MS);
+    fired[0]?.fire();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const stored = repo.store.get(analysisId);
+    expect(stored?.status).toBe('failed');
+    expect(stored?.failure).toMatchObject({ stage: 'retrieval', reason: 'retrieval-error' });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/internal/analyses/${analysisId}`,
+      headers: auth,
+    });
+    const report = Report.parse(res.json());
+    expect(report.status).toBe('failed');
+    expect(report.error?.message).toContain('Retrieval did not deliver');
+
+    await app.close();
+  });
+
+  it('does nothing when the analysis already left retrieving, and is not armed if retrieve() threw', async () => {
+    const repo = new FakeRepository();
+    const { fired, schedule } = captureRetrievalTimer();
+    const app = await buildApp({ repository: repo, retrieval: new FakeRetrieval(), schedule });
+    const analysisId = await createJob(app);
+    await app.inject({
+      method: 'POST',
+      url: `/internal/analyses/${analysisId}/deterministic`,
+      headers: auth,
+      payload: deterministicBody(analysisId),
+    });
+    const before = structuredClone(repo.store.get(analysisId));
+
+    fired[0]?.fire();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(repo.store.get(analysisId)).toEqual(before);
+    expect(before?.status).toBe('analyzing');
+    await app.close();
+
+    const failing = new FakeRetrieval();
+    failing.failWith = new Error('retrieval is down');
+    const second = captureRetrievalTimer();
+    const app2 = await buildApp({ retrieval: failing, schedule: second.schedule });
+    await createJob(app2);
+    expect(second.fired).toHaveLength(0);
+    await app2.close();
   });
 });

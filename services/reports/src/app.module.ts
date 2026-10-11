@@ -1,6 +1,10 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 
-import { ANALYSIS_LIFECYCLE, AnalysisLifecycle } from './application/analysis-lifecycle';
+import {
+  ANALYSIS_LIFECYCLE,
+  AnalysisLifecycle,
+  type LifecycleLogger,
+} from './application/analysis-lifecycle';
 import { REPORT_REPOSITORY, type ReportRepository } from './application/ports/report-repository';
 import { RETRIEVAL_CLIENT, type RetrievalClient } from './application/ports/retrieval-client';
 import { ReportsController } from './http/reports.controller';
@@ -15,6 +19,8 @@ export interface AppModuleOverrides {
   retrieval?: RetrievalClient;
   /** Injectable for tests to simulate or suppress the AI timeout. */
   schedule?: (fn: () => void, ms: number) => void;
+  /** Receives the watchdog's own failures. Defaults to the Nest logger of the use case. */
+  logger?: LifecycleLogger;
 }
 
 /**
@@ -48,6 +54,7 @@ export class AppModule {
             new AnalysisLifecycle({
               repository,
               retrieval,
+              logger: overrides.logger ?? new Logger(AnalysisLifecycle.name),
               aiTimeoutMs: config.REPORTS_AI_TIMEOUT_MS,
               schedule: overrides.schedule,
             }),

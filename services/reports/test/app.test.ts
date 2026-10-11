@@ -1,7 +1,7 @@
 import { type CreateAnalysisJob, HEADERS, PLAN_CATALOG, Report } from '@gyde/contracts';
 import { sampleAnalysisRequest, sampleVulnerabilityFinding } from '@gyde/contracts/samples';
 import { createLogger } from '@gyde/service-kit';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { NestFastifyApplication } from '@gyde/service-kit';
 
 import type { AppModuleOverrides } from '../src/app.module';
@@ -18,6 +18,8 @@ const auth = { [HEADERS.internalToken]: token };
 class FakeRepository implements ReportRepository {
   readonly store = new Map<string, StoredAnalysis>();
   readonly calls: string[] = [];
+  /** Makes the update that finishes a job fail (the watchdog runs one of those). */
+  failReadyUpdates = false;
 
   async create(analysis: StoredAnalysis): Promise<void> {
     this.calls.push(`create:${analysis.id}`);
@@ -31,6 +33,7 @@ class FakeRepository implements ReportRepository {
   }
 
   async update(analysis: StoredAnalysis): Promise<void> {
+    if (this.failReadyUpdates && analysis.status === 'ready') throw new Error('db is down');
     this.calls.push(`update:${analysis.id}`);
     this.store.set(analysis.id, structuredClone(analysis));
   }
@@ -485,4 +488,163 @@ describe('record methods and full lifecycle', () => {
   });
 
   it.todo('reports are stored and read back from the reports schema in PostgreSQL');
+});
+
+/** Review feedback on PR #37: 404 instead of 500, duplicate deliveries, injected watchdog logger. */
+describe('lifecycle hardening', () => {
+  const deterministicBody = (analysisId: string) => ({
+    analysisId,
+    findings: [],
+    evidence: [],
+    coverage: { vulnerabilities: true, compatibility: true, licenses: true },
+    partialSources: false,
+  });
+
+  it('answers 404 not_found when the analysis does not exist, never a 500', async () => {
+    const app = await buildApp({
+      repository: new FakeRepository(),
+      retrieval: new FakeRetrieval(),
+    });
+
+    const get = await app.inject({
+      method: 'GET',
+      url: '/internal/analyses/ghost',
+      headers: auth,
+    });
+    expect(get.statusCode).toBe(404);
+    expect(get.json()).toMatchObject({ error: { code: 'not_found' } });
+
+    const markdown = await app.inject({
+      method: 'GET',
+      url: '/internal/analyses/ghost/markdown',
+      headers: auth,
+    });
+    expect(markdown.statusCode).toBe(404);
+
+    const deterministic = await app.inject({
+      method: 'POST',
+      url: '/internal/analyses/ghost/deterministic',
+      headers: auth,
+      payload: deterministicBody('ghost'),
+    });
+    expect(deterministic.statusCode).toBe(404);
+    expect(deterministic.json()).toMatchObject({ error: { code: 'not_found' } });
+
+    const ai = await app.inject({
+      method: 'POST',
+      url: '/internal/analyses/ghost/ai-result',
+      headers: auth,
+      payload: { analysisId: 'ghost', findings: [] },
+    });
+    expect(ai.statusCode).toBe(404);
+
+    const failure = await app.inject({
+      method: 'POST',
+      url: '/internal/analyses/ghost/failure',
+      headers: auth,
+      payload: {
+        analysisId: 'ghost',
+        stage: 'llm',
+        reason: 'llm-error',
+        message: 'The provider returned 500.',
+      },
+    });
+    expect(failure.statusCode).toBe(404);
+
+    await app.close();
+  });
+
+  it('ignores a duplicate deterministic delivery instead of returning to analyzing', async () => {
+    const repo = new FakeRepository();
+    const app = await buildApp({
+      repository: repo,
+      retrieval: new FakeRetrieval(),
+      schedule: () => {}, // suppress the timeout
+    });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/internal/analyses',
+      headers: auth,
+      payload: jobPayload(),
+    });
+    const { analysisId } = res.json() as { analysisId: string };
+
+    // First delivery: retrieving → analyzing.
+    await app.inject({
+      method: 'POST',
+      url: `/internal/analyses/${analysisId}/deterministic`,
+      headers: auth,
+      payload: deterministicBody(analysisId),
+    });
+    expect(repo.store.get(analysisId)?.status).toBe('analyzing');
+
+    // The AI result finishes the job.
+    await app.inject({
+      method: 'POST',
+      url: `/internal/analyses/${analysisId}/ai-result`,
+      headers: auth,
+      payload: { analysisId, findings: [] },
+    });
+    expect(repo.store.get(analysisId)?.status).toBe('ready');
+
+    // A duplicate (or late) deterministic delivery answers 204 but changes nothing.
+    const duplicate = await app.inject({
+      method: 'POST',
+      url: `/internal/analyses/${analysisId}/deterministic`,
+      headers: auth,
+      payload: { ...deterministicBody(analysisId), partialSources: true },
+    });
+    expect(duplicate.statusCode).toBe(204);
+
+    const stored = repo.store.get(analysisId);
+    expect(stored?.status).toBe('ready');
+    expect(stored?.deterministic?.partialSources).toBe(false);
+    expect(stored?.deterministic?.analysisId).toBe(analysisId);
+
+    await app.close();
+  });
+
+  it('sends a watchdog failure to the injected logger, never to console.error', async () => {
+    const messages: string[] = [];
+    const repo = new FakeRepository();
+    repo.failReadyUpdates = true; // the repository fails exactly when the watchdog finishes the job
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const immediateSchedule = (fn: () => void, _ms: number) => {
+      void Promise.resolve().then(fn);
+    };
+
+    const app = await buildApp({
+      repository: repo,
+      retrieval: new FakeRetrieval(),
+      schedule: immediateSchedule,
+      logger: {
+        error: (message) => {
+          messages.push(message);
+        },
+      },
+    });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/internal/analyses',
+      headers: auth,
+      payload: jobPayload(),
+    });
+    const { analysisId } = res.json() as { analysisId: string };
+
+    await app.inject({
+      method: 'POST',
+      url: `/internal/analyses/${analysisId}/deterministic`,
+      headers: auth,
+      payload: deterministicBody(analysisId),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(repo.store.get(analysisId)?.status).toBe('analyzing'); // the watchdog could not finish it
+    expect(messages.join('\n')).toContain(analysisId);
+    expect(messages.join('\n')).toContain('db is down');
+    expect(consoleError).not.toHaveBeenCalled();
+
+    await app.close();
+    vi.restoreAllMocks();
+  });
 });

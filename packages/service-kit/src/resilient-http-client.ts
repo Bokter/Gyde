@@ -7,7 +7,7 @@ import {
   type FallbackCache,
 } from '@gyde/resilience';
 
-import { HttpError } from './errors';
+import { HttpError, type ErrorCode } from './errors';
 
 export class UpstreamServiceError extends Error {
   readonly status: number;

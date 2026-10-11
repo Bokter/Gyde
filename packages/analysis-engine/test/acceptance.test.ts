@@ -78,12 +78,11 @@ describe('parsers (use fixtures/projects)', () => {
   });
 });
 
-describe('pipeline steps still to implement', () => {
-  it.todo('analyzeLicenses returns the license findings once the deterministic stage is ready');
-  it.todo('generateReport polls until the report is ready, with a timeout');
-  it.todo('generateReport raises a clear error when the report ends as failed');
-  it.todo('LocalCLIPipeline prints a readable, severity-ordered report and sets the exit code');
-  it.todo('GitHubActionPipeline posts the report as a pull request comment');
+// The pipeline steps (analyzeLicenses, generateReport, LocalCLIPipeline output) are covered in
+// `pipeline-steps.test.ts`. Still open, and owned by someone else:
+describe('pending work owned by other pieces', () => {
+  it.todo('GitHubActionPipeline posts the report as a pull request comment (area 2)');
+  it.todo('the CLI sets the process exit code from the report (apps/cli)');
 });
 
 describe('GydeApiClient', () => {
@@ -153,6 +152,37 @@ describe('GydeApiClient', () => {
     expect(submitCall?.headers['authorization']).toBe(`Bearer ${API_KEY}`);
     expect(JSON.parse(submitCall?.body ?? '{}')).toEqual(sampleAnalysisRequest);
     expect(JSON.stringify(logged)).not.toContain(API_KEY);
+  });
+
+  it('getMarkdown asks for text/markdown and never leaks the API key in its errors', async () => {
+    const seen: { url: string; accept?: string }[] = [];
+    const ok = buildClient({
+      fetch: async (input, init) => {
+        seen.push({
+          url: String(input),
+          accept: (init?.headers as Record<string, string>)['accept'],
+        });
+        return new Response('# Report\n', {
+          status: 200,
+          headers: { 'content-type': 'text/markdown' },
+        });
+      },
+    });
+    await expect(ok.getMarkdown('analysis-0001')).resolves.toBe('# Report\n');
+    expect(seen[0]).toEqual({
+      url: `${API_URL}/v1/analyses/analysis-0001/markdown`,
+      accept: 'text/markdown',
+    });
+
+    const denied = buildClient({
+      fetch: async () => jsonResponse({ error: { code: 'unauthorized', message: 'bad key' } }, 401),
+    });
+    const error = (await denied
+      .getMarkdown('analysis-0001')
+      .catch((e: unknown) => e)) as GydeApiError;
+    expect(error).toBeInstanceOf(GydeApiError);
+    expect(error.hint).toContain('GYDE_API_KEY');
+    expect(`${error.message} ${error.hint}`).not.toContain(API_KEY);
   });
 
   it('validates every response with the @gyde/contracts schemas', async () => {

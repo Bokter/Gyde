@@ -5,7 +5,15 @@ export {
   type GitHubActionPipelineOptions,
 } from './pipeline/github-action.pipeline';
 export { LocalCLIPipeline, type LocalCliPipelineOptions } from './pipeline/local-cli.pipeline';
+export {
+  AnalysisWaitError,
+  waitForReport,
+  type ReportStage,
+  type WaitOptions,
+} from './pipeline/wait-for-report';
 export { buildAnalysisRequest } from './privacy/build-analysis-request';
+export { exitCodeForReport, type FailOn } from './report/exit-code';
+export { formatReportText, sortFindings } from './report/format-text';
 export {
   createToolchainFactory,
   detectGameEngine,

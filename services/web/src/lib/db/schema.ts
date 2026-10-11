@@ -107,7 +107,7 @@ export const tenants = pgTable(
   },
   (table) => ({
     slugIdx: uniqueIndex('tenants_slug_idx').on(table.slug),
-    ownerIdx: index('tenants_owner_id_idx').on(table.ownerId),
+    ownerIdx: uniqueIndex('tenants_owner_id_idx').on(table.ownerId),
     stripeCustomerIdx: index('tenants_stripe_customer_id_idx').on(table.stripeCustomerId),
   }),
 );

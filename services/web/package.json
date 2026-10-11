@@ -23,17 +23,13 @@
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@gyde/contracts": "workspace:*",
     "@gyde/design-tokens": "workspace:*",
-    "@oslojs/crypto": "catalog:",
-    "@oslojs/encoding": "catalog:",
     "drizzle-orm": "catalog:",
-    "jose": "catalog:",
     "next": "catalog:",
     "next-auth": "catalog:",
     "pg": "catalog:",
     "pino": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "stripe": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

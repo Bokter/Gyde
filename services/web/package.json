@@ -19,6 +19,7 @@
     "build:migrate": "tsup --config tsup.migrate.config.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "catalog:",
     "@auth/drizzle-adapter": "catalog:",
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",
     "@fontsource-variable/figtree": "^5.3.0",

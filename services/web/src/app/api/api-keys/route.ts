@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/modules/auth/infrastructure/auth.config';
-import { createApiKey } from '@/modules/api-keys/infrastructure/composition-root';
+import { createApiKey, listApiKeys } from '@/modules/api-keys/infrastructure/composition-root';
 import { z } from 'zod';
 import pino from 'pino';
 
@@ -40,8 +40,25 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // TODO: Get tenant ID from user session
-  return NextResponse.json({ apiKeys: [] });
+  const tenant = await listApiKeys.getTenantByOwnerId(session.user.id);
+  if (!tenant) {
+    return NextResponse.json({ error: 'Forbidden: no tenant found for user' }, { status: 403 });
+  }
+
+  const apiKeys = await listApiKeys.execute(tenant.id);
+
+  return NextResponse.json({
+    apiKeys: apiKeys.map((k) => ({
+      id: k.id,
+      prefix: k.prefix,
+      keyLast4: k.keyLast4,
+      name: k.name,
+      environment: k.environment,
+      expiresAt: k.expiresAt?.toISOString() ?? null,
+      createdAt: k.createdAt.toISOString(),
+      revokedAt: k.revokedAt?.toISOString() ?? null,
+    })),
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -49,6 +66,11 @@ export async function POST(request: NextRequest) {
 
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const tenant = await listApiKeys.getTenantByOwnerId(session.user.id);
+  if (!tenant) {
+    return NextResponse.json({ error: 'Forbidden: no tenant found for user' }, { status: 403 });
   }
 
   try {
@@ -62,11 +84,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Get tenant ID from user session
-    const tenantId = 'placeholder-tenant-id';
-
     const result = await createApiKey.execute({
-      tenantId,
+      tenantId: tenant.id,
       name: parsed.data.name ?? null,
       environment: parsed.data.environment,
       expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null,
@@ -81,7 +100,7 @@ export async function POST(request: NextRequest) {
         environment: result.apiKey.environment,
         expiresAt: result.apiKey.expiresAt?.toISOString() ?? null,
         createdAt: result.apiKey.createdAt.toISOString(),
-        plainKey: result.plainKey, // Only returned once!
+        plainKey: result.plainKey,
       },
       { status: 201 },
     );

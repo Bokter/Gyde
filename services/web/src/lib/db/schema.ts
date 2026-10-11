@@ -10,6 +10,20 @@ import {
   index,
 } from 'drizzle-orm/pg-core';
 
+/**
+ * Schema del servicio Web.
+ *
+ * Migraciones:
+ * - Se generan con `pnpm --filter @gyde/web db:generate` (usa drizzle-kit).
+ * - drizzle-kit pone el prefijo `"public".` en las claves foráneas (p.ej. `REFERENCES "public"."users"`).
+ *   **Hay que quitar ese prefijo manualmente** del SQL generado en `drizzle/*.sql` antes de commitearlo,
+ *   porque el rol `web` usa `search_path = web` y no tiene acceso a `public`.
+ * - Se aplican al arrancar el servicio (ver `src/main.ts`), usando un ejecutor propio
+ *   (`src/infrastructure/db/migrate.ts`) que aplica las migraciones bajo candado consultivo
+ *   y verifica integridad (no permite editar migraciones ya aplicadas).
+ * - En pruebas se usa PGlite (PostgreSQL en memoria) con las mismas migraciones.
+ */
+
 export const users = pgTable(
   'users',
   {

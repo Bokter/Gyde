@@ -5,14 +5,11 @@ export class RevokeApiKey {
 
   async execute(apiKeyId: string, tenantId: string): Promise<void> {
     const apiKey = await this.apiKeyRepository.findById(apiKeyId);
-    if (!apiKey) {
-      throw new Error('API key not found');
-    }
-    if (apiKey.tenantId !== tenantId) {
-      throw new Error('API key does not belong to tenant');
+    if (!apiKey || apiKey.tenantId !== tenantId) {
+      throw new Error('NOT_FOUND');
     }
     if (apiKey.revokedAt) {
-      throw new Error('API key already revoked');
+      throw new Error('ALREADY_REVOKED');
     }
     await this.apiKeyRepository.revoke(apiKeyId);
   }

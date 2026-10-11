@@ -42,8 +42,16 @@ COPY --from=builder /repo/services/web/public ./public
 COPY --from=builder /repo/services/web/.next/standalone ./
 COPY --from=builder /repo/services/web/.next/static ./.next/static
 
+# Copy migrations for runtime execution
+COPY --from=builder /repo/services/web/drizzle ./drizzle
+
+# Copy entrypoint script
+COPY --from=builder /repo/services/web/docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x ./docker-entrypoint.sh
+
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["node", "server.js"]
+# Run migrations then start server
+ENTRYPOINT ["./docker-entrypoint.sh"]

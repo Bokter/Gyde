@@ -1,0 +1,53 @@
+.dialog {
+  width: min(32rem, calc(100vw - 2 * var(--gyde-space-4)));
+  max-height: calc(100dvh - 2 * var(--gyde-space-4));
+  margin: auto;
+  padding: var(--gyde-space-6);
+  border: 1px solid var(--gyde-color-border-subtle);
+  border-radius: var(--gyde-radius-lg);
+  background-color: var(--gyde-color-bg-surface);
+  color: var(--gyde-color-fg-default);
+  box-shadow: var(--gyde-shadow-lg);
+}
+
+.dialog::backdrop {
+  background-color: color-mix(in srgb, var(--gyde-color-fg-default) 45%, transparent);
+}
+
+.title {
+  font-size: var(--gyde-font-size-xl);
+}
+
+.description {
+  margin-top: var(--gyde-space-2);
+  color: var(--gyde-color-fg-muted);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gyde-space-4);
+  margin-top: var(--gyde-space-5);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--gyde-space-3);
+  margin-top: var(--gyde-space-6);
+}
+
+@media (max-width: 639px) {
+  .dialog {
+    padding: var(--gyde-space-4);
+  }
+
+  .actions {
+    flex-direction: column-reverse;
+  }
+
+  .actions > * {
+    width: 100%;
+  }
+}

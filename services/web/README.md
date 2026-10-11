@@ -2,7 +2,7 @@
 
 Cara visible de Gyde y su "caja registradora": **interfaz web**, **suscripciones con Stripe**, **API keys** y **llaves de LLM de cada estudio (BYOK)**. Es una aplicación **Next.js** (UI + rutas de servidor) que cuenta como **un solo contenedor** del diagrama.
 
-> **Estado:** App Next.js creada con bootstrap (día 1). Autenticación, API keys, Stripe y BYOK pendientes.
+> **Estado:** inicio de sesión con GitHub, tenant `free` al primer ingreso, API keys (pantalla, rutas y `POST /internal/api-keys/verify`) y `/healthz` listos. Stripe y BYOK pendientes; las pantallas de facturación y llave de IA siguen siendo maquetas.
 
 - Puerto: `WEB_PORT` (3000).
 - Datos propios: schema `web` de PostgreSQL (usuarios, suscripciones, API keys, configuración LLM cifrada).
@@ -17,13 +17,23 @@ Cara visible de Gyde y su "caja registradora": **interfaz web**, **suscripciones
 | `src/modules/api-keys` | Emitir, listar, revocar y **verificar** API keys (se guardan **hasheadas**, la clave se muestra una sola vez) |
 | `src/modules/llm-config` | Alta, prueba de conexión y rotación de la llave LLM del estudio; **cifrada en reposo** |
 | `src/app` | Rutas y páginas de Next.js: **delgadas**, llaman casos de uso de los módulos |
-| `src/ui` | Componentes de interfaz sobre `@gyde/design-tokens` |
+| `src/ui` | Componentes base (`Button`, `Input`, `Card`, `Table`, `Dialog`, `CopyField`) con CSS Modules que solo usan tokens `var(--gyde-…)` |
 | `src/lib/auth` | Configuración de Auth.js (NextAuth v5) |
 | `src/lib/db` | Cliente Drizzle ORM + schema |
 | `src/lib/fonts.ts` | Configuración de fuentes con `next/font` |
 | `src/middleware.ts` | Protección de rutas autenticadas |
 
 Las reglas de capas aplican dentro de cada módulo (`domain` no importa Next, Stripe ni la base de datos): ESLint las comprueba.
+
+## Estilos
+
+Sin Tailwind: cada componente y pantalla usa **CSS Modules** (`*.module.css`) con los tokens de `@gyde/design-tokens` (`var(--gyde-color-…)`, `--gyde-space-…`, `--gyde-radius-…`). Nada de colores ni medidas sueltas. Los componentes de `src/ui` traen su propio anillo de foco (`outline` de 2 px + `--gyde-shadow-focus`) y áreas táctiles de 44 px; por debajo de 640 px las tablas se apilan como tarjetas para no generar scroll horizontal. Las páginas de facturación, llave de IA, panel y la landing todavía usan clases de Tailwind que no tienen efecto; se migran en sus PR.
+
+## Pantalla de API keys (`/dashboard/api-keys`)
+
+- Crear (entorno `test`/`live` y nombre opcional), listar (prefijo y últimos 4, estado, creada, último uso) y revocar con confirmación. Usa `GET`/`POST /api/api-keys` y `POST /api/api-keys/:id/revoke`.
+- Las rutas responden con `ApiKeyView` (`modules/api-keys/application/api-key-view.ts`), construida campo por campo: el hash nunca sale del servidor.
+- La clave en claro solo llega en la respuesta de creación; vive en el estado del diálogo y se descarta al cerrarlo. No hay forma de volver a pedirla.
 
 ## Endpoints internos (solo servicio a servicio, con `x-internal-token`)
 

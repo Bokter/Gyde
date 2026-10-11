@@ -1,39 +1,25 @@
-import { ROUTES, ServiceRegistration } from '@gyde/contracts';
-import {
-  type FastifyInstance,
-  type Logger,
-  buildApp,
-  registerStubRoutes,
-  requireInternalToken,
-} from '@gyde/service-kit';
+import { type Logger, type NestFastifyApplication, createService } from '@gyde/service-kit';
 
+import { AppModule, type AppModuleOverrides } from '../app.module';
 import type { Config } from '../config';
 
 export interface AppDeps {
   config: Config;
   logger: Logger;
+  overrides?: AppModuleOverrides;
 }
 
-/**
- * HTTP surface of the registry. It lives on the internal network only: every `/v1/*` call must
- * carry the internal token, so nothing outside our own services can register or resolve.
- */
-export function createApp({ config, logger }: AppDeps): FastifyInstance {
-  const app = buildApp({ name: 'registry', logger });
-
-  const guard = requireInternalToken(config.INTERNAL_SERVICE_TOKEN);
-  app.addHook('onRequest', async (request) => {
-    if (request.url.startsWith('/v1/')) {
-      await guard(request);
-    }
+/** Builds the NestJS application of the registry service (not listening yet: see `main.ts`). */
+export function createApp({
+  config,
+  logger,
+  overrides = {},
+}: AppDeps): Promise<NestFastifyApplication> {
+  return createService(AppModule.withOverrides(overrides), {
+    name: 'registry',
+    logger,
+    config,
+    internalToken: config.INTERNAL_SERVICE_TOKEN,
+    internalPrefixes: ['/v1/'],
   });
-
-  registerStubRoutes(app, [
-    { method: 'POST', url: ROUTES.registry.instances, body: ServiceRegistration },
-    { method: 'DELETE', url: ROUTES.registry.instance },
-    { method: 'PUT', url: ROUTES.registry.heartbeat },
-    { method: 'GET', url: ROUTES.registry.resolve },
-  ]);
-
-  return app;
 }

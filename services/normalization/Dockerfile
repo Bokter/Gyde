@@ -26,6 +26,11 @@ WORKDIR /app
 COPY --from=build /out/package.json ./package.json
 COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /out/dist ./dist
+# SQL migrations, applied on start (resolved from dist/main.js as ../drizzle)
+COPY --from=build /repo/services/normalization/drizzle ./drizzle
+# Synthetic sources for INGEST_USE_FIXTURES=true (offline demos)
+COPY --from=build /repo/fixtures/sources ./fixtures/sources
+ENV INGEST_FIXTURES_DIR=/app/fixtures/sources
 USER node
 EXPOSE 4200
 HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 \

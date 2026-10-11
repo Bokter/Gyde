@@ -11,7 +11,7 @@ Línea de comandos que **analiza un proyecto de videojuego en la máquina del us
 ```bash
 gyde analyze [ruta]  [--api-url <url>] [--api-key <key>]
                      [--fail-on critical|high|medium|low|none]
-                     [--format text|json|markdown] [--no-ai]
+                     [--format text|json|markdown] [--no-ai] [--fail-on-degraded]
 ```
 
 | Variable | Equivale a |
@@ -26,7 +26,7 @@ gyde analyze [ruta]  [--api-url <url>] [--api-key <key>]
 | 0 | Análisis correcto y sin hallazgos de la severidad de `--fail-on` o superior |
 | 1 | Hay hallazgos de la severidad de `--fail-on` o superior |
 | 2 | Uso incorrecto, configuración o error inesperado |
-| 3 | Resultado **degradado** (p. ej. sin IA); solo falla el CI si se pide con `--fail-on-degraded` |
+| 3 | Resultado **degradado** (p. ej. sin IA); solo falla el CI si se pasa `--fail-on-degraded` (sin ese argumento un degradado sale con 0 o 1 según los hallazgos) |
 
 ## Estructura sugerida
 

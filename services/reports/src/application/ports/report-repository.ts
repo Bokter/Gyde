@@ -27,3 +27,6 @@ export interface ReportRepository {
   get(id: string): Promise<StoredAnalysis | undefined>;
   update(analysis: StoredAnalysis): Promise<void>;
 }
+
+/** DI token of the `ReportRepository` port: `app.module.ts` binds it to an adapter (see ADR 0011). */
+export const REPORT_REPOSITORY = Symbol('ReportRepository');

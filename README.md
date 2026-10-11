@@ -61,7 +61,7 @@ flowchart TB
 
 ## Stack
 
-TypeScript · pnpm + Turborepo · Fastify (servicios) · Next.js (Servicio Web) · PostgreSQL · Docker Compose · Vitest.
+TypeScript · pnpm + Turborepo · NestJS sobre Fastify (servicios) · Next.js (Servicio Web) · PostgreSQL · Docker Compose · Vitest.
 
 ## Primeros pasos
 

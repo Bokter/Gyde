@@ -1,5 +1,6 @@
 import type { GameEngine } from '@gyde/contracts';
 
+import type { WaitOptions } from '../pipeline/wait-for-report';
 import type { AnalysisGateway } from '../types';
 
 import type { AnalysisToolchainFactory } from './ports';
@@ -9,6 +10,8 @@ import { UnrealToolchainFactory } from './unreal/unreal-toolchain.factory';
 export interface ToolchainOptions {
   projectRoot: string;
   gateway: AnalysisGateway;
+  /** Polling interval and timeout of the fetchers. */
+  wait?: WaitOptions;
 }
 
 /**
@@ -29,14 +32,4 @@ export function createToolchainFactory(
       throw new Error(`Unsupported game engine: ${String(unsupported)}`);
     }
   }
-}
-
-/**
- * Detects the game engine of a project folder (ProjectSettings/ProjectVersion.txt -> unity,
- * *.uproject -> unreal).
- *
- * TODO(area-4): implement.
- */
-export async function detectGameEngine(_projectRoot: string): Promise<GameEngine> {
-  throw new Error('TODO(area-4): detectGameEngine is not implemented yet');
 }

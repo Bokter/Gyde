@@ -14,8 +14,12 @@
   "dependencies": {
     "@gyde/contracts": "workspace:*",
     "@gyde/service-kit": "workspace:*",
-    "fastify": "catalog:",
+    "@nestjs/common": "catalog:",
+    "@nestjs/core": "catalog:",
+    "@nestjs/platform-fastify": "catalog:",
     "pino": "catalog:",
+    "reflect-metadata": "catalog:",
+    "rxjs": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

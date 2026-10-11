@@ -4,6 +4,11 @@ import { z } from 'zod';
 export const baseEnv = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  INSTANCE_ID: z.string().optional(),
+  SERVICE_BASE_URL: z.string().optional(),
+  REGISTRY_URL: z.string().optional(),
+  INTERNAL_SERVICE_TOKEN: z.string().optional(),
+  HEARTBEAT_INTERVAL_MS: z.coerce.number().positive().default(10_000),
 });
 
 /**

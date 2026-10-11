@@ -20,7 +20,7 @@ Eres el primer cuello de botella: las Áreas 3 y 4 necesitan tu `CircuitBreaker`
 | `services/registry` | Stubs `501`, token interno exigido en `/v1/*` | Implementar registro, heartbeat, TTL y Health Checker |
 | `packages/discovery` | `NoHealthyInstanceError` real; el resto TODO | Implementar `RegistryClient` y `startRegistration` |
 | `services/gateway` | Stubs `501` que validan el cuerpo | Autenticación, límites, enrutado con discovery y breaker |
-| `packages/service-kit` | v0 funcional | Integrar discovery y un cliente HTTP resiliente reutilizable |
+| `packages/service-kit` | v0 funcional (NestJS sobre Fastify) | Integrar discovery y un cliente HTTP resiliente reutilizable |
 | `infra/` y CI | `compose.yaml` válido, imágenes **sin construir** | Construirlas, corregirlas y dejar el CI verde |
 
 ## Archivos
@@ -59,7 +59,7 @@ Consumes y produces los de `@gyde/contracts`: `ROUTES.gateway.*`, `ROUTES.regist
 - [ ] `POST /v1/analyses` → Reports `POST /internal/analyses` con un `CreateAnalysisJob` (tenant + permisos + request) y responde `202`; `GET /v1/analyses/:id` y `/markdown` → Reports. Las respuestas se validan con los esquemas.
 - [ ] Todas las llamadas salen por discovery + breaker; sin instancia sana → `503 upstream_unavailable` controlado (nunca se cuelga).
 - [ ] Propaga `x-request-id` y `x-gyde-tenant-id`. **Nunca** enruta `/internal/*` (la prueba existente sigue verde). Los errores no filtran detalles internos.
-- [ ] Pruebas con servidores simulados (Fastify en puertos efímeros) para Web, Reports y el registry.
+- [ ] Pruebas con servidores simulados (Fastify mínimo, como `devDependency`, en puertos efímeros) para Web, Reports y el registry.
 - [ ] Todos los `it.todo` de `services/gateway/test/app.test.ts` convertidos.
 
 ### 4. Infraestructura y CI (día 3, y mantenimiento)
@@ -74,7 +74,7 @@ Consumes y produces los de `@gyde/contracts`: `ROUTES.gateway.*`, `ROUTES.regist
 
 | Necesitas | De | Qué haces mientras tanto |
 |---|---|---|
-| `POST /internal/api-keys/verify` | Área 2 | Servidor Fastify simulado que devuelve `VerifyApiKeyResponse` |
+| `POST /internal/api-keys/verify` | Área 2 | Servidor Fastify mínimo simulado que devuelve `VerifyApiKeyResponse` |
 | Reports `create` y `get` | Área 4 | Servidor simulado con `@gyde/contracts/samples` |
 
 | Entregas | A quién | Cuándo |

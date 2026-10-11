@@ -1,5 +1,9 @@
 import type { AiResult, DeterministicResult, Entitlements } from '@gyde/contracts';
 
+import { BasicAnalysisReport } from './basic-analysis-report';
+import { AiEnrichmentDecorator } from './decorators/ai-enrichment.decorator';
+import { LicenseComplianceDecorator } from './decorators/license-compliance.decorator';
+import { SeverityScoreDecorator } from './decorators/severity-score.decorator';
 import type { ReportComponent } from './report-component';
 
 export interface ComposeReportInput {
@@ -17,8 +21,31 @@ export interface ComposeReportInput {
  *     └ AiEnrichmentDecorator                   (features.aiEnrichment AND input.ai present)
  *       └ SeverityScoreDecorator                (features.severityScoring, always last)
  *
- * TODO(area-4): implement and test every plan (free / pro / studio) with and without `ai`.
+ * Plan table (from PLAN_CATALOG):
+ *   free:   licenseCompliance ✓ | aiEnrichment ✗ | severityScoring ✓  (never AI)
+ *   pro:    licenseCompliance ✓ | aiEnrichment ✓  | severityScoring ✓  (AI only if present)
+ *   studio: licenseCompliance ✓ | aiEnrichment ✓  | severityScoring ✓  (AI only if present)
  */
-export function composeReport(_input: ComposeReportInput): ReportComponent {
-  throw new Error('TODO(area-4): composeReport is not implemented yet');
+export function composeReport(input: ComposeReportInput): ReportComponent {
+  const {
+    deterministic,
+    ai,
+    entitlements: { features },
+  } = input;
+
+  let component: ReportComponent = new BasicAnalysisReport(deterministic.findings);
+
+  if (features.licenseCompliance) {
+    component = new LicenseComplianceDecorator(component);
+  }
+
+  if (features.aiEnrichment && ai !== undefined) {
+    component = new AiEnrichmentDecorator(component, ai);
+  }
+
+  if (features.severityScoring) {
+    component = new SeverityScoreDecorator(component);
+  }
+
+  return component;
 }

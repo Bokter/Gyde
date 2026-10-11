@@ -8,6 +8,7 @@ export {
   ResilientHttpClient,
   type ResilientHttpClientOptions,
   type ResilientRequestOptions,
+  type UpstreamLogger,
   UpstreamServiceError,
 } from './resilient-http-client';
 export { startService, type StartOptions, type ServiceRegistrationOptions } from './start';

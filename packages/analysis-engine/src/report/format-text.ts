@@ -14,6 +14,16 @@ const DEGRADED_REASON: Record<DegradedReason, string> = {
   'llm-error': 'el proveedor de IA respondió con un error',
 };
 
+/**
+ * Report text comes from the backend and, through it, from external advisories: it is untrusted.
+ * Control characters (ESC and the rest of C0/C1, DEL) are removed so a crafted title cannot
+ * rewrite the user's terminal; line breaks and tabs inside a field become a space.
+ */
+function clean(text: string): string {
+  // eslint-disable-next-line no-control-regex -- removing control characters is the point
+  return text.replace(/[\t\r\n]+/g, ' ').replace(/[\u0000-\u001f\u007f-\u009f]/g, '');
+}
+
 /** Most severe first, then highest CVSS, then title (stable and deterministic). */
 export function sortFindings(findings: readonly Finding[]): Finding[] {
   return [...findings].sort(
@@ -29,7 +39,7 @@ export function sortFindings(findings: readonly Finding[]): Finding[] {
  * ordered by severity; a degraded report states it up front.
  */
 export function formatReportText(report: Report): string {
-  const lines: string[] = [`Gyde · análisis ${report.id}`, `Estado: ${report.status}`];
+  const lines: string[] = [`Gyde · análisis ${clean(report.id)}`, `Estado: ${report.status}`];
 
   if (report.degraded) {
     const why = report.degradedReason ? ` (${DEGRADED_REASON[report.degradedReason]})` : '';
@@ -52,15 +62,15 @@ export function formatReportText(report: Report): string {
 
   for (const finding of findings) {
     const dep = finding.dependency
-      ? ` — ${finding.dependency.name}@${finding.dependency.version}`
+      ? ` — ${clean(finding.dependency.name)}@${clean(finding.dependency.version)}`
       : '';
-    lines.push('', `[${SEVERITY_LABEL[finding.severity]}] ${finding.title}${dep}`);
+    lines.push('', `[${SEVERITY_LABEL[finding.severity]}] ${clean(finding.title)}${dep}`);
     for (const evidence of finding.evidence) {
-      lines.push(`  Evidencia (${evidence.source}): ${evidence.summary}`);
+      lines.push(`  Evidencia (${clean(evidence.source)}): ${clean(evidence.summary)}`);
     }
-    if (finding.impact) lines.push(`  Impacto: ${finding.impact}`);
-    if (finding.recommendation) lines.push(`  Recomendación: ${finding.recommendation}`);
-    if (finding.aiExplanation) lines.push(`  IA: ${finding.aiExplanation}`);
+    if (finding.impact) lines.push(`  Impacto: ${clean(finding.impact)}`);
+    if (finding.recommendation) lines.push(`  Recomendación: ${clean(finding.recommendation)}`);
+    if (finding.aiExplanation) lines.push(`  IA: ${clean(finding.aiExplanation)}`);
   }
   return lines.join('\n');
 }

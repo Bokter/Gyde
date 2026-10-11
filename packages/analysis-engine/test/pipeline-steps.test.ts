@@ -186,6 +186,20 @@ describe('report text and exit code', () => {
     expect(order).toEqual([...order].sort((a, b) => a - b));
   });
 
+  it('strips terminal control sequences from untrusted report text', () => {
+    const hostile: Finding = {
+      ...osvVulnerability,
+      title: 'Safe\u001b[2J\u001b]0;pwned\u0007 title',
+      impact: 'line one\nline two\u009b31m',
+    };
+    const text = formatReportText(reportWith('ready', { findings: [hostile] }));
+
+    // eslint-disable-next-line no-control-regex -- asserting that no control character survives
+    expect(text).not.toMatch(/[\u001b\u0007\u009b]/);
+    expect(text).toContain('Safe[2J]0;pwned title');
+    expect(text).toContain('Impacto: line one line two31m');
+  });
+
   it('fails only from the --fail-on severity upwards', () => {
     const report = reportWith('ready', { findings: [sampleVulnerabilityFinding] }); // high
     expect(exitCodeForReport(report)).toBe(1);

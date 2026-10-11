@@ -13,9 +13,8 @@ export class UpstreamServiceError extends Error {
   readonly status: number;
   readonly service: ServiceName;
 
-  /** The message is generic on purpose: it reaches the client. The body goes to the logger. */
-  constructor(service: ServiceName, status: number) {
-    super(`Upstream service ${service} returned error ${status}`);
+  constructor(service: ServiceName, status: number, details?: string) {
+    super(`Upstream service ${service} returned error ${status}${details ? `: ${details}` : ''}`);
     this.name = 'UpstreamServiceError';
     this.status = status;
     this.service = service;
@@ -44,16 +43,7 @@ export interface ResilientHttpClientOptions {
   breakers?: Partial<Record<ServiceName, CircuitBreaker>>;
   /** Default call timeout in ms. Defaults to 10_000 ms. */
   timeoutMs?: number;
-  /** Receives the (truncated) body of failed upstream responses, which never reach the caller. */
-  logger?: UpstreamLogger;
 }
-
-/** The slice of the pino logger the client needs. */
-export interface UpstreamLogger {
-  warn(obj: Record<string, unknown>, msg?: string): void;
-}
-
-const MAX_LOGGED_BODY_CHARS = 500;
 
 export interface ResilientRequestOptions extends Omit<RequestInit, 'body'> {
   /** Propagated request ID for distributed tracing (sent in `x-request-id`). */
@@ -176,8 +166,8 @@ export class ResilientHttpClient {
 
         // 5xx responses represent upstream failures and count towards tripping the circuit breaker
         if (res.status >= 500) {
-          await this.logUpstreamBody(service, res, path);
-          throw new UpstreamServiceError(service, res.status);
+          const bodyText = await res.text().catch(() => '');
+          throw new UpstreamServiceError(service, res.status, bodyText);
         }
 
         return res;
@@ -233,20 +223,10 @@ export class ResilientHttpClient {
   ): Promise<T> {
     const res = await this.fetch(service, path, { ...options, method: 'GET' });
     if (!res.ok) {
-      await this.logUpstreamBody(service, res, path);
-      throw new HttpError(statusToCode(res.status), `${service} returned ${res.status}`);
+      const text = await res.text().catch(() => '');
+      throw new HttpError(statusToCode(res.status), `${service} returned ${res.status}: ${text}`);
     }
     return res.json() as Promise<T>;
-  }
-
-  /** Records the upstream error body for operators; it is never part of an error message. */
-  private async logUpstreamBody(service: ServiceName, res: Response, path: string): Promise<void> {
-    if (!this.options.logger) return;
-    const body = await res.text().catch(() => '');
-    this.options.logger.warn(
-      { service, path, status: res.status, body: body.slice(0, MAX_LOGGED_BODY_CHARS) },
-      'upstream request failed',
-    );
   }
 
   /**
@@ -271,8 +251,8 @@ export class ResilientHttpClient {
     });
 
     if (!res.ok) {
-      await this.logUpstreamBody(service, res, path);
-      throw new HttpError(statusToCode(res.status), `${service} returned ${res.status}`);
+      const text = await res.text().catch(() => '');
+      throw new HttpError(statusToCode(res.status), `${service} returned ${res.status}: ${text}`);
     }
 
     const text = await res.text();

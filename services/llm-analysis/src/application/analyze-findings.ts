@@ -5,6 +5,7 @@ import type {
   DegradedReason,
   InternalLlmConfig,
   LlmAnalysisRequest,
+  LlmProvider,
 } from '@gyde/contracts';
 import {
   CircuitBreaker,
@@ -29,8 +30,11 @@ function mockConfig(tenantId: string): InternalLlmConfig {
 
 export interface AnalyzeFindingsDeps {
   tenantConfig: TenantLlmConfigProvider;
-  /** The real provider (Anthropic today), used when the tenant has a key. */
-  analyzer: FindingAnalyzer;
+  /**
+   * The real providers this service can talk to, by `LlmProvider` (Anthropic today), used when
+   * the tenant has a key. A provider missing here is not supported: its key is never sent anywhere.
+   */
+  analyzers: Partial<Record<LlmProvider, FindingAnalyzer>>;
   /** Development only: answers instead of the real provider when the tenant has no key. */
   mockAnalyzer?: FindingAnalyzer;
   mockEnabled: boolean;
@@ -49,8 +53,10 @@ export interface AnalyzeFindingsDeps {
  *  1. Fetch the tenant's LLM config (BYOK). Not configured -> publish AnalysisFailure
  *     `llm-not-configured`; the report stays deterministic and tells the studio what to do.
  *     Web being unreachable is `llm-unavailable`: the key may well exist.
- *  2. Call the provider behind a Circuit Breaker scoped per TENANT + PROVIDER, so one studio's
- *     invalid key or rate limit never opens the circuit for the others.
+ *  2. Pick the analyzer of the tenant's provider; a provider without one (OpenAI today) is
+ *     `llm-error` and nothing is sent out. Call it behind a Circuit Breaker scoped per
+ *     TENANT + PROVIDER, so one studio's invalid key or rate limit never opens the circuit for
+ *     the others.
  *  3. Validate the model output with the `AiResult` schema and publish it to Reports.
  *  4. Provider down / circuit open -> `llm-unavailable` (serve the last cached classification
  *     when the same findings already produced one); provider error -> `llm-error`.
@@ -112,10 +118,25 @@ export class AnalyzeFindings {
       return;
     }
 
+    // The analyzer follows the tenant's provider: a key is only ever handed to the provider it
+    // belongs to. No analyzer for it means nothing is called (and so no breaker is touched).
+    const analyzer = Object.hasOwn(this.deps.analyzers, llmConfig.provider)
+      ? this.deps.analyzers[llmConfig.provider]
+      : undefined;
+    if (!analyzer) {
+      await this.publishFailure(
+        request.analysisId,
+        'llm-error',
+        `LLM provider "${llmConfig.provider}" is not supported yet`,
+        llmConfig.apiKey,
+      );
+      return;
+    }
+
     await this.callProvider(
       request,
       `${request.tenantId}:${llmConfig.provider}`,
-      this.deps.analyzer,
+      analyzer,
       llmConfig,
     );
   }

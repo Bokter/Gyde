@@ -12,5 +12,8 @@ export interface FindingAnalyzer {
   analyze(request: LlmAnalysisRequest, credentials: InternalLlmConfig): Promise<AiResult>;
 }
 
-/** DI token of the `FindingAnalyzer` port: `app.module.ts` binds it to an adapter (see ADR 0011). */
+/**
+ * DI token of the `FindingAnalyzer` port: `app.module.ts` binds it to the Anthropic adapter (see
+ * ADR 0011) and registers it in the provider → analyzer map that `AnalyzeFindings` selects from.
+ */
 export const FINDING_ANALYZER = Symbol('FindingAnalyzer');

@@ -287,6 +287,66 @@ describe('the circuit breaker is scoped per tenant + provider', () => {
   });
 });
 
+describe('the analyzer is chosen by the tenant provider', () => {
+  const openaiKey = 'sk-openai-secret-key-xyz789';
+
+  it('refuses a provider that is not supported yet, without sending the key anywhere', async () => {
+    const services = new FakeServices(token);
+    services.setConfig('tenant-1', tenantConfig({ provider: 'openai', apiKey: openaiKey }));
+    const consoleSpies = (['log', 'info', 'warn', 'error', 'debug'] as const).map((method) =>
+      vi.spyOn(console, method).mockImplementation(() => {}),
+    );
+    const { logs, run } = await start({ services, mockEnabled: true });
+
+    // More runs than the breaker threshold: this refusal is a configuration error, not an outage.
+    for (const id of ['analysis-1', 'analysis-2', 'analysis-3']) {
+      await run(analysisPayload({ analysisId: id }));
+    }
+
+    expect(services.aiResults).toEqual([]);
+    expect(services.failures).toHaveLength(3);
+    for (const failure of services.failures) {
+      expect(failure).toMatchObject({
+        stage: 'llm',
+        reason: 'llm-error',
+        message: 'LLM provider "openai" is not supported yet',
+      });
+    }
+    // Nothing left the service but the calls to Web (the key) and Reports (the failure): no
+    // request reached Anthropic, OpenAI or any other provider host.
+    expect(new Set(services.calls.map((call) => call.origin))).toEqual(
+      new Set([HOSTS.web, HOSTS.reports]),
+    );
+    expect(services.callsTo('anthropic')).toEqual([]);
+
+    const everything = [
+      logs.join(''),
+      JSON.stringify(services.calls),
+      JSON.stringify(services.failures),
+      ...consoleSpies.flatMap((spy) => spy.mock.calls.flat().map(String)),
+    ].join(' ');
+    expect(everything).not.toContain(openaiKey);
+  });
+
+  it('keeps serving an anthropic tenant next to an unsupported one', async () => {
+    const services = new FakeServices(token);
+    services.setConfig('tenant-1', tenantConfig({ provider: 'openai', apiKey: openaiKey }));
+    services.setConfig('tenant-2', tenantConfig({ tenantId: 'tenant-2' }));
+    const { run } = await start({ services });
+
+    await run(analysisPayload({ analysisId: 'analysis-1', tenantId: 'tenant-1' }));
+    await run(analysisPayload({ analysisId: 'analysis-2', tenantId: 'tenant-2' }));
+
+    expect(services.failures.map((f) => [f.analysisId, f.reason])).toEqual([
+      ['analysis-1', 'llm-error'],
+    ]);
+    expect(services.aiResults.map((r) => r.analysisId)).toEqual(['analysis-2']);
+    // Only the anthropic tenant's key reached the provider.
+    expect(services.callsTo('anthropic')).toHaveLength(1);
+    expect(services.callsTo('anthropic')[0]?.origin).toBe('https://api.anthropic.com');
+  });
+});
+
 describe('the mock provider', () => {
   it('answers deterministically and only when LLM_MOCK_ENABLED=true', async () => {
     // Without the flag a studio without a key gets a degraded, deterministic report.

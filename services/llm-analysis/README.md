@@ -20,6 +20,8 @@ Cuando no puede (sin llave, proveedor caído o error) publica un `AnalysisFailur
 
 ## Proveedores
 
+Proveedores soportados hoy: **Anthropic**. Un tenant con otro proveedor (`openai`) recibe `AnalysisFailure` `llm-error` (`LLM provider "openai" is not supported yet`) y no sale ninguna petición: la llave solo se entrega al proveedor al que pertenece.
+
 - **Mock determinístico** (`src/infrastructure/providers/mock-finding-analyzer.ts`): responde **solo** con `LLM_MOCK_ENABLED=true` y **sin llave**; el mismo entrada produce siempre la misma salida.
 - **Anthropic** (`anthropic-finding-analyzer.ts`): `POST /v1/messages` con la llave del tenant (`x-api-key`), timeout de 30 s y respuesta interpretada como JSON estricto.
 - El breaker es **por tenant + proveedor**: la llave inválida o el rate limit de un estudio no abre el circuito de los demás. Con el circuito abierto se sirve la **última clasificación cacheada** cuando los hallazgos son idénticos (mismo tenant, proveedor y huella); si no la hay, `llm-unavailable`.
@@ -54,4 +56,4 @@ src/app.module.ts          composition root: enlaza puertos con adaptadores (ADR
 | `LLM_MOCK_ENABLED` | false | Solo desarrollo: si el tenant no tiene llave, responde el mock |
 | `CB_*` | — | Umbrales del Circuit Breaker (`packages/resilience`) |
 
-Los criterios de aceptación son las 14 pruebas de `test/app.test.ts`.
+Los criterios de aceptación son las 16 pruebas de `test/app.test.ts`.

@@ -24,6 +24,8 @@ export type AnthropicBehavior = 'ok' | 'error500' | 'down' | 'freeText' | 'unkno
 
 export interface RecordedCall {
   service: 'web' | 'reports' | 'anthropic';
+  /** Origin of the request (`https://api.anthropic.com`): any host that is not Web or Reports. */
+  origin: string;
   path: string;
   token: string | null;
   body: unknown;
@@ -62,6 +64,7 @@ export class FakeServices {
       url.origin === HOSTS.web ? 'web' : url.origin === HOSTS.reports ? 'reports' : 'anthropic';
     this.calls.push({
       service,
+      origin: url.origin,
       path: url.pathname,
       token: headers.get(HEADERS.internalToken),
       body,

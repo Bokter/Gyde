@@ -26,7 +26,7 @@ const MOCK_FINDING_ANALYZER = Symbol('MockFindingAnalyzer');
 export interface AppModuleOverrides {
   /** The network itself: tests answer Web, Reports and Anthropic with a fake fetch. */
   fetch?: typeof fetch;
-  /** Replaces the real provider (a second provider, or a stub in a test). */
+  /** Replaces the Anthropic provider (`FINDING_ANALYZER`), e.g. a stub in a test. */
   analyzer?: FindingAnalyzer;
   mockAnalyzer?: FindingAnalyzer;
   /** Overrides the `CB_*` defaults of the breakers (the per tenant + provider one included). */
@@ -94,7 +94,9 @@ export class AppModule {
           ) =>
             new AnalyzeFindings({
               tenantConfig,
-              analyzer,
+              // The providers this service supports, by the tenant's `LlmProvider`. FINDING_ANALYZER
+              // is the Anthropic adapter; a new provider adds its entry here, nowhere else.
+              analyzers: { anthropic: analyzer },
               mockAnalyzer,
               mockEnabled: config.LLM_MOCK_ENABLED,
               reports,

@@ -1,17 +1,9 @@
 import NextAuth from 'next-auth';
 import GitHub from 'next-auth/providers/github';
 import { DrizzleAdapter } from '@auth/drizzle-adapter';
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
+import { db } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
 import { createTenantOnFirstLogin } from './composition-root';
-
-const pool = new Pool({
-  connectionString: process.env.WEB_DATABASE_URL,
-  max: 10,
-});
-
-const db = drizzle(pool, { schema });
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: DrizzleAdapter(db, {

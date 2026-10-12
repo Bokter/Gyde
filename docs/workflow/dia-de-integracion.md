@@ -2,7 +2,7 @@
 
 Para quien conduzca la integración (el líder o, en su defecto, quien tenga el teclado) y para las cuatro áreas, que responden cada una de lo suyo. Recorre las secciones **en orden**: cada una depende de la anterior. En cada paso hay el **comando exacto**, el **resultado esperado** y **qué área responde si falla**.
 
-Estado de cada paso, a **2026-10-11** (se actualiza el día de la integración):
+Estado de cada paso, a **2026-10-12** (se actualiza el día de la integración):
 
 - ✅ **Verificado** con el stack real, con el comando tal cual está escrito.
 - ⏳ **Pendiente de integrar**: el comando y el resultado salen de los README y los contratos; no se ha podido ejecutar todavía y puede necesitar ajustes. Dice qué falta.
@@ -53,13 +53,14 @@ $C ps --format "table {{.Service}}\t{{.Status}}"
 
 **Esperado:** postgres, registry, web, gateway, normalization, retrieval, llm-analysis y reports en `Up ... (healthy)`. Tarda un par de minutos la primera vez (construye la imagen).
 
-**Estado:** ✅ postgres, registry, normalization, retrieval, reports, llm-analysis y web quedan `healthy` con este comando (el gateway es hoy un esqueleto, ver la sección 3).
+**Estado:** ✅ postgres, registry, normalization, retrieval, reports, llm-analysis y web quedan `healthy` con este comando. El gateway ya implementa autenticación y enrutado (#62), pero su recorrido aún no se ha verificado con el stack: ver la sección 3.
 
-Comprobar cada servicio por su puerto (`/healthz`; `readyz` además comprueba la base de datos en normalization):
+Comprobar cada servicio por su puerto (`/healthz`; `readyz` además comprueba la base de datos en normalization y, cuando Reports usa PostgreSQL, también en reports):
 
 ```bash
 for p in 3000 4000 4100 4200 4300 4400 4500; do printf "%s: " $p; curl -s -o /dev/null -w "%{http_code}\n" localhost:$p/healthz; done
 curl -s localhost:4200/readyz                        # {"status":"ready",...,"checks":{"database":"ok"}}
+curl -s localhost:4500/readyz                        # igual, tras el merge de la persistencia de Reports
 ```
 
 **Esperado:** siete `200` y `readyz` en `ready`.
@@ -77,7 +78,7 @@ for s in gateway web normalization retrieval llm-analysis reports; do
 done
 ```
 
-**Esperado:** una instancia `healthy=true` por servicio. **Estado:** ✅ normalization, retrieval, llm-analysis y reports se registran solas. ⏳ `web` aparece como «(ninguna)» (hoy no se auto-registra) y el gateway aún no corre su lógica real: confirmar con las áreas 2 y 1 si es lo esperado para la demo.
+**Esperado:** una instancia `healthy=true` por servicio. **Estado:** ✅ normalization, retrieval, llm-analysis y reports se registran solas. ⏳ `web` aparece como «(ninguna)» (hoy no se auto-registra); el gateway ya tiene lógica real (#62) pero su auto-registro no se ha observado: confirmar con las áreas 2 y 1 si es lo esperado para la demo.
 
 | Si falla | Responde |
 |---|---|
@@ -105,7 +106,7 @@ curl -s -X POST -H "x-internal-token: $T" -H 'content-type: application/json' lo
 
 ## 3. Recorrido por el gateway real (⏳ pendiente de integrar)
 
-> **Hoy** el gateway responde `501 not_implemented` en `/v1/*`. Esta sección se ejecuta cuando el Área 1 integre su implementación. Necesita una **API key** emitida por la web (sección 6, paso 2) en la variable `KEY`.
+> El gateway ya implementa autenticación de API keys y el enrutado a Reports (#62), pero esta sección **aún no se ha verificado con el stack real**, así que sigue ⏳. Necesita una **API key** emitida por la web (sección 6, paso 2) en la variable `KEY`.
 
 ```bash
 G=http://localhost:4000
@@ -140,7 +141,7 @@ curl -s -H "Authorization: Bearer $KEY" $G/v1/analyses/<analysisId>/markdown
 |---|---|
 | `401` con una key válida | Área 1 (gateway) o Área 2 (`POST /internal/api-keys/verify` de la web): mirar `$C logs web gateway` para ver quién rechazó |
 | `404`/`500` al crear o leer el análisis | Área 1 si el gateway no reenvía; Área 4 si Reports responde un error (`$C logs reports`) |
-| El reporte queda en `retrieving` | Área 4 (Reports no tiene temporizador en ese estado); mirar antes `$C logs retrieval` por si Retrieval no pudo entregar (Área 3) |
+| El reporte queda en `retrieving` | Área 4 (Reports) si el log muestra que no entregó a tiempo; mirar antes `$C logs retrieval` por si Retrieval no pudo entregar (Área 3). Reports sí tiene temporizador en ese estado desde #52 |
 | `/internal/*` responde `2xx` | Área 1, bloqueante: nunca debe pasar |
 
 El humo (`infra/scripts/smoke-retrieval.sh`) cubre esta sección sola cuando se le da la key (ver la sección 7).
@@ -176,13 +177,13 @@ Para hacerlo a mano, el cuerpo de `POST /internal/analyses` sale de `infra/scrip
 | El caso 2 sale degradado con `llm-unavailable` aunque `llm-analysis` está sano | Primero comprobar que `web` está encendido (llm-analysis le pide la configuración del tenant): Área 1 si falta la dependencia en el compose; Área 4 si `web` está sano y aun así falla |
 | El caso 2 no trae `aiExplanation` | Área 4 (`llm-analysis`/`reports`) |
 | El caso 3 no sale degradado, o tarda mucho | Área 4 (Reports) y Área 3 (el aviso `llm-unavailable` lo publica Retrieval si no llega a `llm-analysis`) |
-| Un análisis se queda en `retrieving` | Área 4 (sin temporizador en ese estado); Área 3 si el log de Retrieval muestra que no pudo entregar |
+| Un análisis se queda en `retrieving` | Área 4 (Reports), aunque ya hay temporizador en ese estado (#52); Área 3 si el log de Retrieval muestra que no pudo entregar |
 
 ## 5. Privacidad de punta a punta
 
 La promesa: **el código fuente del cliente nunca sale de su entorno**, y los secretos (API keys, llave de IA del estudio) no aparecen en logs ni en la base de datos en claro. El proyecto de ejemplo `fixtures/projects/unity-sample` contiene en `Assets/Scripts/Player.cs` la marca `PROPRIETARY_MARKER_DO_NOT_SEND`.
 
-### 5.1 La solicitud que sale del cliente (⏳ necesita la CLI de la Área 4)
+### 5.1 La solicitud que sale del cliente (⏳ necesita el gateway de la Área 1)
 
 Capturar lo que la CLI manda de verdad, con un proxy de registro entre la CLI y el gateway:
 
@@ -239,7 +240,7 @@ Los seis pasos de [`docs/tasks/00-resumen.md`](../tasks/00-resumen.md), con coma
 |---|---|---|---|---|
 | 1 | El stack sube y el registry lista las instancias | Sección 1 | Servicios `healthy` y una instancia por servicio en el registry | Área 1 |
 | 2 | En la web: iniciar sesión con GitHub, elegir un plan con Stripe (modo **test**), crear una API key y guardar la llave de IA del estudio | Navegador en `http://localhost:3000`. Tarjeta de prueba de Stripe: `4242 4242 4242 4242`. La API key se muestra **una sola vez**: guardarla en `KEY` | Plan activo, la key en `/dashboard/api-keys` y la llave de IA con solo los últimos 4 visibles. ⏳ Stripe y la llave de IA de la web aún no están integrados (hoy: inicio de sesión y API keys) | Área 2 |
-| 3 | `gyde analyze` imprime el reporte priorizado con la vulnerabilidad alta, el riesgo de licencia y la explicación de IA | `GYDE_API_KEY=$KEY pnpm --filter @gyde/cli dev -- analyze fixtures/projects/unity-sample` (con `LLM_MOCK_ENABLED=true` la explicación sale del mock; con una llave real, del proveedor). ⏳ la CLI aún es un esqueleto: el equivalente de hoy son los casos 1 a 3 de la sección 4 | Los dos hallazgos esperados y `aiExplanation` en cada uno | Área 4 (CLI y reporte); Área 3 (hallazgos) |
+| 3 | `gyde analyze` imprime el reporte priorizado con la vulnerabilidad alta, el riesgo de licencia y la explicación de IA | `GYDE_API_KEY=$KEY pnpm --filter @gyde/cli dev -- analyze fixtures/projects/unity-sample` (con `LLM_MOCK_ENABLED=true` la explicación sale del mock; con una llave real, del proveedor). La CLI está integrada (#59): `--format text|json|markdown` y `--fail-on-degraded` | Los dos hallazgos esperados y `aiExplanation` en cada uno | Área 4 (CLI y reporte); Área 3 (hallazgos) |
 | 4 | **Apagar `llm-analysis`**: el reporte sale **degradado** y, tras 5 fallos, el **Circuit Breaker** abre y el resultado llega al instante | `$C kill llm-analysis` y repetir el análisis 7 veces (humo, caso 3, o la CLI) | `degraded=true`, `llm-unavailable`, los hallazgos determinísticos intactos. ✅ medido: las primeras 4 respuestas tardan unos 5 s cada una; desde la 5.ª, unos 0,25 s, y el log de Retrieval pasa de `fetch failed` a `its circuit is open` | Área 3 (breaker de Retrieval), Área 4 (degradado en Reports), Área 1 (`resilience`) |
 | 5 | La instancia caída desaparece del registry (Health Checker) | tras el paso 4: `curl -s -H "x-internal-token: $T" localhost:4100/v1/services/llm-analysis` | `"instances":[]` pocos segundos después de apagarla. ✅ medido: unos **10 s** tras `docker kill` (sin des-registro limpio); con `HEALTH_CHECK_INTERVAL_MS=5000` y `HEALTH_CHECK_MAX_FAILURES=3` el máximo esperado ronda los 15 a 20 s | Área 1 (`registry`) |
 | 6 | Verificar que no viaja código fuente | Sección 5 | La marca `PROPRIETARY_MARKER_DO_NOT_SEND` no aparece en la captura, los logs ni la base de datos | Área 4 (el cliente), todas las áreas (logs) |
@@ -253,7 +254,7 @@ bash infra/scripts/smoke-retrieval.sh                       # sin gateway: las s
 SMOKE_API_KEY=<key> bash infra/scripts/smoke-retrieval.sh   # además, la sección 3 por el gateway
 ```
 
-El script termina con `SMOKE TEST PASSED` o con `SMOKE TEST FAILED: <motivo>` y código de salida distinto de cero. Si no se le da `SMOKE_API_KEY`, o el gateway sigue respondiendo `501`, la parte del gateway se **omite avisándolo** (no cuenta como éxito de esa parte).
+El script termina con `SMOKE TEST PASSED` o con `SMOKE TEST FAILED: <motivo>` y código de salida distinto de cero. Si no se le da `SMOKE_API_KEY`, o el gateway no está disponible todavía, la parte del gateway se **omite avisándolo** (no cuenta como éxito de esa parte).
 
 ## 8. Plantilla para anotar un fallo
 

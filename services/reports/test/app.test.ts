@@ -24,6 +24,8 @@ import { createPgliteDatabase } from './support/pglite';
 const token = 'test-internal-token-123456';
 const config = configSchema.parse({ INTERNAL_SERVICE_TOKEN: token });
 const auth = { [HEADERS.internalToken]: token };
+/** What the gateway sends on a read: the internal token plus the tenant of the API key. */
+const asTenant = (tenantId: string) => ({ ...auth, [HEADERS.tenantId]: tenantId });
 
 /** Fake repository: records every call so the tests can assert on it. */
 class FakeRepository implements ReportRepository {
@@ -192,7 +194,7 @@ describe('POST /internal/analyses and GET /internal/analyses/:id', () => {
     const getRes = await app.inject({
       method: 'GET',
       url: `/internal/analyses/${analysisId}`,
-      headers: auth,
+      headers: asTenant('tenant-1'),
     });
 
     expect(getRes.statusCode).toBe(200);
@@ -320,7 +322,7 @@ describe('record methods and full lifecycle', () => {
     const getRes = await app.inject({
       method: 'GET',
       url: `/internal/analyses/${analysisId}`,
-      headers: auth,
+      headers: asTenant('tenant-1'),
     });
     const report = Report.parse(getRes.json());
     expect(report.status).toBe('ready');
@@ -367,7 +369,7 @@ describe('record methods and full lifecycle', () => {
     const getRes = await app.inject({
       method: 'GET',
       url: `/internal/analyses/${analysisId}`,
-      headers: auth,
+      headers: asTenant('tenant-1'),
     });
     const report = Report.parse(getRes.json());
     expect(report.status).toBe('ready');
@@ -433,7 +435,7 @@ describe('record methods and full lifecycle', () => {
     const getRes = await app.inject({
       method: 'GET',
       url: `/internal/analyses/${analysisId}`,
-      headers: auth,
+      headers: asTenant('tenant-1'),
     });
     const report = Report.parse(getRes.json());
     expect(report.degraded).toBe(true);
@@ -478,7 +480,7 @@ describe('record methods and full lifecycle', () => {
     const getRes = await app.inject({
       method: 'GET',
       url: `/internal/analyses/${analysisId}`,
-      headers: auth,
+      headers: asTenant('tenant-1'),
     });
     const report = Report.parse(getRes.json());
     expect(report.status).toBe('ready');
@@ -497,7 +499,7 @@ describe('record methods and full lifecycle', () => {
     const getRes = await app.inject({
       method: 'GET',
       url: `/internal/analyses/${analysisId}/markdown`,
-      headers: auth,
+      headers: asTenant('tenant-1'),
     });
 
     expect(getRes.statusCode).toBe(200);
@@ -527,9 +529,17 @@ describe('record methods and full lifecycle', () => {
     const getRes = await app.inject({
       method: 'GET',
       url: `/internal/analyses/${analysisId}`,
-      headers: auth,
+      headers: asTenant('tenant-1'),
     });
     expect(Report.parse(getRes.json()).id).toBe(analysisId);
+
+    // The tenant check lives in the use case, so it holds over PostgreSQL too.
+    const foreign = await app.inject({
+      method: 'GET',
+      url: `/internal/analyses/${analysisId}`,
+      headers: asTenant('tenant-2'),
+    });
+    expect(foreign.statusCode).toBe(404);
 
     // And the row really lives in the `analyses` table: query it with raw SQL.
     const rows = (
@@ -590,7 +600,7 @@ describe('startup sweep', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/internal/analyses/stale-analyzing',
-      headers: auth,
+      headers: asTenant('tenant-1'),
     });
     const report = Report.parse(res.json());
     expect(report.status).toBe('ready');
@@ -620,7 +630,7 @@ describe('lifecycle hardening', () => {
     const get = await app.inject({
       method: 'GET',
       url: '/internal/analyses/ghost',
-      headers: auth,
+      headers: asTenant('tenant-1'),
     });
     expect(get.statusCode).toBe(404);
     expect(get.json()).toMatchObject({ error: { code: 'not_found' } });
@@ -628,7 +638,7 @@ describe('lifecycle hardening', () => {
     const markdown = await app.inject({
       method: 'GET',
       url: '/internal/analyses/ghost/markdown',
-      headers: auth,
+      headers: asTenant('tenant-1'),
     });
     expect(markdown.statusCode).toBe(404);
 
@@ -805,7 +815,7 @@ describe('retrieval timeout', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/internal/analyses/${analysisId}`,
-      headers: auth,
+      headers: asTenant('tenant-1'),
     });
     const report = Report.parse(res.json());
     expect(report.status).toBe('failed');
@@ -840,5 +850,89 @@ describe('retrieval timeout', () => {
     await createJob(app2);
     expect(second.fired).toHaveLength(0);
     await app2.close();
+  });
+});
+
+describe('tenant isolation on reads', () => {
+  let app: NestFastifyApplication;
+
+  beforeAll(async () => {
+    app = await buildApp({ repository: new FakeRepository(), retrieval: new FakeRetrieval() });
+  });
+  afterAll(() => app.close());
+
+  async function createFor(tenantId: string): Promise<string> {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/internal/analyses',
+      headers: auth,
+      payload: { ...jobPayload(), tenantId },
+    });
+    return (res.json() as { analysisId: string }).analysisId;
+  }
+
+  /** The error envelope without the parts that legitimately differ between two requests. */
+  function shape(body: unknown, analysisId: string): unknown {
+    const { error } = body as { error: { code: string; message: string; requestId?: string } };
+    return { code: error.code, message: error.message.replace(analysisId, '<id>') };
+  }
+
+  const reads = [
+    { name: 'the report', suffix: '' },
+    { name: 'the markdown', suffix: '/markdown' },
+  ];
+
+  it.each(reads)('lets the owner read $name', async ({ suffix }) => {
+    const id = await createFor('tenant-1');
+    const res = await app.inject({
+      method: 'GET',
+      url: `/internal/analyses/${id}${suffix}`,
+      headers: asTenant('tenant-1'),
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it.each(reads)(
+    'answers another tenant reading $name exactly like a missing analysis',
+    async ({ suffix }) => {
+      const id = await createFor('tenant-1');
+      const foreign = await app.inject({
+        method: 'GET',
+        url: `/internal/analyses/${id}${suffix}`,
+        headers: asTenant('tenant-2'),
+      });
+      const missing = await app.inject({
+        method: 'GET',
+        url: `/internal/analyses/does-not-exist${suffix}`,
+        headers: asTenant('tenant-2'),
+      });
+
+      expect(foreign.statusCode).toBe(404);
+      expect(foreign.statusCode).toBe(missing.statusCode);
+      expect(shape(foreign.json(), id)).toEqual(shape(missing.json(), 'does-not-exist'));
+      expect(foreign.body).not.toContain('tenant-1');
+    },
+  );
+
+  it.each(reads)('answers 404 for $name when the tenant header is missing', async ({ suffix }) => {
+    const id = await createFor('tenant-1');
+    const res = await app.inject({
+      method: 'GET',
+      url: `/internal/analyses/${id}${suffix}`,
+      headers: auth,
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('keeps each tenant able to read its own analysis', async () => {
+    const first = await createFor('tenant-1');
+    const second = await createFor('tenant-2');
+    const read = (id: string, tenantId: string) =>
+      app.inject({ method: 'GET', url: `/internal/analyses/${id}`, headers: asTenant(tenantId) });
+
+    expect((await read(first, 'tenant-1')).statusCode).toBe(200);
+    expect((await read(second, 'tenant-2')).statusCode).toBe(200);
+    expect((await read(first, 'tenant-2')).statusCode).toBe(404);
+    expect((await read(second, 'tenant-1')).statusCode).toBe(404);
   });
 });

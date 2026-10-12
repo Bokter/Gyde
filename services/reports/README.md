@@ -40,6 +40,7 @@ retrieving ──(sin respuesta de Retrieval en REPORTS_RETRIEVAL_TIMEOUT_MS)─
   - `analyzing` más antiguo que `REPORTS_AI_TIMEOUT_MS` → `ready` + degradado (`llm-unavailable`).
   - `retrieving` más antiguo que `REPORTS_RETRIEVAL_TIMEOUT_MS` → `failed` (`retrieval-error`).
   <br>Con el repositorio en memoria no hay nada que barrer (el arranque empieza vacío), así que el barrido solo corre con base de datos.
+  - **Límite conocido:** el barrido solo cierra lo que ya superó su umbral. Un análisis que llevaba menos de `REPORTS_AI_TIMEOUT_MS` en `analyzing` (o menos de `REPORTS_RETRIEVAL_TIMEOUT_MS` en `retrieving`) cuando Reports se reinició se queda sin temporizador, porque el reinicio perdió el suyo, y el barrido aún no lo cierra. Si su resultado no llega, no se cierra solo.
 - Si Retrieval no responde al crear el trabajo, este queda `failed` con un error claro y el `202` se responde igualmente (el cliente lo ve en el `GET`).
 - Leer o registrar un análisis que **no existe** responde `404 not_found` (nunca un 500), igual para `GET`, `markdown` y los tres `POST` de resultados.
 - Un `deterministic` repetido (estado que ya no es `retrieving`) se **ignora**: no sobrescribe el resultado ni devuelve el análisis a `analyzing`.
@@ -57,8 +58,8 @@ retrieving ──(sin respuesta de Retrieval en REPORTS_RETRIEVAL_TIMEOUT_MS)─
 | Método y ruta | Cuerpo | Respuesta | Estado |
 |---|---|---|---|
 | `POST /internal/analyses` | `CreateAnalysisJob` | `202 AnalysisAccepted` | **en vivo** |
-| `GET /internal/analyses/:analysisId` | — | `Report` | **en vivo** |
-| `GET /internal/analyses/:analysisId/markdown` | — | `text/markdown` | **en vivo** |
+| `GET /internal/analyses/:analysisId` | cabecera `x-gyde-tenant-id` | `Report` (`404` si es de otro tenant o falta la cabecera) | **en vivo** |
+| `GET /internal/analyses/:analysisId/markdown` | cabecera `x-gyde-tenant-id` | `text/markdown` (mismo `404`) | **en vivo** |
 | `POST /internal/analyses/:analysisId/deterministic` | `DeterministicResult` | `204` (desde Retrieval) | **en vivo** |
 | `POST /internal/analyses/:analysisId/ai-result` | `AiResult` | `204` (desde llm-analysis) | **en vivo** |
 | `POST /internal/analyses/:analysisId/failure` | `AnalysisFailure` | `204` | **en vivo** |

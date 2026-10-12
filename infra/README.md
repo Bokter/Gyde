@@ -20,10 +20,15 @@ Todo lo necesario para levantar Gyde en local con **Docker** (ver [ADR 0008](../
 node infra/scripts/bootstrap-env.mjs
 ```
 
-Si no tienes Node en tu máquina, hazlo en un contenedor:
+Si no tienes Node en tu máquina, hazlo en un contenedor (elige tu terminal):
 
 ```bash
+# Linux, macOS o WSL
 docker run --rm -v "$PWD":/work -w /work node:24-alpine node infra/scripts/bootstrap-env.mjs
+# Git Bash (Windows): ver "Problemas conocidos en Windows"
+MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W)":/work -w /work node:24-alpine node infra/scripts/bootstrap-env.mjs
+# PowerShell
+docker run --rm -v "${PWD}:/work" -w /work node:24-alpine node infra/scripts/bootstrap-env.mjs
 ```
 
 Levantar todo y que tus cambios se sincronicen dentro de los contenedores:
@@ -73,6 +78,7 @@ Cada servicio expone `GET /healthz` (vivo) y `GET /readyz` (listo).
 - **Repo dentro de OneDrive:** no instales dependencias en esa carpeta; usa Docker o clona en una ruta corta fuera de OneDrive (por ejemplo `C:\dev\Gyde`).
 - **Rutas largas:** Node y pnpm pueden fallar con rutas de más de ~260 caracteres. Mantén el repositorio en una ruta corta y, si hace falta, habilita las rutas largas de Windows y de git (`git config --global core.longpaths true`).
 - **Docker Desktop con pocos recursos:** la verificación completa (`--target check`) y `pnpm test` pueden fallar con `Test timed out in 5000ms`. Dale a Docker al menos 4 CPUs y 6 GB: en *Settings → Resources* (Hyper-V) o, con WSL 2, en `%UserProfile%\.wslconfig` (`[wsl2]`, `processors=4`, `memory=6GB`, luego `wsl --shutdown`).
+- **Git Bash convierte las rutas que empiezan por `/`:** `docker run ... -w /work` falla con `the working directory 'C:/Program Files/Git/work' is invalid`. Antepón `MSYS_NO_PATHCONV=1` a cualquier comando de `docker` que lleve `-w` o rutas absolutas dentro del contenedor, y usa `$(pwd -W)` para montar la carpeta actual. Con Node instalado, `node infra/scripts/bootstrap-env.mjs` evita el problema.
 - **Saltos de línea:** el repositorio fuerza LF (`.gitattributes`); no los conviertas a CRLF.
 
 ## Contraseñas locales

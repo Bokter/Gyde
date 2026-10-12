@@ -33,13 +33,3 @@ export function createToolchainFactory(
     }
   }
 }
-
-/**
- * Detects the game engine of a project folder (ProjectSettings/ProjectVersion.txt -> unity,
- * *.uproject -> unreal).
- *
- * TODO(area-4): implement.
- */
-export async function detectGameEngine(_projectRoot: string): Promise<GameEngine> {
-  throw new Error('TODO(area-4): detectGameEngine is not implemented yet');
-}

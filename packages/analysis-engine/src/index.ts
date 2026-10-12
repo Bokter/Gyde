@@ -14,11 +14,8 @@ export {
 export { buildAnalysisRequest } from './privacy/build-analysis-request';
 export { exitCodeForReport, type FailOn } from './report/exit-code';
 export { formatReportText, sortFindings } from './report/format-text';
-export {
-  createToolchainFactory,
-  detectGameEngine,
-  type ToolchainOptions,
-} from './toolchain/create-toolchain';
+export { createToolchainFactory, type ToolchainOptions } from './toolchain/create-toolchain';
+export { detectGameEngine, GameEngineDetectionError } from './toolchain/detect-game-engine';
 export type {
   AnalysisToolchainFactory,
   DependencyParser,

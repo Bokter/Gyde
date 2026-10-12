@@ -23,7 +23,7 @@ node infra/scripts/bootstrap-env.mjs
 # 2. Levanta los 7 servicios + PostgreSQL (la primera vez tarda varios minutos)
 C="docker compose -p gyde --env-file .env -f infra/compose/compose.yaml"
 $C up -d --build
-$C ps                      # todos deben quedar en "healthy"
+$C ps                      # repítelo hasta que todos estén en "healthy" (unos minutos la primera vez)
 ```
 
 - **Sin Node en tu máquina**, el paso 1 también se hace en un contenedor (elige tu terminal):
@@ -63,7 +63,18 @@ export GYDE_API_KEY=$(pnpm --filter @gyde/web seed:dev 2>/dev/null | grep -o 'gy
 
 Más detalles (idempotencia, cómo repetirlo) en [`services/web/README.md`](services/web/README.md#datos-de-desarrollo-seeddev).
 
-Salida: hallazgos ordenados por severidad (código de salida `1` si los hay) y, con plan Pro y llave de IA, la explicación de cada uno; si la IA no está disponible, un aviso de reporte degradado.
+Salida: hallazgos ordenados por severidad (código de salida `1` si hay alguno de severidad `high` o superior, ajustable con `--fail-on`; `0` en otro caso) y, con plan Pro y llave de IA, la explicación de cada uno; si la IA no está disponible, un aviso de reporte degradado.
+
+**Comprobar la API con curl.** El gateway escucha en `http://localhost:4000`:
+
+```bash
+G=http://localhost:4000
+curl -s -H "Authorization: Bearer $GYDE_API_KEY" $G/v1/auth/verify      # {"plan":"free","entitlements":{...}}
+curl -s -o /dev/null -w "%{http_code}\n" $G/v1/auth/verify              # 401 sin clave (también con una inválida)
+curl -s -o /dev/null -w "%{http_code}\n" $G/internal/analyses           # 404: /internal no se enruta por el gateway
+```
+
+El recorrido completo (crear un análisis, leer el reporte y el markdown) está en la sección 3 de [`docs/workflow/dia-de-integracion.md`](docs/workflow/dia-de-integracion.md).
 
 **Prueba de humo de punta a punta** (levanta el stack, comprueba los resultados exactos y provoca fallos a propósito):
 

@@ -191,7 +191,8 @@ Y el webhook público de Stripe, descrito abajo.
 - **Checkout** (`StartCheckout`): `mode: subscription` con `STRIPE_PRICE_PRO` o `STRIPE_PRICE_STUDIO`. Lleva el tenant en `client_reference_id` **y** en `subscription_data.metadata.tenantId`, porque Stripe puede entregar `customer.subscription.created` antes que `checkout.session.completed`. Reutiliza el `customer` del estudio si ya existe. Un estudio que ya paga va al Portal en vez de abrir una segunda suscripción.
 - **Portal** (`OpenPortal`): solo si el estudio tiene `customer` en Stripe. Hay que activarlo una vez en el dashboard de Stripe (modo test): *Settings → Billing → Customer portal*.
 - **Volver de Checkout** (`?checkout=success`) muestra un aviso y **no cambia el plan**: eso solo lo hace el webhook.
-- Los precios que muestra `/dashboard/billing` ($29 y $99) son texto fijo: deben coincidir con los precios configurados en Stripe.
+- Los precios que muestran la landing y `/dashboard/billing` ($29 y $99 al mes) salen de una sola constante, `PLAN_MONTHLY_PRICE_USD` (`domain/plan-prices.ts`). Son texto fijo: deben coincidir con los precios a los que apuntan `STRIPE_PRICE_PRO` y `STRIPE_PRICE_STUDIO`.
+- `/dashboard/billing` muestra siempre el aviso de **modo de prueba** con la tarjeta 4242 4242 4242 4242, porque el adaptador no acepta una clave que no sea `sk_test_`.
 
 ## Webhook de Stripe (`POST /api/stripe/webhook`)
 

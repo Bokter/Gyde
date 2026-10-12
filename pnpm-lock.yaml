@@ -6,6 +6,9 @@ settings:
 
 catalogs:
   default:
+    '@actions/core':
+      specifier: ^3.0.1
+      version: 3.0.1
     '@anthropic-ai/sdk':
       specifier: ^0.128.0
       version: 0.128.0
@@ -178,7 +181,7 @@ importers:
   apps/github-action:
     dependencies:
       '@actions/core':
-        specifier: ^3.0.1
+        specifier: 'catalog:'
         version: 3.0.1
       '@gyde/analysis-engine':
         specifier: workspace:*

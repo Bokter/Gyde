@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 
 import { HTTP_STATUS_BY_CODE, PLAN_CATALOG } from '@gyde/contracts';
 import type { AuthVerifyResponse, Report } from '@gyde/contracts';
@@ -7,10 +9,13 @@ import { sampleAnalysisRequest, sampleReportReady } from '@gyde/contracts/sample
 import { CircuitBreaker, createBreakerFromEnv, MemoryFallbackCache } from '@gyde/resilience';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { CsharpDependencyParser, GydeApiClient, GydeApiError } from '../src';
+import { CppDependencyParser, CsharpDependencyParser, GydeApiClient, GydeApiError } from '../src';
 
-const UNITY_SAMPLE = resolve(import.meta.dirname, '../../../fixtures/projects/unity-sample');
+const PROJECTS = resolve(import.meta.dirname, '../../../fixtures/projects');
+const UNITY_SAMPLE = resolve(PROJECTS, 'unity-sample');
 const EXPECTED_PARSE = resolve(UNITY_SAMPLE, 'expected-parse.json');
+const UNREAL_SAMPLE = resolve(PROJECTS, 'unreal-sample');
+const UNREAL_EXPECTED_PARSE = resolve(UNREAL_SAMPLE, 'expected-parse.json');
 
 /**
  * Executable acceptance criteria for the Area 4 work in this package. Turn each `it.todo` into a
@@ -65,15 +70,82 @@ describe('parsers (use fixtures/projects)', () => {
     expect(result).toEqual(expected);
   });
 
-  it('CppDependencyParser reads plugins from the .uproject and modules from *.Build.cs', () => {});
-  it('CppDependencyParser reads vcpkg.json / conanfile.txt when present', () => {});
+  it('CppDependencyParser reads plugins from the .uproject and modules from *.Build.cs', async () => {
+    const result = await new CppDependencyParser(UNREAL_SAMPLE).parseDependencies();
+
+    expect(result.project).toEqual({
+      gameEngine: 'unreal',
+      gameEngineVersion: '5.3',
+      sdks: [],
+      platforms: [],
+    });
+    const unreal = result.dependencies.filter((dependency) => dependency.ecosystem === 'unreal');
+    expect(unreal.map((dependency) => dependency.name)).toEqual([
+      'Core',
+      'CoreUObject',
+      'Engine',
+      'InputCore',
+      'Niagara',
+      'OnlineSubsystemSteam',
+      'Slate',
+      'SlateCore',
+    ]);
+    // Engine plugins and modules all carry the engine version, and the game's own module is not a dependency.
+    expect(unreal.every((dependency) => dependency.version === '5.3' && dependency.direct)).toBe(
+      true,
+    );
+    expect(unreal.map((dependency) => dependency.name)).not.toContain('SampleGame');
+  });
+
+  it('CppDependencyParser reads vcpkg.json / conanfile.txt when present', async () => {
+    const result = await new CppDependencyParser(UNREAL_SAMPLE).parseDependencies();
+    expect(result.dependencies.filter((dependency) => dependency.ecosystem === 'cpp')).toEqual([
+      { ecosystem: 'cpp', name: 'acme-samplelib', version: '1.1.0', direct: true },
+    ]);
+
+    // conanfile.txt is not part of the fixture: a temp project covers its [requires] section.
+    const root = await mkdtemp(join(tmpdir(), 'gyde-cpp-'));
+    try {
+      await writeFile(
+        join(root, 'Sample.uproject'),
+        JSON.stringify({ EngineAssociation: '5.4', Modules: [{ Name: 'Sample' }] }),
+      );
+      await writeFile(
+        join(root, 'conanfile.txt'),
+        '[requires]\nfmt/10.1.0\nzlib\n\n[generators]\nCMakeDeps\n',
+      );
+
+      const conan = await new CppDependencyParser(root).parseDependencies();
+      expect(conan.dependencies).toEqual([
+        { ecosystem: 'cpp', name: 'fmt', version: '10.1.0', direct: true },
+        { ecosystem: 'cpp', name: 'zlib', version: 'unknown', direct: true },
+      ]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('CppDependencyParser output matches expected-parse.json exactly', async () => {
+    const result = await new CppDependencyParser(UNREAL_SAMPLE).parseDependencies();
+    const expected = JSON.parse(readFileSync(UNREAL_EXPECTED_PARSE, 'utf-8'));
+    expect(result).toEqual(expected);
+  });
+
   it('parsers never read or return source code, only names, versions and licenses', async () => {
-    const result = await parser.parseDependencies();
-    const wire = JSON.stringify(result);
-    expect(wire).not.toContain('PROPRIETARY_MARKER_DO_NOT_SEND');
-    expect(wire).not.toContain('Assets/Scripts');
-    expect(wire).not.toContain('Player.cs');
-    expect(wire).not.toContain('transform.Translate');
+    const unity = await parser.parseDependencies();
+    const unityWire = JSON.stringify(unity);
+    expect(unityWire).not.toContain('PROPRIETARY_MARKER_DO_NOT_SEND');
+    expect(unityWire).not.toContain('Assets/Scripts');
+    expect(unityWire).not.toContain('Player.cs');
+    expect(unityWire).not.toContain('transform.Translate');
+
+    const unreal = await new CppDependencyParser(UNREAL_SAMPLE).parseDependencies();
+    const unrealWire = JSON.stringify(unreal);
+    expect(unrealWire).not.toContain('#include');
+    expect(unrealWire).not.toContain('ModuleRules');
+    expect(unrealWire).not.toContain('UnrealBuildTool');
+    expect(unrealWire).not.toContain('SampleGame.Build.cs');
+    expect(unrealWire).not.toContain('Source/SampleGame');
   });
 });
 
@@ -81,7 +153,6 @@ describe('parsers (use fixtures/projects)', () => {
 // `pipeline-steps.test.ts`. Still open, and owned by someone else:
 describe('pending work owned by other pieces', () => {
   it.todo('GitHubActionPipeline posts the report as a pull request comment (area 2)');
-  it.todo('the CLI sets the process exit code from the report (apps/cli)');
 });
 
 describe('GydeApiClient', () => {

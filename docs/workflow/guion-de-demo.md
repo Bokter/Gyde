@@ -52,7 +52,7 @@ SQL
 
 KA=$(mk_tenant demo-estudio-a free)
 KB=$(mk_tenant demo-estudio-b free)
-KP=$(mk_tenant demo-pro pro)       # mientras Stripe no esté integrado, el plan Pro se asigna así
+KP=$(mk_tenant demo-pro pro)       # el plan Pro se asigna así: la demo no necesita una cuenta de Stripe
 G=http://localhost:4000
 
 # El cuerpo de la petición (el proyecto de ejemplo ya parseado), sin y con IA
@@ -61,7 +61,7 @@ BODY=$(mkbody noai)
 BODY_AI=$(mkbody ai)
 ```
 
-**Mientras Stripe no esté**, subir un estudio a Pro a mano es una sola sentencia (útil si ya tienes uno): `$C exec -T postgres psql -U gyde -d gyde -c "update web.tenants set plan='pro' where slug='demo-estudio-a'"`.
+**Sin pasar por Stripe**, subir un estudio a Pro a mano es una sola sentencia (útil si ya tienes uno): `$C exec -T postgres psql -U gyde -d gyde -c "update web.tenants set plan='pro' where slug='demo-estudio-a'"`.
 
 Comprobar que el gateway las acepta y ve el plan correcto:
 
@@ -605,7 +605,7 @@ Los estudios `demo-*` viven solo en la base local. Si quieres borrarlos sin tira
 
 ## Qué NO cubre este guion
 
-- **Stripe / cambio de plan desde la web:** no está integrado (el upgrade del dashboard no hace nada todavía); por eso el plan Pro se asigna con el `INSERT` del apartado 0.1.
+- **Stripe / cambio de plan desde la web:** el Checkout y el Portal existen en `dev` (#73), pero necesitan llaves de prueba de Stripe y los precios configurados (`STRIPE_PRICE_PRO`, `STRIPE_PRICE_STUDIO`); esta demo no los usa y asigna el plan Pro con el `INSERT` del apartado 0.1.
 - **Los límites del plan (`402`/`429`):** implementados en el gateway (#70) y con su evidencia en [`docs/evidence/descubrimiento-y-breaker-2026-10-12.txt`](../evidence/descubrimiento-y-breaker-2026-10-12.txt).
 - **Un proveedor de IA real:** la demo usa el mock; el real necesita una llave de IA del estudio en la web.
 - **La Action de GitHub** contra un gateway local: está probada con un gateway falso (`apps/github-action/test/run.test.ts`).

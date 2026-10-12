@@ -10,4 +10,9 @@ export default defineConfig({
   sourcemap: false,
   clean: true,
   noExternal: [/.*/],
+  // Bundled CommonJS dependencies (`tunnel`, under @actions/http-client) call `require` for Node
+  // built-ins, which an ES module does not have.
+  banner: {
+    js: "import { createRequire as __gydeCreateRequire } from 'node:module'; const require = __gydeCreateRequire(import.meta.url);",
+  },
 });

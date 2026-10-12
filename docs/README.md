@@ -8,6 +8,7 @@
 | [Sistema de diseño](design/sistema-de-diseno.md) | Fuente, paleta, tokens, componentes y accesibilidad |
 | [Configuración de GitHub](workflow/configuracion-github.md) | Protección de ramas, merges y seguridad (se hace una vez) |
 | [Día de integración](workflow/dia-de-integracion.md) | Lista de verificación: compose completo, gateway, los tres casos de reporte, privacidad y la demo, con qué área responde de cada fallo |
+| [Guion de la demo](workflow/guion-de-demo.md) | Seis escenas con comando exacto, salida real, patrón que demuestran y archivo del código: flujo feliz, Pro con IA, degradado, 503, aislamiento entre estudios y persistencia |
 | [Infraestructura](../infra/README.md) | Docker, compose, PostgreSQL y problemas conocidos en Windows |
 | [Fixtures](../fixtures/README.md) | Proyectos y fuentes de ejemplo, con resultados esperados |
 | [Guía de contribución](../CONTRIBUTING.md) | Ramas, commits, PRs, capas y secretos |

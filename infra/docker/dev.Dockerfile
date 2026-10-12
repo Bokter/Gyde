@@ -28,4 +28,7 @@ ENV NODE_ENV=development
 
 # Fails the build when any quality gate fails (same gates as the CI).
 FROM dev AS check
-RUN pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build
+# `--concurrency=2`: turbo runs the tests of the 16 packages at once and every vitest opens its own
+# workers. On a small Docker Desktop VM that starves the CPU, loading the modules takes minutes and
+# the first test of a file times out at 5 s. Two at a time is slower on a big machine, not wrong.
+RUN pnpm format:check && pnpm lint && pnpm typecheck && pnpm test --concurrency=2 && pnpm build

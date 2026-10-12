@@ -26,6 +26,7 @@ $C up -d --build
 $C ps                      # todos deben quedar en "healthy"
 ```
 
+- <a id="recursos-de-docker-desktop"></a>**Recursos de Docker Desktop:** para levantar el stack basta con lo básico; para la verificación completa (`--target check`) dale **al menos 4 CPUs y 6 GB de memoria**. Con el motor de Docker Desktop sobre Hyper-V se ajusta en *Settings → Resources*; con WSL 2 esos controles no aparecen y se fijan en `%UserProfile%\.wslconfig` (`[wsl2]` con `processors=4` y `memory=6GB`), seguido de `wsl --shutdown` y reiniciar Docker Desktop. Comprueba lo que ve Docker con `docker info --format 'CPUs={{.NCPU}} Mem={{.MemTotal}}'`.
 - `--env-file .env` es obligatorio: el compose vive en `infra/compose` y sin él las variables de la raíz no llegan.
 - **Iniciar sesión** (panel web en `http://localhost:3000`) requiere una OAuth App de GitHub propia: callback `http://localhost:3000/api/auth/callback/github`, con `GITHUB_CLIENT_ID` y `GITHUB_CLIENT_SECRET` en tu `.env`. Pasos en [`services/web/README.md`](services/web/README.md).
 - **Para Stripe** (modo test): `STRIPE_SECRET_KEY` (`sk_test_…`), `STRIPE_PRICE_PRO`, `STRIPE_PRICE_STUDIO` y `STRIPE_WEBHOOK_SECRET` (con `stripe listen`). El sistema rechaza cualquier clave que no sea de prueba.
@@ -47,7 +48,19 @@ Salida: hallazgos ordenados por severidad (código de salida `1` si los hay) y, 
 SMOKE_API_KEY=<tu clave> COMPOSE_PROJECT_NAME=gyde KEEP_STACK=1 bash infra/scripts/smoke-retrieval.sh
 ```
 
-Verificar como el CI (formato, lint, tipos, pruebas y build): `docker build -f infra/docker/dev.Dockerfile --target check .` o, con Node instalado, `pnpm test`.
+**Verificación completa (opcional).** No hace falta para ejecutar el sistema. Repite lo que hace el CI (formato, lint, tipos, pruebas y build) y tarda varios minutos:
+
+```bash
+docker build -f infra/docker/dev.Dockerfile --target check .
+# o, con Node 24 y pnpm 11: pnpm install && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test --concurrency=2 && pnpm build
+```
+
+Necesita recursos: ver [Recursos de Docker Desktop](#recursos-de-docker-desktop) y [Problemas frecuentes](#problemas-frecuentes).
+
+## Problemas frecuentes
+
+- **Las pruebas fallan con `Test timed out in 5000ms`** (en `docker build ... --target check` o en `pnpm test`): la máquina va justa de CPU o memoria y las pruebas de los 16 paquetes compiten entre sí; el tiempo se va en cargar módulos, no en un error del código. Soluciones: dale más recursos a Docker Desktop (arriba), y con Node instalado ejecuta `pnpm test --concurrency=2` para correr solo dos paquetes a la vez. El `--target check` ya lo hace así.
+- **`docker run ... -w /work` falla en Git Bash:** ver [`infra/README.md`](infra/README.md#problemas-conocidos-en-windows).
 
 ## Cómo está organizado
 

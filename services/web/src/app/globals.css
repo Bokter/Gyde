@@ -1,3 +1,4 @@
+@import 'tailwindcss';
 @import '@gyde/design-tokens/css';
 
 :root {
@@ -6,65 +7,62 @@
   --font-jetbrains-mono: 'JetBrains Mono', monospace;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+/* Element defaults live in a layer so Tailwind utilities (and CSS Modules) can override them. */
+@layer base {
+  html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 
-html {
-  font-size: 16px;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+  body {
+    font-family: var(--font-figtree);
+    font-size: var(--gyde-font-size-base);
+    line-height: var(--gyde-font-line-height-normal);
+    color: var(--gyde-color-fg-default);
+    background-color: var(--gyde-color-bg-canvas);
+  }
 
-body {
-  font-family: var(--font-figtree);
-  font-size: var(--gyde-font-size-base);
-  line-height: var(--gyde-font-line-height-normal);
-  color: var(--gyde-color-fg-default);
-  background-color: var(--gyde-color-bg-canvas);
-}
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-bricolage-grotesque);
+    line-height: var(--gyde-font-line-height-tight);
+    font-weight: 700;
+    color: var(--gyde-color-fg-default);
+  }
 
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  font-family: var(--font-bricolage-grotesque);
-  line-height: var(--gyde-font-line-height-tight);
-  font-weight: 700;
-  color: var(--gyde-color-fg-default);
-}
+  code,
+  pre,
+  kbd,
+  samp {
+    font-family: var(--font-jetbrains-mono);
+    font-size: var(--gyde-font-size-sm);
+  }
 
-code,
-pre,
-kbd,
-samp {
-  font-family: var(--font-jetbrains-mono);
-  font-size: var(--gyde-font-size-sm);
-}
+  a {
+    color: var(--gyde-color-fg-brand);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
 
-a {
-  color: var(--gyde-color-fg-brand);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
+  a:hover {
+    text-decoration-thickness: 2px;
+  }
 
-a:hover {
-  text-decoration-thickness: 2px;
-}
+  :focus-visible {
+    outline: 2px solid var(--gyde-color-focus-ring);
+    outline-offset: 2px;
+    box-shadow: var(--gyde-shadow-focus);
+  }
 
-:focus-visible {
-  outline: none;
-  ring: 2px solid var(--gyde-color-focus-ring);
-  box-shadow: var(--gyde-shadow-focus);
-}
-
-::selection {
-  background-color: var(--gyde-color-bg-brand-subtle);
-  color: var(--gyde-color-fg-brand);
+  ::selection {
+    background-color: var(--gyde-color-bg-brand-subtle);
+    color: var(--gyde-color-fg-brand);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

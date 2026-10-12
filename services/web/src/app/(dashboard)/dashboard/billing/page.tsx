@@ -37,7 +37,7 @@ export default async function BillingPage() {
       <div className="grid gap-6 sm:grid-cols-2">
         <Link
           href="#"
-          className="group rounded-lg border border-[var(--gyde-color-border-subtle)] bg-[var(--gyde-color-bg-surface)] p-6 hover:border-[var(--gyde-color-action-primary-bg)] hover:shadow-md transition-all"
+          className="group block no-underline rounded-lg border border-[var(--gyde-color-border-subtle)] bg-[var(--gyde-color-bg-surface)] p-6 hover:border-[var(--gyde-color-action-primary-bg)] hover:shadow-md transition-all"
         >
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-[var(--gyde-color-fg-default)]">Pro</h3>
@@ -80,7 +80,7 @@ export default async function BillingPage() {
 
         <Link
           href="#"
-          className="group rounded-lg border border-[var(--gyde-color-border-subtle)] bg-[var(--gyde-color-bg-surface)] p-6 hover:border-[var(--gyde-color-action-primary-bg)] hover:shadow-md transition-all"
+          className="group block no-underline rounded-lg border border-[var(--gyde-color-border-subtle)] bg-[var(--gyde-color-bg-surface)] p-6 hover:border-[var(--gyde-color-action-primary-bg)] hover:shadow-md transition-all"
         >
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-[var(--gyde-color-fg-default)]">Studio</h3>

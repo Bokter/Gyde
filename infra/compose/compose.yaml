@@ -298,6 +298,9 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+      # next dev compiles /middleware and /healthz on their first request (about 40 s on a loaded
+      # machine). Failures during this period do not count, so a cold start is not reported unhealthy.
+      start_period: 120s
     develop:
       watch:
         - { action: sync, path: ../../services/web/src, target: /repo/services/web/src }

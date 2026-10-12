@@ -81,7 +81,7 @@ flowchart TB
 Detalles que el diagrama resume:
 - Las llamadas entre servicios usan `ResilientHttpClient` (`packages/service-kit`): **descubren la instancia en el registry** (con `*_URL` como respaldo de desarrollo) y van **detrás de un Circuit Breaker**.
 - `/internal/*` exige `x-internal-token` y el gateway **nunca** lo enruta.
-- Reports hoy guarda los análisis en memoria (`InMemoryReportRepository`); el adaptador PostgreSQL es el cambio de un solo adaptador gracias al puerto `ReportRepository`.
+- Reports guarda los análisis en su schema de PostgreSQL (`PostgresReportRepository`, con migraciones propias y un barrido de arranque que cierra los análisis colgados). Sin `REPORTS_DATABASE_URL` usa `InMemoryReportRepository`: el composition root elige el adaptador y el puerto `ReportRepository` no cambia.
 
 ## Nivel 3: componentes
 
@@ -147,6 +147,7 @@ flowchart TB
     end
     subgraph infra["infrastructure"]
         mem["InMemoryReportRepository"]
+        pgr["PostgresReportRepository"]
         hret["HttpRetrievalClient"]
     end
     life --> rp & rt
@@ -158,6 +159,7 @@ flowchart TB
     ai -. extiende .-> dec
     sev -. extiende .-> dec
     mem -. implementa .-> rp
+    pgr -. implementa .-> rp
     hret -. implementa .-> rt
 ```
 
@@ -191,7 +193,7 @@ flowchart TB
     subgraph tm["Template Method: pipeline"]
         ap["«abstracta» AnalysisPipeline<br/>runAnalysis(): autenticar → parsear → enviar →<br/>vulnerabilidades → licencias → reporte → publicar"]
         cliP["LocalCLIPipeline<br/>parseDependencies · publishResult (consola)"]
-        gha["GitHubActionPipeline<br/>(esqueleto)"]
+        gha["GitHubActionPipeline<br/>PullRequestCommentPipeline (apps/github-action):<br/>publishResult comenta el reporte en el PR"]
     end
     subgraph af["Abstract Factory: toolchain"]
         f["«interfaz» AnalysisToolchainFactory"]
@@ -247,4 +249,4 @@ Cada servicio se registra al arrancar (`startService`) y envía latidos; el Heal
 | `/internal/*` no se enruta | Mismo archivo: respuesta `404` |
 | Layering impuesto | `tooling/eslint/layer-boundaries.mjs` (`pnpm lint` falla si `domain`/`application` importan infraestructura o NestJS) |
 
-Fuera del MVP o en esqueleto, declarado: `CompatibilityAnalyzer`, `GitHubActionPipeline`, extensión de VS Code, fuentes NVD y GHSA, persistencia de Reports en PostgreSQL (hoy en memoria), contadores de plan y tasa persistentes.
+Fuera del MVP o en esqueleto, declarado: `CompatibilityAnalyzer`, extensión de VS Code, fuentes NVD y GHSA, contadores de plan y tasa persistentes. La GitHub Action está implementada y probada con un gateway falso, pero no se demuestra en vivo contra un gateway local.

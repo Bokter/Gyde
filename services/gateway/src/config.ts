@@ -12,6 +12,8 @@ export const configSchema = baseEnv.extend({
   REPORTS_URL: z.url().optional(),
   /** How long a verified API key is trusted before Web is asked again. */
   API_KEY_CACHE_TTL_MS: z.coerce.number().int().positive().default(60_000),
+  /** Requests each API key may make per minute before the gateway answers 429. */
+  GATEWAY_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(300),
 });
 
 export type Config = z.infer<typeof configSchema>;

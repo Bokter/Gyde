@@ -22,6 +22,7 @@ import { GetReport } from '../application/get-report';
 import type { Principal, RequestContext } from '../application/principal';
 import { SubmitAnalysis } from '../application/submit-analysis';
 import { ApiKeyGuard } from './api-key.guard';
+import { RateLimitGuard } from './rate-limit.guard';
 import { CurrentContext, CurrentPrincipal } from './request-principal';
 
 interface MarkdownReply {
@@ -33,7 +34,7 @@ interface MarkdownReply {
  * Every route needs an API key. It never serves `/internal/*`: those paths do not exist here.
  */
 @Controller()
-@UseGuards(ApiKeyGuard)
+@UseGuards(ApiKeyGuard, RateLimitGuard)
 export class GatewayController {
   constructor(
     @Inject(SubmitAnalysis) private readonly submitAnalysis: SubmitAnalysis,

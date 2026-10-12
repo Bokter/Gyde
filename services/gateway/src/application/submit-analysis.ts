@@ -1,22 +1,55 @@
 import type { AnalysisAccepted, AnalysisRequest, CreateAnalysisJob } from '@gyde/contracts';
+import { HttpError } from '@gyde/service-kit';
 
-import type { Principal, RequestContext } from './principal';
 import type { ReportsClient } from './ports/reports-client';
+import type { UsageCounter } from './ports/usage-counter';
+import type { Principal, RequestContext } from './principal';
 
-/** `POST /v1/analyses`: wraps the request with the tenant and its entitlements for Reports. */
+export interface SubmitAnalysisDeps {
+  reports: ReportsClient;
+  usage: UsageCounter;
+  /** Epoch milliseconds; injected so a test can move across months. */
+  now: () => number;
+}
+
+/**
+ * `POST /v1/analyses`: checks the plan's monthly allowance, wraps the request with the tenant and
+ * its entitlements and hands it to Reports.
+ *
+ * The allowance is taken before calling Reports, so simultaneous requests cannot overshoot it, and
+ * given back if Reports does not accept the analysis: an outage must not cost the customer one.
+ */
 export class SubmitAnalysis {
-  constructor(private readonly reports: ReportsClient) {}
+  constructor(private readonly deps: SubmitAnalysisDeps) {}
 
-  execute(
+  async execute(
     principal: Principal,
     request: AnalysisRequest,
     context: RequestContext,
   ): Promise<AnalysisAccepted> {
+    const { plan, limits } = principal.entitlements;
+    const period = new Date(this.deps.now()).toISOString().slice(0, 7);
+
+    if (!this.deps.usage.reserve(principal.tenantId, period, limits.analysesPerMonth)) {
+      throw new HttpError(
+        'plan_limit_exceeded',
+        `The ${plan} plan allows ${limits.analysesPerMonth} analyses per month and this tenant has used them`,
+      );
+    }
+
     const job: CreateAnalysisJob = {
       tenantId: principal.tenantId,
       entitlements: principal.entitlements,
       request,
     };
-    return this.reports.createAnalysis(job, { ...context, tenantId: principal.tenantId });
+    try {
+      return await this.deps.reports.createAnalysis(job, {
+        ...context,
+        tenantId: principal.tenantId,
+      });
+    } catch (error) {
+      this.deps.usage.release(principal.tenantId, period);
+      throw error;
+    }
   }
 }

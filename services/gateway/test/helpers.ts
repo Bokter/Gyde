@@ -62,6 +62,8 @@ export interface TestAppOptions {
   /** Without `REPORTS_URL` and `WEB_URL` (and no registry) there is no instance to call. */
   withUrls?: boolean;
   now?: () => number;
+  /** Overrides GATEWAY_RATE_LIMIT_PER_MINUTE. */
+  rateLimitPerMinute?: number;
   logDestination?: { write(chunk: string): void };
 }
 
@@ -69,6 +71,9 @@ export interface TestAppOptions {
 export function makeApp(options: TestAppOptions): Promise<NestFastifyApplication> {
   const config = configSchema.parse({
     INTERNAL_SERVICE_TOKEN: INTERNAL_TOKEN,
+    ...(options.rateLimitPerMinute !== undefined && {
+      GATEWAY_RATE_LIMIT_PER_MINUTE: options.rateLimitPerMinute,
+    }),
     ...(options.withUrls !== false && {
       WEB_URL: 'http://web.test',
       REPORTS_URL: 'http://reports.test',

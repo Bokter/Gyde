@@ -1,6 +1,7 @@
 import type { Entitlements, Plan } from '@gyde/contracts';
 import { PLAN_CATALOG } from '@gyde/contracts';
 import type { ApiKeyRepository } from '../domain/repositories';
+import { hashApiKey } from './generate-api-key';
 import type { TenantRepository } from '@/modules/auth/application/ports/tenant-repository';
 
 export interface VerifyApiKeyResult {
@@ -36,13 +37,7 @@ export class VerifyApiKey {
       return { valid: false, reason: 'unknown' };
     }
 
-    // Hash the key
-    const encoder = new TextEncoder();
-    const keyData = encoder.encode(apiKey);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', keyData);
-    const keyHash = Array.from(new Uint8Array(hashBuffer))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
+    const keyHash = await hashApiKey(apiKey);
 
     const storedKey = await this.apiKeyRepository.findByKeyHash(keyHash);
     if (!storedKey) {

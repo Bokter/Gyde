@@ -16,6 +16,7 @@ Cara visible de Gyde y su "caja registradora": **interfaz web**, **suscripciones
 | `src/modules/billing` | Stripe Checkout, Portal de cliente, webhooks → estado de la suscripción → `Entitlements` |
 | `src/modules/api-keys` | Emitir, listar, revocar y **verificar** API keys (se guardan **hasheadas**, la clave se muestra una sola vez) |
 | `src/modules/llm-config` | Alta, prueba de conexión y rotación de la llave LLM del estudio; **cifrada en reposo** |
+| `src/modules/dev-seed` | `seed:dev`: tenant `free` y API key de test para desarrollo local |
 | `src/app` | Rutas y páginas de Next.js: **delgadas**, llaman casos de uso de los módulos |
 | `src/ui` | Componentes base (`Button`, `Input`, `Card`, `Table`, `Dialog`, `CopyField`) con CSS Modules que solo usan tokens `var(--gyde-…)` |
 | `src/lib/auth` | Configuración de Auth.js (NextAuth v5) |
@@ -90,7 +91,27 @@ pnpm --filter @gyde/web db:generate  # Generar migraciones Drizzle
 pnpm --filter @gyde/web db:push      # Push schema a DB
 pnpm --filter @gyde/web db:migrate   # Ejecutar migraciones
 pnpm --filter @gyde/web db:studio    # Drizzle Studio
+pnpm --filter web seed:dev           # Tenant free + API key de test (solo desarrollo)
 ```
+
+### Datos de desarrollo (`seed:dev`)
+
+Crea el usuario `dev-seed`, el tenant `gyde-dev-seed` con plan `free` y una API key `gyde_test_…`,
+todo en una sola transacción, e imprime la clave **una sola vez** por stdout (los demás mensajes van
+a stderr y nunca la incluyen). Se guarda solo su hash.
+
+```bash
+# Con el Postgres de compose: el host ve la base en localhost:$POSTGRES_PORT, no en postgres:5432.
+pnpm --filter web migrate   # si la base está vacía
+WEB_DATABASE_URL=postgres://web:<contraseña>@localhost:<POSTGRES_PORT>/gyde pnpm --filter web seed:dev
+```
+
+- **Idempotente:** si `gyde-dev-seed` ya existe, no crea nada ni lo modifica y avisa de que la clave no
+  se puede volver a mostrar. El usuario `dev-seed` no puede iniciar sesión (no es una cuenta de
+  GitHub), así que para otra clave hay que borrar el tenant (`delete from web.tenants where slug =
+  'gyde-dev-seed'`, que borra sus keys en cascada) y volver a ejecutarlo.
+- **Se niega con `NODE_ENV=production`** (sale con código 1 sin abrir la base). No forma parte de la
+  imagen Docker.
 
 ## Pruebas
 

@@ -1,8 +1,10 @@
 import { HEADERS, PLAN_CATALOG } from '@gyde/contracts';
-import { sampleAnalysisRequest } from '@gyde/contracts/samples';
+import { sampleAnalysisRequest, sampleReportReady } from '@gyde/contracts/samples';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { configSchema } from '../src/config';
 import {
+  INTERNAL_TOKEN,
   VALID_KEY,
   bearer,
   fakeFetch,
@@ -122,6 +124,34 @@ describe('plan limit (402 plan_limit_exceeded)', () => {
     expect((await post()).statusCode).toBe(202);
     expect((await post()).statusCode).toBe(402);
     expect((await get()).statusCode).toBe(200);
+  });
+});
+
+describe('rate limit default', () => {
+  it('is 300 per minute', () => {
+    const config = configSchema.parse({ INTERNAL_SERVICE_TOKEN: INTERNAL_TOKEN });
+    expect(config.GATEWAY_RATE_LIMIT_PER_MINUTE).toBe(300);
+  });
+
+  it('does not limit the CLI polling an analysis every 500 ms for a whole minute', async () => {
+    const { app } = await appWith(
+      network(null, () => json(sampleReportReady)),
+      {
+        now: () => 1_000_000,
+      },
+    );
+
+    // 120 polls in a minute (500 ms apart) plus the verify and the POST that precede them.
+    let limited = 0;
+    for (let i = 0; i < 122; i += 1) {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/v1/analyses/analysis-0001',
+        headers: bearer(VALID_KEY),
+      });
+      if (res.statusCode === 429) limited += 1;
+    }
+    expect(limited).toBe(0);
   });
 });
 

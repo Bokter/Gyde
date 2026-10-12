@@ -3,10 +3,10 @@ import { PLAN_CATALOG } from '@gyde/contracts';
 import { redirect } from 'next/navigation';
 import { auth } from '@/modules/auth/infrastructure/auth.config';
 import type { BillingOverview } from '@/modules/billing/application/get-billing-overview';
+import { PLAN_MONTHLY_PRICE_USD } from '@/modules/billing/domain/plan-prices';
 import { billingModule } from '@/modules/billing/infrastructure/composition-root';
 
 const PLAN_NAMES: Record<Plan, string> = { free: 'Free', pro: 'Pro', studio: 'Studio' };
-const PLAN_PRICES: Record<Exclude<Plan, 'free'>, string> = { pro: '$29', studio: '$99' };
 
 const STATUS_LABELS: Record<string, string> = {
   active: 'Activa',
@@ -145,6 +145,34 @@ export default async function BillingPage({
         </p>
       </div>
 
+      <aside
+        aria-labelledby="test-mode"
+        className="flex gap-3 rounded-lg border border-[var(--gyde-color-border-subtle)] bg-[var(--gyde-color-severity-info-bg)] px-4 py-3 text-sm text-[var(--gyde-color-severity-info-fg)]"
+      >
+        <svg
+          className="mt-0.5 h-5 w-5 shrink-0"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path
+            fillRule="evenodd"
+            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+            clipRule="evenodd"
+          />
+        </svg>
+        <div>
+          <p id="test-mode" className="font-semibold">
+            Modo de prueba
+          </p>
+          <p className="mt-1">
+            Stripe no cobra de verdad. Paga con la tarjeta{' '}
+            <span className="font-mono">4242 4242 4242 4242</span>, cualquier fecha futura y
+            cualquier CVC.
+          </p>
+        </div>
+      </aside>
+
       {notice && (
         <p role="status" className={`rounded-lg px-4 py-3 text-sm ${NOTICE_STYLES[notice.tone]}`}>
           {notice.text}
@@ -187,7 +215,7 @@ export default async function BillingPage({
                   {PLAN_NAMES[paid]}
                 </h2>
                 <span className="text-2xl font-bold text-[var(--gyde-color-fg-default)]">
-                  {PLAN_PRICES[paid]}
+                  ${PLAN_MONTHLY_PRICE_USD[paid]}
                   <span className="text-base font-normal text-[var(--gyde-color-fg-muted)]">
                     /mes
                   </span>

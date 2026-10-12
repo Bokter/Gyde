@@ -21,33 +21,21 @@ export const metadata: Metadata = {
   authors: [{ name: 'Gyde' }],
   creator: 'Gyde',
   publisher: 'Gyde',
-  robots: 'index, follow',
+  // Academic project with no public domain yet: keep it out of search engines.
+  robots: 'noindex, nofollow',
   openGraph: {
     type: 'website',
     locale: 'es_ES',
-    url: 'https://gyde.example',
     siteName: 'Gyde',
     title: 'Gyde — Seguridad para tus dependencias de videojuegos',
     description:
       'Detecta vulnerabilidades, conflictos de licencias y riesgos de compatibilidad en tus proyectos Unity y Unreal Engine.',
-    images: [
-      {
-        url: '/og-image.png',
-        width: 1200,
-        height: 630,
-        alt: 'Gyde - Seguridad para dependencias de videojuegos',
-      },
-    ],
   },
   twitter: {
-    card: 'summary_large_image',
+    card: 'summary',
     title: 'Gyde — Seguridad para tus dependencias de videojuegos',
     description:
       'Detecta vulnerabilidades, conflictos de licencias y riesgos de compatibilidad en tus proyectos Unity y Unreal Engine.',
-    images: ['/og-image.png'],
-  },
-  verification: {
-    google: 'google-site-verification-code',
   },
 };
 

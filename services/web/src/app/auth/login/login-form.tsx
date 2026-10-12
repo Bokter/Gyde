@@ -53,14 +53,7 @@ export function LoginForm() {
           </div>
 
           <p className="mt-6 text-center text-sm text-[var(--gyde-color-fg-muted)]">
-            Al continuar, aceptas nuestros{' '}
-            <a href="#" className="underline hover:text-[var(--gyde-color-fg-brand)]">
-              Términos de servicio
-            </a>{' '}
-            y{' '}
-            <a href="#" className="underline hover:text-[var(--gyde-color-fg-brand)]">
-              Política de privacidad
-            </a>
+            Al continuar, autorizas a Gyde a leer tu perfil público de GitHub.
           </p>
         </div>
 

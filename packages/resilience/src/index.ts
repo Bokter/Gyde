@@ -13,4 +13,3 @@ export {
   type FileFallbackCacheOptions,
   type MemoryFallbackCacheOptions,
 } from './fallback-cache';
-export { createBreakerFromEnv } from './env';

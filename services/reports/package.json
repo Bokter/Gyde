@@ -13,19 +13,13 @@
   },
   "dependencies": {
     "@gyde/contracts": "workspace:*",
-    "@gyde/resilience": "workspace:*",
     "@gyde/service-kit": "workspace:*",
-    "@nestjs/common": "catalog:",
-    "@nestjs/core": "catalog:",
-    "@nestjs/platform-fastify": "catalog:",
+    "fastify": "catalog:",
     "pino": "catalog:",
-    "reflect-metadata": "catalog:",
-    "rxjs": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
-    "fastify": "catalog:",
     "tsup": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",

@@ -1,17 +1,12 @@
 import { sampleAnalysisRequest } from '@gyde/contracts/samples';
 import { createLogger } from '@gyde/service-kit';
-import { afterAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { configSchema } from '../src/config';
 import { createApp } from '../src/http/app';
 
 const config = configSchema.parse({ INTERNAL_SERVICE_TOKEN: 'test-internal-token-123456' });
-const app = await createApp({
-  config,
-  logger: createLogger({ name: 'gateway-test', level: 'silent' }),
-});
-
-afterAll(() => app.close());
+const app = createApp({ config, logger: createLogger({ name: 'gateway-test', level: 'silent' }) });
 
 describe('gateway skeleton', () => {
   it('is alive', async () => {

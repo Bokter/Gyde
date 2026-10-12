@@ -11,8 +11,6 @@ export const configSchema = baseEnv.extend({
   RETRIEVAL_URL: z.url().optional(),
   /** A report whose AI result does not arrive within this time becomes ready and degraded. */
   REPORTS_AI_TIMEOUT_MS: z.coerce.number().int().positive().default(60_000),
-  /** An analysis that Retrieval accepted but never answered within this time becomes failed. */
-  REPORTS_RETRIEVAL_TIMEOUT_MS: z.coerce.number().int().positive().default(90_000),
 });
 
 export type Config = z.infer<typeof configSchema>;

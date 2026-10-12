@@ -1,24 +1,11 @@
-export { createService, type ServiceOptions } from './bootstrap';
+export { buildApp, type AppOptions } from './app';
 export { baseEnv, loadConfig } from './config';
 export { HttpError } from './errors';
-export { requireInternalToken } from './internal-auth';
+export { protectInternalRoutes, requireInternalToken } from './internal-auth';
 export { REDACT_PATHS, createLogger, type Logger, type LoggerOptions } from './logger';
-export { notImplemented } from './not-implemented';
-export {
-  ResilientHttpClient,
-  type ResilientHttpClientOptions,
-  type ResilientRequestOptions,
-  type UpstreamLogger,
-  UpstreamServiceError,
-} from './resilient-http-client';
-export { startService, type StartOptions, type ServiceRegistrationOptions } from './start';
-export { APP_CONFIG, SERVICE_METADATA } from './tokens';
+export { registerStubRoutes, type StubRoute } from './stub-routes';
+export { startService, type StartOptions } from './start';
 export { parseOrThrow, toDetails } from './validate';
-export { ZodValidationPipe } from './zod-pipe';
 
-// Re-export common discovery and resilience errors so callers can handle them directly
-export { NoHealthyInstanceError } from '@gyde/discovery';
-export { CircuitOpenError } from '@gyde/resilience';
-
-// Services type their entry points with this without depending on @nestjs/platform-fastify.
-export type { NestFastifyApplication } from '@nestjs/platform-fastify';
+// Services type their handlers with these without depending on fastify directly.
+export type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';

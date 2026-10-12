@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import type { ApiKeyStatus, ApiKeyView } from '@/modules/api-keys/application/api-key-view';
 import { Button, Card, CopyField, Dialog, Input, Table, Td, Th } from '@/ui';
+import { messageFor, request } from '../dashboard-request';
 import styles from './api-keys.module.css';
 
 type Environment = ApiKeyView['environment'];
@@ -22,30 +23,6 @@ const dateFormat = new Intl.DateTimeFormat('es', { dateStyle: 'medium' });
 
 function formatDate(iso: string | null): string {
   return iso ? dateFormat.format(new Date(iso)) : 'Nunca';
-}
-
-class SessionExpiredError extends Error {}
-
-/**
- * Calls a dashboard route. Without a session the middleware redirects to the login page, so a
- * redirect or a 401 both mean "sign in again". Server error texts are never shown to the user.
- */
-async function request<T>(url: string, init?: RequestInit): Promise<{ status: number; body: T }> {
-  const response = await fetch(url, {
-    ...init,
-    headers: { 'content-type': 'application/json', ...init?.headers },
-  });
-  if (response.redirected || response.status === 401) throw new SessionExpiredError();
-  const body = response.headers.get('content-type')?.includes('application/json')
-    ? ((await response.json()) as T)
-    : (undefined as T);
-  return { status: response.status, body };
-}
-
-function messageFor(error: unknown, fallback: string): string {
-  return error instanceof SessionExpiredError
-    ? 'Tu sesión expiró. Recarga la página e inicia sesión de nuevo.'
-    : fallback;
 }
 
 export function ApiKeysManager() {

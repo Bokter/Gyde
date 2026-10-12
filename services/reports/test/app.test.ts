@@ -529,9 +529,17 @@ describe('record methods and full lifecycle', () => {
     const getRes = await app.inject({
       method: 'GET',
       url: `/internal/analyses/${analysisId}`,
-      headers: auth,
+      headers: asTenant('tenant-1'),
     });
     expect(Report.parse(getRes.json()).id).toBe(analysisId);
+
+    // The tenant check lives in the use case, so it holds over PostgreSQL too.
+    const foreign = await app.inject({
+      method: 'GET',
+      url: `/internal/analyses/${analysisId}`,
+      headers: asTenant('tenant-2'),
+    });
+    expect(foreign.statusCode).toBe(404);
 
     // And the row really lives in the `analyses` table: query it with raw SQL.
     const rows = (
@@ -592,7 +600,7 @@ describe('startup sweep', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/internal/analyses/stale-analyzing',
-      headers: auth,
+      headers: asTenant('tenant-1'),
     });
     const report = Report.parse(res.json());
     expect(report.status).toBe('ready');

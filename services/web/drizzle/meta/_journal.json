@@ -8,6 +8,13 @@
       "when": 1791685099755,
       "tag": "0000_lively_lilandra",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791824757275,
+      "tag": "0001_naive_cerise",
+      "breakpoints": true
     }
   ]
 }

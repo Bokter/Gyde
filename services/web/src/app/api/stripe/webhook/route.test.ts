@@ -3,7 +3,12 @@ import Stripe from 'stripe';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as LoggerModule from '@/lib/logger';
 import type { SubscriptionSnapshot } from '@/modules/billing/application/billing-event';
-import type { BillingStore, EventClaim } from '@/modules/billing/application/ports/billing-store';
+import type {
+  ApplySubscriptionResult,
+  BillingStore,
+  EventClaim,
+} from '@/modules/billing/application/ports/billing-store';
+import { isStaleEvent } from '@/modules/billing/domain/event-order';
 import { HandleStripeEvent } from '@/modules/billing/application/handle-stripe-event';
 import { StripeWebhookVerifier } from '@/modules/billing/infrastructure/stripe-webhook-verifier';
 
@@ -16,6 +21,7 @@ class InMemoryBillingStore implements BillingStore {
   readonly tenants = new Map<string, { plan: Plan; customerId: string | null }>([
     [TENANT, { plan: 'free', customerId: null }],
   ]);
+  readonly lastEvent = new Map<string, { occurredAt: Date; status: string }>();
   applied = 0;
   failNextApply = false;
 
@@ -38,16 +44,24 @@ class InMemoryBillingStore implements BillingStore {
   async findTenantIdByCustomer(customerId: string) {
     return [...this.tenants].find(([, t]) => t.customerId === customerId)?.[0] ?? null;
   }
-  async applySubscription(tenantId: string, subscription: SubscriptionSnapshot, plan: Plan) {
+  async applySubscription(
+    tenantId: string,
+    subscription: SubscriptionSnapshot,
+    plan: Plan,
+    occurredAt: Date,
+  ): Promise<ApplySubscriptionResult> {
     if (this.failNextApply) {
       this.failNextApply = false;
       throw new Error('database unavailable');
     }
+    const last = this.lastEvent.get(subscription.subscriptionId) ?? null;
+    if (isStaleEvent(last, { occurredAt, status: subscription.status })) return 'stale';
     const tenant = this.tenants.get(tenantId);
-    if (!tenant) return false;
+    if (!tenant) return 'tenant-not-found';
     this.applied += 1;
+    this.lastEvent.set(subscription.subscriptionId, { occurredAt, status: subscription.status });
     Object.assign(tenant, { plan, customerId: subscription.customerId });
-    return true;
+    return 'applied';
   }
 }
 
@@ -78,8 +92,8 @@ const { POST } = await import('./route');
 
 const now = Math.floor(Date.now() / 1000);
 
-function stripeEvent(id: string, type: string, object: Record<string, unknown>) {
-  return { id, object: 'event', type, livemode: false, created: now, data: { object } };
+function stripeEvent(id: string, type: string, object: Record<string, unknown>, created = now) {
+  return { id, object: 'event', type, livemode: false, created, data: { object } };
 }
 
 function subscription(status: string, price: string) {
@@ -88,9 +102,13 @@ function subscription(status: string, price: string) {
     object: 'subscription',
     customer: 'cus_test_1',
     status,
-    items: { object: 'list', data: [{ price: { id: price } }] },
-    current_period_start: now,
-    current_period_end: now + 30 * 24 * 3600,
+    // Current API shape (basil and later): the billing period lives on each item.
+    items: {
+      object: 'list',
+      data: [
+        { price: { id: price }, current_period_start: now, current_period_end: now + 30 * 86400 },
+      ],
+    },
     cancel_at_period_end: false,
     canceled_at: status === 'canceled' ? now : null,
     metadata: {},
@@ -189,5 +207,62 @@ describe('POST /api/stripe/webhook', () => {
     expect((await deliver(event)).status).toBe(200);
     expect(state.store.applied).toBe(1);
     expect(state.store.tenants.get(TENANT)!.plan).toBe('studio');
+  });
+
+  it('answers 500 for a subscription that matches no tenant yet, and applies it on redelivery', async () => {
+    // Delivered before `checkout.session.completed` and without tenant metadata.
+    const early = stripeEvent(
+      'evt_early',
+      'customer.subscription.created',
+      subscription('active', PRICES.pro),
+    );
+    expect((await deliver(early)).status).toBe(500);
+    expect(state.store.events.get('evt_early')).toBe(false);
+
+    const checkout = stripeEvent('evt_checkout', 'checkout.session.completed', {
+      id: 'cs_test_1',
+      object: 'checkout.session',
+      client_reference_id: TENANT,
+      customer: 'cus_test_1',
+    });
+    expect((await deliver(checkout)).status).toBe(200);
+
+    // Stripe's retry now finds the tenant through the linked customer.
+    expect((await deliver(early)).status).toBe(200);
+    expect(state.store.events.get('evt_early')).toBe(true);
+    expect(state.store.tenants.get(TENANT)!.plan).toBe('pro');
+  });
+
+  it('ignores a subscription event older than the last one applied', async () => {
+    const withTenant = (status: string, price: string) => ({
+      ...subscription(status, price),
+      metadata: { tenantId: TENANT },
+    });
+    const newer = stripeEvent(
+      'evt_newer',
+      'customer.subscription.updated',
+      withTenant('active', PRICES.studio),
+      now,
+    );
+    const older = stripeEvent(
+      'evt_older',
+      'customer.subscription.updated',
+      withTenant('active', PRICES.pro),
+      now - 60,
+    );
+
+    // Same second as `newer`: the `created` that Stripe redelivers after the activation.
+    const sameSecondCreated = stripeEvent(
+      'evt_created',
+      'customer.subscription.created',
+      withTenant('incomplete', PRICES.studio),
+      now,
+    );
+
+    expect((await deliver(newer)).status).toBe(200);
+    expect((await deliver(older)).status).toBe(200);
+    expect((await deliver(sameSecondCreated)).status).toBe(200);
+    expect(state.store.tenants.get(TENANT)!.plan).toBe('studio');
+    expect(state.store.events.get('evt_older')).toBe(true);
   });
 });

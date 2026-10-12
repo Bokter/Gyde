@@ -8,14 +8,27 @@ const idOf = (value: string | { id: string } | null | undefined): string | null 
 
 const fromUnix = (seconds: number) => new Date(seconds * 1000);
 
+/** Present on the subscription up to API 2025-02-24; on each item from 2025-03-31 (basil). */
+interface BillingPeriod {
+  current_period_start?: number;
+  current_period_end?: number;
+}
+
 function snapshot(subscription: Stripe.Subscription): SubscriptionSnapshot {
+  const item = subscription.items.data[0] as (Stripe.SubscriptionItem & BillingPeriod) | undefined;
+  const legacy = subscription as Stripe.Subscription & BillingPeriod;
+  const start = legacy.current_period_start ?? item?.current_period_start;
+  const end = legacy.current_period_end ?? item?.current_period_end;
+  if (start === undefined || end === undefined) {
+    throw new Error('Stripe subscription event without a billing period');
+  }
   return {
     subscriptionId: subscription.id,
     customerId: idOf(subscription.customer)!,
-    priceId: subscription.items.data[0]?.price.id ?? null,
+    priceId: item?.price.id ?? null,
     status: subscription.status,
-    currentPeriodStart: fromUnix(subscription.current_period_start),
-    currentPeriodEnd: fromUnix(subscription.current_period_end),
+    currentPeriodStart: fromUnix(start),
+    currentPeriodEnd: fromUnix(end),
     cancelAtPeriodEnd: subscription.cancel_at_period_end,
     canceledAt: subscription.canceled_at ? fromUnix(subscription.canceled_at) : null,
   };
@@ -38,7 +51,7 @@ export class StripeWebhookVerifier implements StripeEventVerifier {
       throw new InvalidStripeSignatureError();
     }
 
-    const base = { eventId: event.id, type: event.type };
+    const base = { eventId: event.id, type: event.type, occurredAt: fromUnix(event.created) };
     if (event.livemode) return { ...base, kind: 'ignored', reason: 'livemode' };
 
     switch (event.type) {

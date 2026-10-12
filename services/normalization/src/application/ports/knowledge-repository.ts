@@ -1,16 +1,5 @@
 import type { KnowledgeObject, KnowledgeQuery } from '@gyde/contracts';
 
-/** Outcome of one ingestion attempt of a source. */
-export interface IngestionRun {
-  source: string;
-  status: 'success' | 'failed';
-  startedAt: Date;
-  finishedAt: Date;
-  recordsProcessed: number;
-  /** Short, secret-free reason when `status` is `failed`. */
-  error?: string;
-}
-
 /** Port to the "base de datos utilizable" of the Pipeline de Normalización. */
 export interface KnowledgeRepository {
   /** Idempotent: objects are keyed by `id`, re-ingesting the same record updates it. */
@@ -22,15 +11,6 @@ export interface KnowledgeRepository {
    */
   query(query: KnowledgeQuery): Promise<KnowledgeObject[]>;
 
-  /** Records the outcome of an ingestion attempt (successful or not). */
-  recordRun(run: IngestionRun): Promise<void>;
-
-  /** The most recent ingestion attempt of a source, successful or not (drives `GET /sources`). */
-  lastRun(source: string): Promise<IngestionRun | undefined>;
-
   /** When a source was last ingested successfully (drives incremental fetches and /sources). */
   lastIngestedAt(source: string): Promise<Date | undefined>;
 }
-
-/** DI token of the `KnowledgeRepository` port: `app.module.ts` binds it to an adapter (see ADR 0011). */
-export const KNOWLEDGE_REPOSITORY = Symbol('KnowledgeRepository');

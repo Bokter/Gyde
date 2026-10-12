@@ -2,7 +2,7 @@
 
 **Consolida** lo determinístico (Retrieval) y lo producido por el LLM en un **reporte de riesgo priorizado y explicable** (evidencia, impacto, recomendación). Es el **orquestador** del análisis: crea el trabajo, pide la evidencia a Retrieval y arma el reporte final.
 
-> **Estado:** `POST /internal/analyses` y `GET /internal/analyses/:id` **en vivo** (repositorio en memoria, cliente HTTP de Retrieval con Circuit Breaker). Decorator (base hecha); decoradores concretos, transiciones `record*`, persistencia PostgreSQL y render Markdown: **Área 4** (`docs/tasks/area-4-motor-llm-y-reportes.md`).
+> **Estado:** esqueleto ejecutable (501) con la **estructura del Decorator** implementada y probada. Ciclo de vida, decoradores concretos, persistencia y render: **Área 4** (`docs/tasks/area-4-motor-llm-y-reportes.md`).
 
 - Puerto: `REPORTS_PORT` (4500) · Solo red interna (el gateway es su cliente).
 - Datos propios: schema `reports` de PostgreSQL.
@@ -15,7 +15,7 @@
 | `ReportComponent` (Component) | `report-component.ts` |
 | `BasicAnalysisReport` (ConcreteComponent) | `basic-analysis-report.ts` |
 | `ReportDecorator` (Decorator) | `report-decorator.ts` |
-| `SeverityScoreDecorator`, `LicenseComplianceDecorator`, `AIEnrichmentDecorator` (PDF) | `decorators/*.decorator.ts`; la clase del código se llama `AiEnrichmentDecorator` |
+| `SeverityScoreDecorator`, `LicenseComplianceDecorator`, `AIEnrichmentDecorator` | `decorators/*.decorator.ts` |
 | Composición según la API key | `compose-report.ts` (`composeReport`) |
 
 Las capas se combinan **en tiempo de ejecución según los permisos del plan** (`Entitlements`), sin una clase por combinación. Los decoradores devuelven objetos nuevos: nunca mutan lo que envuelven. La IA ya trabajó en `llm-analysis`; aquí `AiEnrichmentDecorator` solo **mezcla** su `AiResult`.
@@ -30,45 +30,29 @@ create ──▶ pending ──▶ retrieving ──▶ analyzing ──▶ read
                               └─(sin IA)────┼──────▶ ready
                                             └─(falla de IA)──▶ ready + degraded
 retrieval-error ──▶ failed
-retrieving ──(sin respuesta de Retrieval en REPORTS_RETRIEVAL_TIMEOUT_MS)──▶ failed
 ```
 
 - Un reporte es **degradado** solo si se esperaba IA y no pudo correr (`llm-unavailable`, `llm-not-configured`, `llm-error`). Si el plan o el cliente no pidieron IA, **no** es degradado.
-- Nunca se queda colgado: si el resultado de IA no llega en `REPORTS_AI_TIMEOUT_MS`, pasa a `ready` y degradado (`llm-unavailable`).
-  > **Nota sobre el temporizador:** el temporizador en memoria no sobrevive a un reinicio del proceso; esta limitación se resuelve en el PR H con un barrido al arrancar cuando la persistencia en PostgreSQL esté conectada.
-- Tampoco se queda en `retrieving`: si Retrieval aceptó el trabajo (202) pero no entrega ni el resultado ni un `AnalysisFailure` en `REPORTS_RETRIEVAL_TIMEOUT_MS`, el análisis pasa a `failed` con `retrieval-error`. El temporizador solo se arma si la llamada a Retrieval tuvo éxito y no hace nada si el análisis ya salió de `retrieving`.
-  > **Nota:** igual que el de IA, este temporizador en memoria no sobrevive a un reinicio; el barrido de arranque es del PR de persistencia.
-- Si Retrieval no responde al crear el trabajo, este queda `failed` con un error claro y el `202` se responde igualmente (el cliente lo ve en el `GET`).
-- Leer o registrar un análisis que **no existe** responde `404 not_found` (nunca un 500), igual para `GET`, `markdown` y los tres `POST` de resultados.
-- Un `deterministic` repetido (estado que ya no es `retrieving`) se **ignora**: no sobrescribe el resultado ni devuelve el análisis a `analyzing`.
-
-## Formato del Markdown (`renderMarkdown`)
-
-1. Título con el id del análisis y la fecha.
-2. Aviso de **degradado** (solo si lo es): qué falta (la explicación de IA) y por qué (`llm-unavailable`, `llm-not-configured` o `llm-error`), y que los hallazgos siguen siendo válidos.
-3. Resumen: conteo por severidad y `riskScore` (si la capa de severidad corrió).
-4. Sección "Cumplimiento de licencias" (si la capa de licencias corrió): agrupa los hallazgos `kind='license'` (conflictivas y desconocidas).
-5. Hallazgos ordenados por severidad (luego CVSS; si corrió IA, se respeta el orden de prioridad de `AiResult` primero): cada uno con título, paquete y versión, **evidencia**, **impacto**, **recomendación**, y su explicación de IA cuando exista.
+- Nunca se queda colgado: si el resultado de IA no llega en `REPORTS_AI_TIMEOUT_MS`, pasa a `ready` y degradado.
 
 ## API interna
 
-| Método y ruta | Cuerpo | Respuesta | Estado |
-|---|---|---|---|
-| `POST /internal/analyses` | `CreateAnalysisJob` | `202 AnalysisAccepted` | **en vivo** |
-| `GET /internal/analyses/:analysisId` | — | `Report` | **en vivo** |
-| `GET /internal/analyses/:analysisId/markdown` | — | `text/markdown` | **en vivo** |
-| `POST /internal/analyses/:analysisId/deterministic` | `DeterministicResult` | `204` (desde Retrieval) | **en vivo** |
-| `POST /internal/analyses/:analysisId/ai-result` | `AiResult` | `204` (desde llm-analysis) | **en vivo** |
-| `POST /internal/analyses/:analysisId/failure` | `AnalysisFailure` | `204` | **en vivo** |
+| Método y ruta | Cuerpo | Respuesta |
+|---|---|---|
+| `POST /internal/analyses` | `CreateAnalysisJob` | `202 AnalysisAccepted` |
+| `GET /internal/analyses/:analysisId` | — | `Report` |
+| `GET /internal/analyses/:analysisId/markdown` | — | `text/markdown` |
+| `POST /internal/analyses/:analysisId/deterministic` | `DeterministicResult` | `204` (desde Retrieval) |
+| `POST /internal/analyses/:analysisId/ai-result` | `AiResult` | `204` (desde llm-analysis) |
+| `POST /internal/analyses/:analysisId/failure` | `AnalysisFailure` | `204` |
 
 ## Estructura
 
 ```
-src/domain/report/       Decorator (base, decoradores concretos, composeReport, renderMarkdown)
-src/application/         AnalysisLifecycle (create, get, recordDeterministic, recordAi, recordFailure)
-src/infrastructure/      InMemoryReportRepository y HttpRetrievalClient (con breaker)
-src/http/                controlador NestJS (todos los endpoints activos)
-src/app.module.ts        composition root: enlaza puertos con adaptadores (ADR 0011)
+src/domain/report/       Decorator (hecho) y composeReport, decoradores, renderMarkdown (TODO)
+src/application/         AnalysisLifecycle y puertos: ReportRepository, RetrievalClient
+src/infrastructure/      repositorio PostgreSQL y cliente HTTP de Retrieval (con breaker)
+src/http/                rutas (ya declaradas como stubs)
 ```
 
 Los criterios de aceptación están como `it.todo` en `test/app.test.ts` y `test/report-decorator.test.ts`.
@@ -82,4 +66,3 @@ Los criterios de aceptación están como `it.todo` en `test/app.test.ts` y `test
 | `REPORTS_DATABASE_URL` | — | Conexión al schema `reports` |
 | `RETRIEVAL_URL` | — | URL estática de respaldo si el registry no resuelve |
 | `REPORTS_AI_TIMEOUT_MS` | 60000 | Espera máxima del resultado de IA |
-| `REPORTS_RETRIEVAL_TIMEOUT_MS` | 90000 | Espera máxima de Retrieval tras aceptar el trabajo; pasado ese tiempo el análisis queda `failed` (`retrieval-error`). Mantenla por encima de la de IA |

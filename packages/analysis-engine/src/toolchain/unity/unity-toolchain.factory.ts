@@ -1,4 +1,3 @@
-import type { WaitOptions } from '../../pipeline/wait-for-report';
 import type { AnalysisGateway } from '../../types';
 import type { AnalysisToolchainFactory, DependencyParser, VulnerabilityFetcher } from '../ports';
 
@@ -9,12 +8,10 @@ import { OsvVulnerabilityFetcher } from './osv-vulnerability-fetcher';
 export class UnityToolchainFactory implements AnalysisToolchainFactory {
   private readonly projectRoot: string;
   private readonly gateway: AnalysisGateway;
-  private readonly wait: WaitOptions | undefined;
 
-  constructor(options: { projectRoot: string; gateway: AnalysisGateway; wait?: WaitOptions }) {
+  constructor(options: { projectRoot: string; gateway: AnalysisGateway }) {
     this.projectRoot = options.projectRoot;
     this.gateway = options.gateway;
-    this.wait = options.wait;
   }
 
   createDependencyParser(): DependencyParser {
@@ -22,6 +19,6 @@ export class UnityToolchainFactory implements AnalysisToolchainFactory {
   }
 
   createVulnerabilityFetcher(): VulnerabilityFetcher {
-    return new OsvVulnerabilityFetcher(this.gateway, this.wait);
+    return new OsvVulnerabilityFetcher(this.gateway);
   }
 }

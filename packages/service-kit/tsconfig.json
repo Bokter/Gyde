@@ -1,7 +1,4 @@
 {
   "extends": "../../tooling/tsconfig/node.json",
-  "compilerOptions": {
-    "experimentalDecorators": true
-  },
   "include": ["src", "test"]
 }

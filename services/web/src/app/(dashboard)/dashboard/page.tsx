@@ -208,9 +208,7 @@ export default async function DashboardPage() {
             <span className="flex shrink-0 items-center justify-center w-6 h-6 rounded-full bg-[var(--gyde-color-bg-brand-subtle)] text-[var(--gyde-color-fg-brand)] text-sm font-semibold">
               4
             </span>
-            <span>
-              Revisa el reporte priorizado con vulnerabilidades, licencias y compatibilidad.
-            </span>
+            <span>Revisa el reporte priorizado con vulnerabilidades y licencias.</span>
           </li>
         </ol>
       </section>

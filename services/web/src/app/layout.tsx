@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     template: '%s | Gyde',
   },
   description:
-    'Detecta vulnerabilidades, conflictos de licencias y riesgos de compatibilidad en tus proyectos Unity y Unreal Engine. Tu código nunca sale de tu entorno.',
+    'Detecta vulnerabilidades y conflictos de licencias en tus proyectos Unity y Unreal Engine. Tu código nunca sale de tu entorno.',
   keywords: [
     'videojuegos',
     'Unity',
@@ -29,13 +29,13 @@ export const metadata: Metadata = {
     siteName: 'Gyde',
     title: 'Gyde — Seguridad para tus dependencias de videojuegos',
     description:
-      'Detecta vulnerabilidades, conflictos de licencias y riesgos de compatibilidad en tus proyectos Unity y Unreal Engine.',
+      'Detecta vulnerabilidades y conflictos de licencias en tus proyectos Unity y Unreal Engine.',
   },
   twitter: {
     card: 'summary',
     title: 'Gyde — Seguridad para tus dependencias de videojuegos',
     description:
-      'Detecta vulnerabilidades, conflictos de licencias y riesgos de compatibilidad en tus proyectos Unity y Unreal Engine.',
+      'Detecta vulnerabilidades y conflictos de licencias en tus proyectos Unity y Unreal Engine.',
   },
 };
 

@@ -57,8 +57,8 @@ retrieving ──(sin respuesta de Retrieval en REPORTS_RETRIEVAL_TIMEOUT_MS)─
 | Método y ruta | Cuerpo | Respuesta | Estado |
 |---|---|---|---|
 | `POST /internal/analyses` | `CreateAnalysisJob` | `202 AnalysisAccepted` | **en vivo** |
-| `GET /internal/analyses/:analysisId` | — | `Report` | **en vivo** |
-| `GET /internal/analyses/:analysisId/markdown` | — | `text/markdown` | **en vivo** |
+| `GET /internal/analyses/:analysisId` | cabecera `x-gyde-tenant-id` | `Report` (`404` si es de otro tenant o falta la cabecera) | **en vivo** |
+| `GET /internal/analyses/:analysisId/markdown` | cabecera `x-gyde-tenant-id` | `text/markdown` (mismo `404`) | **en vivo** |
 | `POST /internal/analyses/:analysisId/deterministic` | `DeterministicResult` | `204` (desde Retrieval) | **en vivo** |
 | `POST /internal/analyses/:analysisId/ai-result` | `AiResult` | `204` (desde llm-analysis) | **en vivo** |
 | `POST /internal/analyses/:analysisId/failure` | `AnalysisFailure` | `204` | **en vivo** |

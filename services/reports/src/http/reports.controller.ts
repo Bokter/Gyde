@@ -1,4 +1,5 @@
 import {
+  HEADERS,
   ROUTES,
   AiResult,
   AnalysisFailure,
@@ -7,7 +8,7 @@ import {
 } from '@gyde/contracts';
 import type { AnalysisAccepted, Report } from '@gyde/contracts';
 import { ZodValidationPipe } from '@gyde/service-kit';
-import { Body, Controller, Get, HttpCode, Inject, Param, Post, Res } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Inject, Param, Post, Res } from '@nestjs/common';
 import type { FastifyReply } from 'fastify';
 
 import { ANALYSIS_LIFECYCLE } from '../application/analysis-lifecycle';
@@ -33,8 +34,11 @@ export class ReportsController {
   }
 
   @Get(ROUTES.reports.getAnalysis)
-  get(@Param('analysisId') analysisId: string): Promise<Report> {
-    return this.lifecycle.getReport(analysisId);
+  get(
+    @Param('analysisId') analysisId: string,
+    @Headers(HEADERS.tenantId) tenantId: string | undefined,
+  ): Promise<Report> {
+    return this.lifecycle.getReport(analysisId, tenantId);
   }
 
   /**
@@ -44,9 +48,10 @@ export class ReportsController {
   @Get(ROUTES.reports.getMarkdown)
   async getMarkdown(
     @Param('analysisId') analysisId: string,
+    @Headers(HEADERS.tenantId) tenantId: string | undefined,
     @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<string> {
-    const report = await this.lifecycle.getReport(analysisId);
+    const report = await this.lifecycle.getReport(analysisId, tenantId);
     reply.header('content-type', 'text/markdown; charset=utf-8');
     return renderMarkdown(report);
   }

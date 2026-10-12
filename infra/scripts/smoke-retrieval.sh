@@ -109,7 +109,8 @@ run_analysis() { # plan, ai|noai
     || fail "POST /internal/analyses was refused ($1, $2)"
   id="$(node -e 'console.log(JSON.parse(process.argv[1]).analysisId)' "$created")"
   for _ in $(seq 1 90); do
-    report="$(curl -sf "${auth[@]}" "$REPORTS/internal/analyses/$id")"
+    # Reports only answers the tenant that owns the analysis: make-job.ts creates it for tenant-smoke.
+    report="$(curl -sf "${auth[@]}" -H "x-gyde-tenant-id: tenant-smoke" "$REPORTS/internal/analyses/$id")"
     if [ "$(node -e 'console.log(JSON.parse(process.argv[1]).status)' "$report")" = "ready" ]; then
       printf '%s' "$report"
       return 0

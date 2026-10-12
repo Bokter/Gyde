@@ -112,7 +112,7 @@ function toReport(stored: StoredAnalysis): Report {
  *   recordAi(result)              analyzing → ready
  *   recordFailure(failure)        stage "llm"       → ready, `degraded` with the reason
  *                                 stage "retrieval" → failed
- *   getReport(id)                 toReport(stored) → `Report`
+ *   getReport(id, tenantId)       toReport(stored) → `Report`; 404 if it belongs to another tenant
  *
  * Rules:
  * - The report never stays stuck: if the AI result does not arrive within REPORTS_AI_TIMEOUT_MS the
@@ -317,9 +317,14 @@ export class AnalysisLifecycle {
     }
   }
 
-  async getReport(analysisId: string): Promise<Report> {
+  /**
+   * `tenantId` is the tenant the gateway resolved from the API key. An analysis that belongs to
+   * another tenant (or a call without a tenant) answers exactly like one that does not exist, so
+   * nobody can tell a foreign id from a missing one.
+   */
+  async getReport(analysisId: string, tenantId: string | undefined): Promise<Report> {
     const stored = await this.deps.repository.get(analysisId);
-    if (!stored) throw notFound(analysisId);
+    if (!stored || stored.tenantId !== tenantId) throw notFound(analysisId);
     return toReport(stored);
   }
 

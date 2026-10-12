@@ -79,8 +79,13 @@ STATIC-NO-USAR. Entre los pasos 2 y 3, lastHeartbeatAt avanza (09:04:26 -> 09:04
 mientras registeredAt no cambia: el heartbeat funciona y no hay re-registros.
 
 
-4. CIRCUIT BREAKER / LIMITE DE TASA EN EL GATEWAY: 429 CON Retry-After
------------------------------------------------------------------------
+4. LIMITE DE TASA EN EL GATEWAY: 429 CON Retry-After
+----------------------------------------------------
+
+Esta seccion demuestra solo el limite de tasa. La evidencia del Circuit Breaker (el gateway
+responde 503 upstream_unavailable en lugar de colgarse cuando Reports esta detenido) esta en
+docs/evidence/humo-2026-10-12.txt, escena "Gateway: with Reports stopped it answers 503
+upstream_unavailable instead of hanging".
 
 Se puso GATEWAY_RATE_LIMIT_PER_MINUTE=3 en el .env, se recreo el gateway y se verifico que
 el contenedor lo recibio. Despues se hicieron cuatro peticiones seguidas con una API key
@@ -108,13 +113,12 @@ resultado valido es el de arriba.
 5. VERIFICACION EN CI (GitHub Actions)
 --------------------------------------
 
-Ultimo run de CI en dev verificado al preparar esta evidencia: run 38207665124
-(feat(web): add the LLM key screen, #61), conclusion success. Jobs: Quality gates y los
-siete jobs "Docker image" (reports, retrieval, gateway, normalization, registry,
-llm-analysis y dev-check) en success.
-https://github.com/Bokter/Gyde/actions/runs/38207665124
-
-La matriz de CI incluye ahora tambien la imagen de web (#64).
+Run de CI de dev al preparar esta evidencia: run 38293691935 (#67, dev @ a2d578a),
+conclusion success, 2026-10-12. Desde #64 el job "Docker image" ya no es informativo
+(sin continue-on-error) y su matriz incluye las imagenes de gateway, registry,
+normalization, retrieval, llm-analysis, reports, web y dev-check: un fallo de cualquiera
+haria fallar el workflow, asi que el success significa que todas construyeron.
+https://github.com/Bokter/Gyde/actions/runs/38293691935
 
 
 6. LIMITES CONOCIDOS
@@ -123,4 +127,4 @@ La matriz de CI incluye ahora tambien la imagen de web (#64).
 - El registry y los contadores/limites del gateway viven en memoria de cada instancia:
   se reinician con el proceso y no se comparten entre replicas.
 - Cada instancia de un servicio tiene sus propios Circuit Breakers (no compartidos).
-- Reports todavia no filtra los analisis por tenant (aviso para el Area 4).
+- Reports no filtraba los analisis por tenant: se corrige en #76.

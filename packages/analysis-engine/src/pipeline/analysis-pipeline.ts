@@ -37,6 +37,21 @@ export interface AnalysisPipelineDeps {
  * Steps 3-5 are stages of the same remote job (`retrieving` → `analyzing` → `ready`), not three
  * separate round trips: the backend orchestrates (see docs/adr/).
  */
+/**
+ * The algorithm and its invariant steps. A concrete pipeline fills only the two hooks
+ * (`parseDependencies`, `publishResult`); TypeScript has no `final`, so architecture tests assert
+ * that no subclass defines any of these names (see `analysis-pipeline.test.ts`).
+ */
+export const INVARIANT_STEPS = [
+  'runAnalysis',
+  'authenticateKey',
+  'submitAnalysis',
+  'fetchVulnerabilities',
+  'analyzeLicenses',
+  'generateReport',
+  'buildRequest',
+] as const;
+
 export abstract class AnalysisPipeline {
   protected readonly gateway: AnalysisGateway;
   protected readonly toolchain: AnalysisToolchainFactory;

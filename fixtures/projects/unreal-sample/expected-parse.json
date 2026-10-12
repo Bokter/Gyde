@@ -1,0 +1,64 @@
+{
+  "project": {
+    "gameEngine": "unreal",
+    "gameEngineVersion": "5.3",
+    "sdks": [],
+    "platforms": []
+  },
+  "dependencies": [
+    {
+      "ecosystem": "cpp",
+      "name": "acme-samplelib",
+      "version": "1.1.0",
+      "direct": true
+    },
+    {
+      "ecosystem": "unreal",
+      "name": "Core",
+      "version": "5.3",
+      "direct": true
+    },
+    {
+      "ecosystem": "unreal",
+      "name": "CoreUObject",
+      "version": "5.3",
+      "direct": true
+    },
+    {
+      "ecosystem": "unreal",
+      "name": "Engine",
+      "version": "5.3",
+      "direct": true
+    },
+    {
+      "ecosystem": "unreal",
+      "name": "InputCore",
+      "version": "5.3",
+      "direct": true
+    },
+    {
+      "ecosystem": "unreal",
+      "name": "Niagara",
+      "version": "5.3",
+      "direct": true
+    },
+    {
+      "ecosystem": "unreal",
+      "name": "OnlineSubsystemSteam",
+      "version": "5.3",
+      "direct": true
+    },
+    {
+      "ecosystem": "unreal",
+      "name": "Slate",
+      "version": "5.3",
+      "direct": true
+    },
+    {
+      "ecosystem": "unreal",
+      "name": "SlateCore",
+      "version": "5.3",
+      "direct": true
+    }
+  ]
+}

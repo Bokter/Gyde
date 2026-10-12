@@ -16,7 +16,13 @@ Datos de ejemplo **sintéticos** para desarrollar, probar y hacer la demo **sin 
 - La licencia de los paquetes NuGet se lee de su `.nuspec`; los paquetes UPM no declaran licencia en el manifiesto.
 - `Assets/Scripts/Player.cs` contiene la marca `PROPRIETARY_MARKER_DO_NOT_SEND`: una prueba de privacidad debe comprobar que **ningún** rastro de ese archivo aparece en la solicitud que sale del cliente.
 
-**Unreal (propuesta, el Área 4 la ajusta):** del `.uproject` se toman los plugins habilitados y la versión del motor (`EngineAssociation`); de `Build.cs`, los módulos que no son del propio proyecto; de `vcpkg.json`, las librerías C++ (`ecosystem: "cpp"`). Los plugins y módulos del motor llevan la versión del motor.
+**Resultado esperado del parseo de Unreal:** `projects/unreal-sample/expected-parse.json`. Reglas que ya cumple el `CppDependencyParser`:
+
+- Del `.uproject` salen la versión del motor (`EngineAssociation`) y los plugins **habilitados** (`Enabled: true`).
+- De cada `.Build.cs` bajo `Source/` salen los módulos de `PublicDependencyModuleNames` y `PrivateDependencyModuleNames`; el módulo propio del juego (`SampleGame`, por el nombre del archivo y por `Modules[].Name`) **no** es una dependencia.
+- De `vcpkg.json` salen las librerías C++ (`ecosystem: "cpp"`); si el proyecto traía `conanfile.txt`, su sección `[requires]` se lee igual (el fixture no lo trae: lo cubre un directorio temporal en el test).
+- Plugins y módulos del motor llevan la versión del motor.
+- Deduplicado por `ecosystem + name` y orden por `ecosystem` y luego `name` (mismo criterio determinista que Unity); `project` incluye `sdks: []` y `platforms: []`.
 
 ## Fuentes (las leen los adaptadores de `services/normalization`)
 

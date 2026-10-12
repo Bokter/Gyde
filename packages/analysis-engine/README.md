@@ -2,7 +2,7 @@
 
 Motor del **cliente** (corre en la máquina del usuario o en el runner de CI). Lo usan `apps/cli`, `apps/github-action` y `apps/vscode-extension`. Aquí viven los patrones de diseño **Template Method** y **Abstract Factory** del documento de arquitectura, y la **puerta de privacidad**.
 
-> **Estado:** los patrones y los pasos del pipeline están implementados y probados; falta `CppDependencyParser` (**Área 4**) (`docs/tasks/area-4-motor-llm-y-reportes.md`). Los criterios de aceptación pendientes están en `test/acceptance.test.ts`.
+> **Estado:** los patrones, los pasos del pipeline y los dos parsers (C# y C++) están implementados y probados; en este paquete el Área 4 ya no tiene tareas abiertas salvo el `publishResult` de la Action (comentario de PR, **Área 2**). Criterios de aceptación en `test/acceptance.test.ts`.
 
 ## Cómo se corresponde con el documento
 
@@ -57,7 +57,7 @@ Son siete métodos: los **cinco pasos del documento** (autenticar, parsear, vuln
 
 ## Tareas del Área 4 en este paquete
 
-1. ~~`CsharpDependencyParser`~~ (hecho: UPM, NuGet con licencia `.nuspec`, versión del editor) · ~~`detectGameEngine`~~ (hecho, ver abajo) · `CppDependencyParser` (pendiente).
+1. ~~`CsharpDependencyParser`~~ (hecho: UPM, NuGet con licencia `.nuspec`, versión del editor) · ~~`detectGameEngine`~~ (hecho, ver abajo) · ~~`CppDependencyParser`~~ (hecho: plugins y módulos del `.uproject`/`.Build.cs`, `vcpkg.json` y `conanfile.txt`, dedupe y orden determinista; resultado exacto en `fixtures/projects/unreal-sample/expected-parse.json`).
 2. ~~`GydeApiClient`~~ (hecho: `Authorization: Bearer`, validación de respuestas con `@gyde/contracts`, Circuit Breaker, caché local que sirve el último reporte como degradado, `GydeApiError` accionable para 401/402/429, `getMarkdown`; nunca registra la API key).
 3. ~~`fetchVulnerabilities`, `analyzeLicenses`, `generateReport`~~ (hecho: `waitForReport`). El `NvdVulnerabilityFetcher` usa el mismo filtro con la fuente `nvd`.
 4. ~~`parseDependencies` de los dos pipelines y `publishResult` del CLI~~ (hecho, con `includeAi`). El `publishResult` de la **Action** (comentario de PR) es del **Área 2**.

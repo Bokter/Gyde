@@ -10,7 +10,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@actions/core": "^3.0.1",
+    "@actions/core": "catalog:",
     "@gyde/analysis-engine": "workspace:*",
     "@gyde/contracts": "workspace:*"
   },

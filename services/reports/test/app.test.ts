@@ -1,6 +1,13 @@
-import { type CreateAnalysisJob, HEADERS, PLAN_CATALOG, Report } from '@gyde/contracts';
+import {
+  type CreateAnalysisJob,
+  HEADERS,
+  PLAN_CATALOG,
+  Report,
+  type ReportStatus,
+} from '@gyde/contracts';
 import { sampleAnalysisRequest, sampleVulnerabilityFinding } from '@gyde/contracts/samples';
 import { createLogger } from '@gyde/service-kit';
+import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { NestFastifyApplication } from '@gyde/service-kit';
 
@@ -9,7 +16,10 @@ import type { ReportRepository, StoredAnalysis } from '../src/application/ports/
 import type { TimerName } from '../src/application/analysis-lifecycle';
 import type { RetrievalClient } from '../src/application/ports/retrieval-client';
 import { configSchema } from '../src/config';
+import type { DatabaseHandle } from '../src/infrastructure/db/database';
+import { PostgresReportRepository } from '../src/infrastructure/postgres-report.repository';
 import { createApp } from '../src/http/app';
+import { createPgliteDatabase } from './support/pglite';
 
 const token = 'test-internal-token-123456';
 const config = configSchema.parse({ INTERNAL_SERVICE_TOKEN: token });
@@ -38,6 +48,14 @@ class FakeRepository implements ReportRepository {
     this.calls.push(`update:${analysis.id}`);
     this.store.set(analysis.id, structuredClone(analysis));
   }
+
+  /**
+   * Nothing is stale: the timers of this process cover every job it started, and the startup
+   * sweep only runs when the app is built with a database (PostgreSQL tests use the real one).
+   */
+  async findStale(_status: ReportStatus, _cutoff: Date): Promise<StoredAnalysis[]> {
+    return [];
+  }
 }
 
 /** Fake retrieval: records the requests it received; can be told to fail. */
@@ -51,10 +69,14 @@ class FakeRetrieval implements RetrievalClient {
   }
 }
 
-async function buildApp(overrides: AppModuleOverrides = {}): Promise<NestFastifyApplication> {
+async function buildApp(
+  overrides: AppModuleOverrides = {},
+  database?: DatabaseHandle,
+): Promise<NestFastifyApplication> {
   return createApp({
     config,
     logger: createLogger({ name: 'reports-test', level: 'silent' }),
+    database,
     overrides,
   });
 }
@@ -488,7 +510,95 @@ describe('record methods and full lifecycle', () => {
     await app.close();
   });
 
-  it.todo('reports are stored and read back from the reports schema in PostgreSQL');
+  it('reports are stored and read back from the reports schema in PostgreSQL', async () => {
+    const database = createPgliteDatabase();
+    const app = await buildApp({ retrieval: new FakeRetrieval() }, database);
+
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/internal/analyses',
+      headers: auth,
+      payload: jobPayload(),
+    });
+    expect(createRes.statusCode).toBe(202);
+    const { analysisId } = createRes.json() as { analysisId: string };
+
+    // Read back through the API: the report is served from PostgreSQL, not from process memory.
+    const getRes = await app.inject({
+      method: 'GET',
+      url: `/internal/analyses/${analysisId}`,
+      headers: auth,
+    });
+    expect(Report.parse(getRes.json()).id).toBe(analysisId);
+
+    // And the row really lives in the `analyses` table: query it with raw SQL.
+    const rows = (
+      (await database.db.execute(
+        sql`select status from analyses where id = ${analysisId}`,
+      )) as unknown as { rows: Record<string, unknown>[] }
+    ).rows;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.status).toBe('retrieving');
+
+    await app.close();
+  });
+});
+
+/** PR H: a restart must not leave analyses stuck in `retrieving`/`analyzing` forever. */
+describe('startup sweep', () => {
+  /** What a previous run left in the database: rows written long before this process started. */
+  function leftover(id: string, status: ReportStatus): StoredAnalysis {
+    return {
+      id,
+      tenantId: 'tenant-1',
+      entitlements: PLAN_CATALOG.pro,
+      aiExpected: true,
+      status,
+      createdAt: '2020-01-01T00:00:00.000Z',
+    };
+  }
+
+  it('closes the analyses a previous run left in progress when the service starts', async () => {
+    const database = createPgliteDatabase();
+    await database.migrate(); // the schema (and the rows) of the run that went down
+    const repository = new PostgresReportRepository(database.db);
+    await repository.create(leftover('stale-analyzing', 'analyzing'));
+    await repository.create(leftover('stale-retrieving', 'retrieving'));
+    await repository.create({
+      ...leftover('fresh-analyzing', 'analyzing'),
+      createdAt: new Date().toISOString(),
+    });
+
+    // Building the app runs the sweep (onModuleInit): migrate → sweep → log.
+    const app = await buildApp({ retrieval: new FakeRetrieval() }, database);
+
+    // Waiting for AI that never arrives → ready and degraded, exactly like the AI watchdog.
+    const analyzing = await repository.get('stale-analyzing');
+    expect(analyzing?.status).toBe('ready');
+    expect(analyzing?.completedAt).toBeTruthy();
+    expect(analyzing?.failure).toMatchObject({ stage: 'llm', reason: 'llm-unavailable' });
+
+    // Retrieval never answered → failed, exactly like the retrieval watchdog.
+    const retrieving = await repository.get('stale-retrieving');
+    expect(retrieving?.status).toBe('failed');
+    expect(retrieving?.failure).toMatchObject({ stage: 'retrieval', reason: 'retrieval-error' });
+
+    // A job this run just started is not stale: the sweep must leave it untouched.
+    expect((await repository.get('fresh-analyzing'))?.status).toBe('analyzing');
+
+    // The API serves the swept report as degraded, never as failed.
+    const res = await app.inject({
+      method: 'GET',
+      url: '/internal/analyses/stale-analyzing',
+      headers: auth,
+    });
+    const report = Report.parse(res.json());
+    expect(report.status).toBe('ready');
+    expect(report.degraded).toBe(true);
+    expect(report.degradedReason).toBe('llm-unavailable');
+
+    await app.close();
+  });
 });
 
 /** Review feedback on PR #37: 404 instead of 500, duplicate deliveries, injected watchdog logger. */

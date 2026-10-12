@@ -126,8 +126,8 @@ function toReport(stored: StoredAnalysis): Report {
  *   sources were unavailable, but the deterministic findings are still valid.
  * - Reading or recording an analysis that does not exist is a 404 (`HttpError('not_found')`), so
  *   the gateway never turns a missing id into a 500.
- * - NOTE: the in-memory timers do not survive a service restart. A startup sweep that closes stale
- *   `retrieving` and `analyzing` jobs is planned for PR H (PostgreSQL persistence).
+ * - The in-memory timers do not survive a service restart; `sweepStaleAnalyses()` closes what a
+ *   previous run left in progress when the service starts (with no persistence it finds nothing).
  */
 export class AnalysisLifecycle {
   private readonly deps: AnalysisLifecycleDeps;
@@ -138,6 +138,55 @@ export class AnalysisLifecycle {
 
   private get now(): () => Date {
     return this.deps.now ?? (() => new Date());
+  }
+
+  /**
+   * Startup sweep: closes analyses that a previous run left in progress (its watchdogs died with
+   * the process). Same thresholds as the timers, so a job that would have timed out anyway is
+   * closed here:
+   * - `analyzing` older than REPORTS_AI_TIMEOUT_MS → `ready` + degraded (`llm-unavailable`).
+   * - `retrieving` older than REPORTS_RETRIEVAL_TIMEOUT_MS → `failed` (`retrieval-error`).
+   * Returns how many of each it closed so the caller can log them. With the in-memory repository
+   * the store starts empty, so it reports zeroes and changes nothing.
+   */
+  async sweepStaleAnalyses(): Promise<{ analyzing: number; retrieving: number }> {
+    const staleAnalyzing = await this.deps.repository.findStale(
+      'analyzing',
+      new Date(this.now().getTime() - (this.deps.aiTimeoutMs ?? 60_000)),
+    );
+    for (const stored of staleAnalyzing) {
+      await this.deps.repository.update({
+        ...stored,
+        status: 'ready',
+        completedAt: this.now().toISOString(),
+        failure: {
+          analysisId: stored.id,
+          stage: 'llm',
+          reason: 'llm-unavailable',
+          message: 'AI result did not arrive before the service restarted',
+        },
+      });
+    }
+
+    const staleRetrieving = await this.deps.repository.findStale(
+      'retrieving',
+      new Date(this.now().getTime() - (this.deps.retrievalTimeoutMs ?? 90_000)),
+    );
+    for (const stored of staleRetrieving) {
+      await this.deps.repository.update({
+        ...stored,
+        status: 'failed',
+        completedAt: this.now().toISOString(),
+        failure: {
+          analysisId: stored.id,
+          stage: 'retrieval',
+          reason: 'retrieval-error',
+          message: 'Retrieval did not deliver a result before the service restarted',
+        },
+      });
+    }
+
+    return { analyzing: staleAnalyzing.length, retrieving: staleRetrieving.length };
   }
 
   async create(job: CreateAnalysisJob): Promise<AnalysisAccepted> {
@@ -278,8 +327,8 @@ export class AnalysisLifecycle {
    * Fires after REPORTS_AI_TIMEOUT_MS: if the job is still `analyzing`, it transitions to
    * `ready + degraded(llm-unavailable)`.
    * Errors are caught and sent to the injected logger so a broken repository cannot crash the
-   * process. NOTE: this timer lives in memory and does not survive a service restart. PR H will
-   * add a startup sweep that handles stale `analyzing` jobs when PostgreSQL persistence lands.
+   * process. NOTE: this timer lives in memory and does not survive a service restart;
+   * `sweepStaleAnalyses()` covers the jobs that were `analyzing` when the process went down.
    */
   private scheduleAiTimeout(analysisId: string): void {
     const schedule = this.deps.schedule ?? setTimeout;
@@ -318,7 +367,7 @@ export class AnalysisLifecycle {
    * Fires after REPORTS_RETRIEVAL_TIMEOUT_MS: if the job is still `retrieving`, it transitions to
    * `failed` (`retrieval-error`). A job that already left `retrieving` is left untouched. Armed only
    * when `retrieve()` succeeded; if it threw, `create()` already failed the job.
-   * Same in-memory limitation as the AI timer.
+   * Same in-memory limitation as the AI timer, also covered by `sweepStaleAnalyses()` at startup.
    */
   private scheduleRetrievalTimeout(analysisId: string): void {
     const schedule = this.deps.schedule ?? setTimeout;

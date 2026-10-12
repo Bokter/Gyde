@@ -2,10 +2,10 @@
 
 **Consolida** lo determinístico (Retrieval) y lo producido por el LLM en un **reporte de riesgo priorizado y explicable** (evidencia, impacto, recomendación). Es el **orquestador** del análisis: crea el trabajo, pide la evidencia a Retrieval y arma el reporte final.
 
-> **Estado:** `POST /internal/analyses` y `GET /internal/analyses/:id` **en vivo** (repositorio en memoria, cliente HTTP de Retrieval con Circuit Breaker). Decorator (base hecha); decoradores concretos, transiciones `record*`, persistencia PostgreSQL y render Markdown: **Área 4** (`docs/tasks/area-4-motor-llm-y-reportes.md`).
+> **Estado:** `POST /internal/analyses` y `GET /internal/analyses/:id` **en vivo** (cliente HTTP de Retrieval con Circuit Breaker), **persistencia PostgreSQL** con migraciones y barrido de arranque, y render Markdown. Decorator (base hecha); decoradores concretos: **Área 4** (`docs/tasks/area-4-motor-llm-y-reportes.md`).
 
 - Puerto: `REPORTS_PORT` (4500) · Solo red interna (el gateway es su cliente).
-- Datos propios: schema `reports` de PostgreSQL.
+- Datos propios: schema `reports` de PostgreSQL (`REPORTS_DATABASE_URL` es **opcional**: sin ella el servicio corre en memoria, pensado para desarrollo local y tests).
 - Origen en el documento: contenedor *Servicio de reportes* ("Reporte final priorizado") y el patrón **Decorator**.
 
 ## Patrón Decorator
@@ -35,9 +35,11 @@ retrieving ──(sin respuesta de Retrieval en REPORTS_RETRIEVAL_TIMEOUT_MS)─
 
 - Un reporte es **degradado** solo si se esperaba IA y no pudo correr (`llm-unavailable`, `llm-not-configured`, `llm-error`). Si el plan o el cliente no pidieron IA, **no** es degradado.
 - Nunca se queda colgado: si el resultado de IA no llega en `REPORTS_AI_TIMEOUT_MS`, pasa a `ready` y degradado (`llm-unavailable`).
-  > **Nota sobre el temporizador:** el temporizador en memoria no sobrevive a un reinicio del proceso; esta limitación se resuelve en el PR H con un barrido al arrancar cuando la persistencia en PostgreSQL esté conectada.
 - Tampoco se queda en `retrieving`: si Retrieval aceptó el trabajo (202) pero no entrega ni el resultado ni un `AnalysisFailure` en `REPORTS_RETRIEVAL_TIMEOUT_MS`, el análisis pasa a `failed` con `retrieval-error`. El temporizador solo se arma si la llamada a Retrieval tuvo éxito y no hace nada si el análisis ya salió de `retrieving`.
-  > **Nota:** igual que el de IA, este temporizador en memoria no sobrevive a un reinicio; el barrido de arranque es del PR de persistencia.
+- Los dos temporizadores viven en memoria y **no sobreviven a un reinicio**: al arrancar, `ReportsStartup` ejecuta el **barrido de recuperación** (`sweepStaleAnalyses`) sobre lo que quedó a medias en la ejecución anterior, con los mismos umbrales:
+  - `analyzing` más antiguo que `REPORTS_AI_TIMEOUT_MS` → `ready` + degradado (`llm-unavailable`).
+  - `retrieving` más antiguo que `REPORTS_RETRIEVAL_TIMEOUT_MS` → `failed` (`retrieval-error`).
+  <br>Con el repositorio en memoria no hay nada que barrer (el arranque empieza vacío), así que el barrido solo corre con base de datos.
 - Si Retrieval no responde al crear el trabajo, este queda `failed` con un error claro y el `202` se responde igualmente (el cliente lo ve en el `GET`).
 - Leer o registrar un análisis que **no existe** responde `404 not_found` (nunca un 500), igual para `GET`, `markdown` y los tres `POST` de resultados.
 - Un `deterministic` repetido (estado que ya no es `retrieving`) se **ignora**: no sobrescribe el resultado ni devuelve el análisis a `analyzing`.
@@ -65,13 +67,22 @@ retrieving ──(sin respuesta de Retrieval en REPORTS_RETRIEVAL_TIMEOUT_MS)─
 
 ```
 src/domain/report/       Decorator (base, decoradores concretos, composeReport, renderMarkdown)
-src/application/         AnalysisLifecycle (create, get, recordDeterministic, recordAi, recordFailure)
-src/infrastructure/      InMemoryReportRepository y HttpRetrievalClient (con breaker)
+src/application/         AnalysisLifecycle (create, get, record*, sweepStaleAnalyses) y sus puertos
+src/infrastructure/      PostgresReportRepository, InMemoryReportRepository, HttpRetrievalClient
+                         (con breaker), reports-startup.ts y db/ (esquema Drizzle, pool, migraciones)
 src/http/                controlador NestJS (todos los endpoints activos)
 src/app.module.ts        composition root: enlaza puertos con adaptadores (ADR 0011)
+drizzle/                 migraciones SQL generadas con `pnpm --filter @gyde/reports db:generate`
 ```
 
-Los criterios de aceptación están como `it.todo` en `test/app.test.ts` y `test/report-decorator.test.ts`.
+Los criterios de aceptación están como tests en `test/app.test.ts`, `test/postgres-report-repository.test.ts`, `test/migrations.test.ts` y `test/report-decorator.test.ts`.
+
+## Persistencia (schema `reports`)
+
+- **Con `REPORTS_DATABASE_URL`**: `PostgresReportRepository` sobre el pool de `pg`. `ReportsStartup` aplica las migraciones de `drizzle/` (con *advisory lock*, idempotente) y después ejecuta el barrido de recuperación, todo antes de que el servicio escuche; `/readyz` responde `503` si la base no responde.
+- **Sin la URL**: `InMemoryReportRepository`, sin migraciones ni barrido; los datos mueren con el proceso.
+- `update` hace *upsert* sobre la misma fila del análisis y siempre refresca `updated_at`, el reloj que lee el barrido. No hay columnas `stage`, `degraded` ni `degradedReason`: se derivan al leer (`toReport`).
+- Los tests usan **PGlite** (`test/support/pglite.ts`), PostgreSQL en memoria con las migraciones de producción, para las migraciones, el repositorio y los casos de `app.test.ts` que necesitan base de datos.
 
 ## Configuración
 
@@ -79,7 +90,7 @@ Los criterios de aceptación están como `it.todo` en `test/app.test.ts` y `test
 |---|---|---|
 | `REPORTS_PORT` | 4500 | Puerto |
 | `INTERNAL_SERVICE_TOKEN` | — | Obligatoria |
-| `REPORTS_DATABASE_URL` | — | Conexión al schema `reports` |
+| `REPORTS_DATABASE_URL` | — | Conexión a PostgreSQL (schema `reports`). **Opcional**: sin ella el repositorio es en memoria |
 | `RETRIEVAL_URL` | — | URL estática de respaldo si el registry no resuelve |
 | `REPORTS_AI_TIMEOUT_MS` | 60000 | Espera máxima del resultado de IA |
 | `REPORTS_RETRIEVAL_TIMEOUT_MS` | 90000 | Espera máxima de Retrieval tras aceptar el trabajo; pasado ese tiempo el análisis queda `failed` (`retrieval-error`). Mantenla por encima de la de IA |

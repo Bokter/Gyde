@@ -34,6 +34,7 @@
     "pino": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "stripe": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

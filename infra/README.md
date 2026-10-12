@@ -38,7 +38,7 @@ Solo levantar (sin sincronizar cambios):
 docker compose -f infra/compose/compose.yaml up --build
 ```
 
-Verificar todo como lo hace el CI (formato, lint, tipos, pruebas y build), sin instalar nada en tu máquina:
+Verificar todo como lo hace el CI (formato, lint, tipos, pruebas y build), sin instalar nada en tu máquina. **Es opcional** y necesita al menos 4 CPUs y 6 GB de memoria en Docker Desktop (ver [Problemas conocidos en Windows](#problemas-conocidos-en-windows)); el paso corre las pruebas de a dos paquetes (`--concurrency=2`):
 
 ```bash
 docker build -f infra/docker/dev.Dockerfile --target check .
@@ -72,6 +72,7 @@ Cada servicio expone `GET /healthz` (vivo) y `GET /readyz` (listo).
 - **Poco espacio en `C:`:** el disco virtual de Docker Desktop vive en `C:` por defecto. Muévelo a un disco con holgura en *Docker Desktop → Settings → Resources → Advanced → Disk image location*.
 - **Repo dentro de OneDrive:** no instales dependencias en esa carpeta; usa Docker o clona en una ruta corta fuera de OneDrive (por ejemplo `C:\dev\Gyde`).
 - **Rutas largas:** Node y pnpm pueden fallar con rutas de más de ~260 caracteres. Mantén el repositorio en una ruta corta y, si hace falta, habilita las rutas largas de Windows y de git (`git config --global core.longpaths true`).
+- **Docker Desktop con pocos recursos:** la verificación completa (`--target check`) y `pnpm test` pueden fallar con `Test timed out in 5000ms`. Dale a Docker al menos 4 CPUs y 6 GB: en *Settings → Resources* (Hyper-V) o, con WSL 2, en `%UserProfile%\.wslconfig` (`[wsl2]`, `processors=4`, `memory=6GB`, luego `wsl --shutdown`).
 - **Saltos de línea:** el repositorio fuerza LF (`.gitattributes`); no los conviertas a CRLF.
 
 ## Contraseñas locales

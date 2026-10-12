@@ -6,7 +6,7 @@ Plataforma SaaS que detecta y gestiona vulnerabilidades, conflictos de licencias
 
 ## Qué hace
 
-- **El análisis empieza en el entorno del cliente** (CLI; la GitHub Action y la extensión de VS Code son esqueletos). El código fuente **nunca sale de ahí**: solo viajan nombres de dependencias, versiones y licencias.
+- **El análisis empieza en el entorno del cliente** (CLI y GitHub Action, que comenta el reporte en el pull request; la extensión de VS Code es un esqueleto). El código fuente **nunca sale de ahí**: solo viajan nombres de dependencias, versiones y licencias.
 - El backend cruza esa información con conocimiento normalizado de fuentes públicas (OSV en el MVP) y analiza vulnerabilidades y licencias de forma **determinística**.
 - Con un plan de pago y la llave del propio estudio (BYOK, Anthropic), un LLM explica y correlaciona los hallazgos.
 - El resultado es un reporte **priorizado y explicable** (evidencia, impacto, recomendación).
@@ -75,7 +75,7 @@ Cada servicio separa cuatro capas y la dependencia apunta siempre hacia adentro:
 | `http/` | **Controladores** o handlers: reciben, validan (zod) y llaman a un caso de uso | `GatewayController`, `ApiKeyGuard` |
 
 - La regla **la impone `pnpm lint`** ([`tooling/eslint/layer-boundaries.mjs`](tooling/eslint/layer-boundaries.mjs)): `domain/` y `application/` no pueden importar NestJS, Fastify, Drizzle, Stripe ni `infrastructure/`. Los casos de uso se construyen en el *composition root* (`app.module.ts`).
-- El desacoplamiento se nota en que **se cambia un adaptador sin tocar el caso de uso**: Reports usa `InMemoryReportRepository` detrás del puerto `ReportRepository`; el Servicio Web tiene dos adaptadores del puerto de prueba de conexión (Anthropic y uno sin red).
+- El desacoplamiento se nota en que **se cambia un adaptador sin tocar el caso de uso**: Reports usa `PostgresReportRepository` (o `InMemoryReportRepository` si no hay `REPORTS_DATABASE_URL`) detrás del puerto `ReportRepository`; el Servicio Web tiene dos adaptadores del puerto de prueba de conexión (Anthropic y uno sin red).
 - Diagramas por componente, con el archivo de cada pieza: [Modelo C4](docs/architecture/05-modelo-c4.md).
 
 ## Patrones implementados
@@ -115,7 +115,7 @@ Lista completa: [ADR](docs/adr/README.md).
 
 ## Alcance y límites
 
-Fuera del MVP o en esqueleto, de forma declarada: GitHub Action y extensión de VS Code, `CompatibilityAnalyzer`, fuentes NVD y GHSA, persistencia de Reports en PostgreSQL (hoy en memoria) y contadores de plan y tasa del gateway (en memoria, se pierden al reiniciar). La caché de verificación de claves dura 60 s, así que una clave revocada puede seguir válida ese tiempo.
+Fuera del MVP o en esqueleto, de forma declarada: extensión de VS Code, `CompatibilityAnalyzer`, fuentes NVD y GHSA, y los contadores de plan y tasa del gateway (en memoria, se pierden al reiniciar). La GitHub Action está implementada y probada con un gateway falso, pero un runner de GitHub no alcanza un gateway local, así que no se demuestra en vivo. Un análisis que llevaba poco tiempo en curso cuando Reports se reinició puede quedar sin cerrar si su resultado no llega (límite del barrido de arranque, ver [`services/reports/README.md`](services/reports/README.md)). La caché de verificación de claves dura 60 s, así que una clave revocada puede seguir válida ese tiempo.
 
 ## Documentación
 

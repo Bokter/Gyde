@@ -42,7 +42,7 @@ Tu trabajo es el que más se ve en la demo: el reporte.
 - [x] **`composeReport(input)`** arma la cadena según `Entitlements` (free: básico + licencias + severidad, nunca IA; pro y studio suman IA solo con un `AiResult` presente).
 - [x] **`renderMarkdown`**: hallazgos ordenados por severidad con evidencia, impacto y recomendación, y un aviso claro cuando el reporte es degradado.
 - [x] Endpoints: `GET /internal/analyses/:id/markdown`, `POST .../deterministic`, `POST .../ai-result`, `POST .../failure` (todos validan con los esquemas).
-- [x] Todos los `it.todo` de `services/reports/test/*.test.ts` convertidos y verdes.
+- [x] Todos los `it.todo` de `services/reports/test/*.test.ts` convertidos y verdes, salvo uno: el de la lectura y escritura en PostgreSQL (`app.test.ts`), que llega con el PR de persistencia. Hoy: 31 pruebas verdes y 1 `todo`.
 
 ### llm-analysis (días 2 a 4)
 

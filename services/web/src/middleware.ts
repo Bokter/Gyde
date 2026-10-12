@@ -3,7 +3,8 @@ export const runtime = 'nodejs';
 import { auth } from '@/modules/auth/infrastructure/auth.config';
 import { NextResponse } from 'next/server';
 
-const publicPaths = ['/', '/auth/login', '/api/auth', '/healthz'];
+// The Stripe webhook authenticates with its signature, not with a session.
+const publicPaths = ['/', '/auth/login', '/api/auth', '/api/stripe/webhook', '/healthz'];
 
 export default auth((req) => {
   const { nextUrl } = req;

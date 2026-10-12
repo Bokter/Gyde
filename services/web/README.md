@@ -2,7 +2,7 @@
 
 Cara visible de Gyde y su "caja registradora": **interfaz web**, **suscripciones con Stripe**, **API keys** y **llaves de LLM de cada estudio (BYOK)**. Es una aplicación **Next.js** (UI + rutas de servidor) que cuenta como **un solo contenedor** del diagrama.
 
-> **Estado:** inicio de sesión con GitHub, tenant `free` al primer ingreso, API keys (pantalla, rutas y `POST /internal/api-keys/verify`), llave de IA (pantalla, rutas `/api/llm-config` y `GET /internal/tenants/:tenantId/llm-config`) y `/healthz` listos. Pendiente: Stripe (la pantalla de facturación es una maqueta).
+> **Estado:** inicio de sesión con GitHub, tenant `free` al primer ingreso, API keys (pantalla, rutas y `POST /internal/api-keys/verify`), llave de IA (pantalla, rutas `/api/llm-config` y `GET /internal/tenants/:tenantId/llm-config`) el webhook de Stripe (`POST /api/stripe/webhook`) y `/healthz` listos. Pendiente: Stripe Checkout y Portal de cliente (la pantalla de facturación es una maqueta).
 
 - Puerto: `WEB_PORT` (3000).
 - Datos propios: schema `web` de PostgreSQL (usuarios, sesiones, suscripciones, API keys, configuración LLM cifrada).
@@ -181,7 +181,21 @@ Servicio a servicio (solo con `x-internal-token`, sin token `401`):
 | `POST /internal/api-keys/verify` | Gateway | `VerifyApiKeyRequest` → `VerifyApiKeyResponse` (tenant + `Entitlements`) |
 | `GET /internal/tenants/:tenantId/llm-config` | llm-analysis | → `InternalLlmConfig` (**con la llave descifrada**), `404` si el estudio no tiene llave |
 
-Y el webhook público de Stripe (firma verificada con `STRIPE_WEBHOOK_SECRET`), pendiente.
+Y el webhook público de Stripe, descrito abajo.
+
+## Webhook de Stripe (`POST /api/stripe/webhook`)
+
+El webhook es la **única fuente de verdad** del plan (flujo 5): volver de Checkout no cambia nada.
+
+- **Firma**: `Stripe-Signature` se verifica con el SDK oficial (`constructEvent`, HMAC sobre el cuerpo crudo, tolerancia de 5 minutos) y `STRIPE_WEBHOOK_SECRET`. Sin firma válida → `400` y nada se guarda. Los eventos `livemode` se ignoran: Gyde solo usa Stripe en modo test.
+- **Eventos**:
+  - `checkout.session.completed`: guarda el `customer` en el tenant de `client_reference_id`. No cambia el plan.
+  - `customer.subscription.created/updated/deleted`: encuentra el tenant por `metadata.tenantId` o por el `customer` y, en una transacción, actualiza `subscriptions` y el plan del tenant. `active`, `trialing` y `past_due` con `STRIPE_PRICE_PRO` / `STRIPE_PRICE_STUDIO` dan `pro` / `studio`; cualquier otro estado o precio, `free`. Los `Entitlements` salen de `PLAN_CATALOG` según ese plan.
+  - `invoice.payment_failed`: solo se registra; el plan cambia cuando Stripe actualiza la suscripción.
+  - Los demás tipos responden `200` sin guardarse.
+- **Idempotencia**: cada evento se registra en `stripe_events`. Uno ya procesado se ignora; uno cuyo procesamiento falló (`500`) se vuelve a aplicar cuando Stripe lo reintenta. `payload` guarda solo los campos que usa el webhook (ids, estado, precio y fechas), sin datos personales del cliente.
+- **Respuestas**: `400` con firma inválida, `200` al procesar o ignorar, `500` si falta configuración o algo falla, para que Stripe reintente. Los logs llevan solo `eventId`, `type` y el resultado.
+- **Límite conocido**: no reordena eventos; si Stripe entrega una actualización vieja después de una nueva, se aplica la última que llega.
 
 ## Pantallas
 
@@ -200,7 +214,7 @@ Y el webhook público de Stripe (firma verificada con `STRIPE_WEBHOOK_SECRET`), 
 | Módulo | Responsabilidad |
 |---|---|
 | `src/modules/auth` | Inicio de sesión con GitHub (Auth.js v5), cuentas y *tenants* |
-| `src/modules/billing` | Stripe Checkout, Portal, webhooks → suscripción → `Entitlements` (hoy solo repositorios y entidades) |
+| `src/modules/billing` | Webhook de Stripe → suscripción → plan (`Entitlements`). Checkout y Portal, pendientes |
 | `src/modules/api-keys` | Emitir, listar, revocar y **verificar** API keys |
 | `src/modules/llm-config` | Alta, prueba de conexión y rotación de la llave LLM del estudio, **cifrada en reposo** |
 | `src/modules/dev-seed` | `seed:dev` |

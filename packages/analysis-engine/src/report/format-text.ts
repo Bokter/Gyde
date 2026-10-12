@@ -19,9 +19,18 @@ const DEGRADED_REASON: Record<DegradedReason, string> = {
  * Control characters (ESC and the rest of C0/C1, DEL) are removed so a crafted title cannot
  * rewrite the user's terminal; line breaks and tabs inside a field become a space.
  */
-function clean(text: string): string {
+export function clean(text: string): string {
   // eslint-disable-next-line no-control-regex -- removing control characters is the point
   return text.replace(/[\t\r\n]+/g, ' ').replace(/[\u0000-\u001f\u007f-\u009f]/g, '');
+}
+
+/**
+ * Same filter for text that is legitimately multi-line (the Markdown report): keeps line breaks
+ * and tabs, removes every other control character.
+ */
+export function cleanMultiline(text: string): string {
+  // eslint-disable-next-line no-control-regex -- removing control characters is the point
+  return text.replace(/\r\n?/g, '\n').replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, '');
 }
 
 /** Most severe first, then highest CVSS, then title (stable and deterministic). */

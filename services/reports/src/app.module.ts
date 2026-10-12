@@ -1,4 +1,4 @@
-import { Logger, Module } from '@nestjs/common';
+import { Logger, Module, type DynamicModule } from '@nestjs/common';
 
 import {
   ANALYSIS_LIFECYCLE,
@@ -8,14 +8,19 @@ import {
 } from './application/analysis-lifecycle';
 import { REPORT_REPOSITORY, type ReportRepository } from './application/ports/report-repository';
 import { RETRIEVAL_CLIENT, type RetrievalClient } from './application/ports/retrieval-client';
+import type { Config } from './config';
 import { ReportsController } from './http/reports.controller';
+import { DATABASE, type DatabaseHandle } from './infrastructure/db/database';
 import { HttpRetrievalClient } from './infrastructure/http-retrieval-client';
 import { InMemoryReportRepository } from './infrastructure/in-memory-report-repository';
+import { PostgresReportRepository } from './infrastructure/postgres-report.repository';
+import { ReportsStartup } from './infrastructure/reports-startup';
 import { APP_CONFIG } from '@gyde/service-kit';
-import type { Config } from './config';
 
 /** Ports a test (or a future adapter) may override when building the app. */
 export interface AppModuleOverrides {
+  /** Connected database (`main.ts` opens it; tests pass an in-memory one). Absent → in-memory. */
+  database?: DatabaseHandle;
   repository?: ReportRepository;
   retrieval?: RetrievalClient;
   /** Injectable for tests to simulate or suppress a timeout; `timer` says which one is being armed. */
@@ -28,17 +33,24 @@ export interface AppModuleOverrides {
  * Composition root of the service: the only place that knows concrete implementations.
  * Binds each port token to its adapter and builds the use cases with `useFactory` so
  * `application/` and `domain/` stay free of NestJS (ADR 0011).
+ *
+ * Persistence is chosen here: with a `database` the repository is PostgreSQL (and a startup hook
+ * migrates the schema and sweeps stale analyses); without it everything runs in memory.
  */
 @Module({ controllers: [ReportsController] })
 export class AppModule {
-  static withOverrides(overrides: AppModuleOverrides) {
+  static withOverrides(overrides: AppModuleOverrides): DynamicModule {
+    const { database } = overrides;
     return {
       module: AppModule,
       providers: [
         {
           provide: REPORT_REPOSITORY,
-          useValue: overrides.repository ?? new InMemoryReportRepository(),
+          useValue:
+            overrides.repository ??
+            (database ? new PostgresReportRepository(database.db) : new InMemoryReportRepository()),
         },
+        ...(database ? [{ provide: DATABASE, useValue: database }, ReportsStartup] : []),
         {
           provide: RETRIEVAL_CLIENT,
           useFactory: (config: Config) =>

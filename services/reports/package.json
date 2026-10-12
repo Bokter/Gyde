@@ -9,6 +9,7 @@
     "build": "tsup",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate --name=analyses",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
@@ -18,13 +19,18 @@
     "@nestjs/common": "catalog:",
     "@nestjs/core": "catalog:",
     "@nestjs/platform-fastify": "catalog:",
+    "drizzle-orm": "catalog:",
+    "pg": "catalog:",
     "pino": "catalog:",
     "reflect-metadata": "catalog:",
     "rxjs": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "catalog:",
     "@types/node": "catalog:",
+    "@types/pg": "catalog:",
+    "drizzle-kit": "catalog:",
     "fastify": "catalog:",
     "tsup": "catalog:",
     "tsx": "catalog:",

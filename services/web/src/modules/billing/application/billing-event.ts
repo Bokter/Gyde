@@ -5,6 +5,8 @@
 interface EventBase {
   eventId: string;
   type: string;
+  /** Stripe's `created`: when the event happened, not when it was delivered. */
+  occurredAt: Date;
 }
 
 export interface SubscriptionSnapshot {

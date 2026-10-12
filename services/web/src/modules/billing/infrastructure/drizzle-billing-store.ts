@@ -1,11 +1,17 @@
 import type { Plan } from '@gyde/contracts';
-import { eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import * as schema from '@/lib/db/schema';
 import type { Database } from '@/infrastructure/db/database';
 import type { SubscriptionSnapshot } from '../application/billing-event';
-import type { BillingStore, EventClaim } from '../application/ports/billing-store';
+import type { BillingAccount, BillingAccounts } from '../application/ports/billing-accounts';
+import type {
+  ApplySubscriptionResult,
+  BillingStore,
+  EventClaim,
+} from '../application/ports/billing-store';
+import { isStaleEvent } from '../domain/event-order';
 
-export class DrizzleBillingStore implements BillingStore {
+export class DrizzleBillingStore implements BillingStore, BillingAccounts {
   constructor(private readonly db: Database) {}
 
   async claimEvent(event: {
@@ -57,8 +63,23 @@ export class DrizzleBillingStore implements BillingStore {
     tenantId: string,
     subscription: SubscriptionSnapshot,
     plan: Plan,
-  ): Promise<boolean> {
+    occurredAt: Date,
+  ): Promise<ApplySubscriptionResult> {
     return this.db.transaction(async (tx) => {
+      // The row lock serialises concurrent deliveries for the same subscription.
+      const [current] = await tx
+        .select({
+          lastEventAt: schema.subscriptions.lastEventAt,
+          status: schema.subscriptions.status,
+        })
+        .from(schema.subscriptions)
+        .where(eq(schema.subscriptions.stripeSubscriptionId, subscription.subscriptionId))
+        .for('update');
+      const last = current?.lastEventAt
+        ? { occurredAt: current.lastEventAt, status: current.status }
+        : null;
+      if (isStaleEvent(last, { occurredAt, status: subscription.status })) return 'stale';
+
       const now = new Date();
       const tenant = await tx
         .update(schema.tenants)
@@ -73,7 +94,7 @@ export class DrizzleBillingStore implements BillingStore {
         })
         .where(eq(schema.tenants.id, tenantId))
         .returning({ id: schema.tenants.id });
-      if (tenant.length === 0) return false;
+      if (tenant.length === 0) return 'tenant-not-found';
 
       const row = {
         tenantId,
@@ -84,13 +105,58 @@ export class DrizzleBillingStore implements BillingStore {
         currentPeriodEnd: subscription.currentPeriodEnd,
         cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
         canceledAt: subscription.canceledAt,
+        lastEventAt: occurredAt,
         updatedAt: now,
       };
       await tx
         .insert(schema.subscriptions)
         .values({ ...row, stripeSubscriptionId: subscription.subscriptionId })
         .onConflictDoUpdate({ target: schema.subscriptions.stripeSubscriptionId, set: row });
-      return true;
+      return 'applied';
     });
+  }
+
+  async tenantIdForUser(userId: string): Promise<string | null> {
+    const [row] = await this.db
+      .select({ id: schema.tenants.id })
+      .from(schema.tenants)
+      .where(eq(schema.tenants.ownerId, userId))
+      .limit(1);
+    return row?.id ?? null;
+  }
+
+  async find(tenantId: string): Promise<BillingAccount | null> {
+    const [tenant] = await this.db
+      .select({ plan: schema.tenants.plan, stripeCustomerId: schema.tenants.stripeCustomerId })
+      .from(schema.tenants)
+      .where(eq(schema.tenants.id, tenantId))
+      .limit(1);
+    if (!tenant) return null;
+
+    const [subscription] = await this.db
+      .select({
+        status: schema.subscriptions.status,
+        priceId: schema.subscriptions.stripePriceId,
+        currentPeriodEnd: schema.subscriptions.currentPeriodEnd,
+        cancelAtPeriodEnd: schema.subscriptions.cancelAtPeriodEnd,
+      })
+      .from(schema.subscriptions)
+      .where(eq(schema.subscriptions.tenantId, tenantId))
+      .orderBy(desc(schema.subscriptions.updatedAt))
+      .limit(1);
+
+    return {
+      tenantId,
+      plan: tenant.plan as Plan,
+      stripeCustomerId: tenant.stripeCustomerId,
+      subscription: subscription
+        ? {
+            status: subscription.status,
+            priceId: subscription.priceId || null,
+            currentPeriodEnd: subscription.currentPeriodEnd,
+            cancelAtPeriodEnd: subscription.cancelAtPeriodEnd ?? false,
+          }
+        : null,
+    };
   }
 }

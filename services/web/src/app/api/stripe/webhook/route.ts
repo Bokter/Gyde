@@ -8,7 +8,8 @@ const logger = createLogger('stripe-webhook');
 /**
  * Stripe webhook (flow 5). Public, but only signed events get through. Status codes follow what
  * Stripe expects: 400 for a bad signature (not retried usefully), 200 once handled or ignored,
- * 500 on a failure so Stripe retries. Logs carry the event id and type only, never the body.
+ * 500 on a failure or an event that matches no tenant yet, so Stripe retries. Logs carry the
+ * event id and type only, never the body.
  */
 export async function POST(request: Request) {
   const rawBody = await request.text();
@@ -35,6 +36,15 @@ export async function POST(request: Request) {
 
   try {
     const result = await module.handleStripeEvent.execute(event);
+    if (result.outcome === 'unmatched') {
+      // Not marked processed: a 500 makes Stripe redeliver it once the tenant can be found.
+      logger.warn({
+        msg: 'Stripe event matched no tenant yet',
+        eventId: event.eventId,
+        type: event.type,
+      });
+      return NextResponse.json({ error: 'unmatched' }, { status: 500 });
+    }
     logger.info({
       msg: 'Stripe event handled',
       eventId: event.eventId,

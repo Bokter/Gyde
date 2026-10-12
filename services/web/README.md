@@ -2,7 +2,7 @@
 
 Cara visible de Gyde y su "caja registradora": **interfaz web**, **suscripciones con Stripe**, **API keys** y **llaves de LLM de cada estudio (BYOK)**. Es una aplicación **Next.js** (UI + rutas de servidor) que cuenta como **un solo contenedor** del diagrama.
 
-> **Estado:** inicio de sesión con GitHub, tenant `free` al primer ingreso, API keys (pantalla, rutas y `POST /internal/api-keys/verify`), llave de IA (pantalla, rutas `/api/llm-config` y `GET /internal/tenants/:tenantId/llm-config`) el webhook de Stripe (`POST /api/stripe/webhook`) y `/healthz` listos. Pendiente: Stripe Checkout y Portal de cliente (la pantalla de facturación es una maqueta).
+> **Estado:** inicio de sesión con GitHub, tenant `free` al primer ingreso, API keys (pantalla, rutas y `POST /internal/api-keys/verify`), llave de IA (pantalla, rutas `/api/llm-config` y `GET /internal/tenants/:tenantId/llm-config`), facturación con Stripe (Checkout, Portal de cliente, webhook `POST /api/stripe/webhook` y pantalla `/dashboard/billing`) y `/healthz` listos.
 
 - Puerto: `WEB_PORT` (3000).
 - Datos propios: schema `web` de PostgreSQL (usuarios, sesiones, suscripciones, API keys, configuración LLM cifrada).
@@ -171,8 +171,10 @@ Rutas del panel (con sesión):
 | `GET /api/llm-config` | `{ config: LlmProviderConfigView \| null }` |
 | `PUT /api/llm-config` | Guarda o reemplaza (`LlmProviderConfigInput`) → `{ config }` |
 | `DELETE /api/llm-config` | `{ revoked: true }` o `404` |
+| `POST /api/billing/checkout` | Formulario con `plan` (`pro`/`studio`) → `303` a Stripe Checkout (o al Portal si el estudio ya paga) |
+| `POST /api/billing/portal` | `303` al Portal de cliente de Stripe |
 
-Los errores de validación devuelven solo `path` y `code`, nunca el valor recibido.
+Los errores de validación devuelven solo `path` y `code`, nunca el valor recibido. Las dos rutas de facturación son formularios: exigen que el header `Origin` sea el de la propia web (`403` si no) y, ante un error, vuelven a `/dashboard/billing?error=…` sin mostrar el mensaje de Stripe.
 
 Servicio a servicio (solo con `x-internal-token`, sin token `401`):
 
@@ -182,6 +184,14 @@ Servicio a servicio (solo con `x-internal-token`, sin token `401`):
 | `GET /internal/tenants/:tenantId/llm-config` | llm-analysis | → `InternalLlmConfig` (**con la llave descifrada**), `404` si el estudio no tiene llave |
 
 Y el webhook público de Stripe, descrito abajo.
+
+## Checkout y Portal de cliente
+
+- **Puerto y adaptador**: `BillingGateway` (`application/ports/billing-gateway.ts`) crea las sesiones; `StripeBillingGateway` (`infrastructure/`) usa el SDK. Al construirse **rechaza cualquier `STRIPE_SECRET_KEY` que no empiece por `sk_test_`**.
+- **Checkout** (`StartCheckout`): `mode: subscription` con `STRIPE_PRICE_PRO` o `STRIPE_PRICE_STUDIO`. Lleva el tenant en `client_reference_id` **y** en `subscription_data.metadata.tenantId`, porque Stripe puede entregar `customer.subscription.created` antes que `checkout.session.completed`. Reutiliza el `customer` del estudio si ya existe. Un estudio que ya paga va al Portal en vez de abrir una segunda suscripción.
+- **Portal** (`OpenPortal`): solo si el estudio tiene `customer` en Stripe. Hay que activarlo una vez en el dashboard de Stripe (modo test): *Settings → Billing → Customer portal*.
+- **Volver de Checkout** (`?checkout=success`) muestra un aviso y **no cambia el plan**: eso solo lo hace el webhook.
+- Los precios que muestra `/dashboard/billing` ($29 y $99) son texto fijo: deben coincidir con los precios configurados en Stripe.
 
 ## Webhook de Stripe (`POST /api/stripe/webhook`)
 
@@ -194,13 +204,30 @@ El webhook es la **única fuente de verdad** del plan (flujo 5): volver de Check
   - `invoice.payment_failed`: solo se registra; el plan cambia cuando Stripe actualiza la suscripción.
   - Los demás tipos responden `200` sin guardarse.
 - **Idempotencia**: cada evento se registra en `stripe_events`. Uno ya procesado se ignora; uno cuyo procesamiento falló (`500`) se vuelve a aplicar cuando Stripe lo reintenta. `payload` guarda solo los campos que usa el webhook (ids, estado, precio y fechas), sin datos personales del cliente.
-- **Respuestas**: `400` con firma inválida, `200` al procesar o ignorar, `500` si falta configuración o algo falla, para que Stripe reintente. Los logs llevan solo `eventId`, `type` y el resultado.
-- **Límite conocido**: no reordena eventos; si Stripe entrega una actualización vieja después de una nueva, se aplica la última que llega.
+- **Sin tenant todavía** (`unmatched`): el evento **no** se marca procesado y se responde `500`, para que Stripe lo reintente cuando `checkout.session.completed` ya haya enlazado el `customer`.
+- **Orden**: cada suscripción guarda el `created` del último evento aplicado (`subscriptions.last_event_at`). Un evento más viejo se ignora (`stale`, `200`). Como `created` tiene resolución de segundos, dentro del mismo segundo tampoco se aplica uno que haga retroceder el estado (p. ej. un `created` en `incomplete` que llega después del `updated` a `active`); ver `domain/event-order.ts`.
+- **Versiones de la API**: el periodo de facturación se lee de la suscripción (API ≤ 2025-02-24) o de su primer *item* (2025-03-31 en adelante), porque los eventos llegan con la versión de la cuenta.
+- **Respuestas**: `400` con firma inválida, `200` al procesar, ignorar o descartar por viejo, `500` si falta configuración, algo falla o el evento aún no encuentra tenant, para que Stripe reintente. Los logs llevan solo `eventId`, `type` y el resultado.
+
+### Probarlo en local con la CLI de Stripe
+
+1. En tu `.env`: `STRIPE_SECRET_KEY` (`sk_test_…`), `STRIPE_PRICE_PRO` y `STRIPE_PRICE_STUDIO` (ids `price_…` de precios recurrentes) y `STRIPE_WEBHOOK_SECRET` (el `whsec_…` que imprime `stripe listen --print-secret`). Nunca en el repo.
+2. Reenvía los eventos a web (las versiones nuevas de la CLI exigen `--events`):
+
+   ```bash
+   stripe listen \
+     --events checkout.session.completed,customer.subscription.created,customer.subscription.updated,customer.subscription.deleted,invoice.payment_failed \
+     --forward-to localhost:3000/api/stripe/webhook
+   ```
+
+3. En `/dashboard/billing`, «Mejorar a Pro» y paga con la tarjeta de prueba `4242 4242 4242 4242` (cualquier fecha futura y CVC). El plan pasa a `pro` cuando llega el webhook.
+4. `stripe trigger customer.subscription.updated` crea un `customer` que no es de ningún estudio: web responde `500` (`unmatched`), como debe.
 
 ## Pantallas
 
 - **`/dashboard/api-keys`**: crear (entorno `test`/`live` y nombre opcional), listar (prefijo y últimos 4, estado, creada, último uso) y revocar con confirmación. La clave en claro solo llega en la respuesta de creación; vive en el estado del diálogo y se descarta al cerrarlo.
 - **`/dashboard/llm-config`**: proveedor, modelo (`claude-opus-5-5` por defecto, `claude-sonnet-5-5`, `claude-haiku-5-5`; ver `llm-model-options.ts`), `••••` + últimos 4, estado y fecha; guardar, reemplazar (prueba la conexión antes) y revocar con confirmación. La llave sale del estado del formulario antes de la petición (`llm-key-form.ts`). Avisa que la IA solo se usa en Pro y Studio.
+- **`/dashboard/billing`**: plan actual (del webhook, con sus límites de `PLAN_CATALOG`), estado de la suscripción y fecha de renovación o fin; «Mejorar a Pro/Studio» (Checkout) en el plan free y «Gestionar suscripción» (Portal) si el estudio tiene `customer`.
 - **Landing, `/auth/login`, `/dashboard` y `/dashboard/billing`**: estilos con Tailwind v4.
 
 ## Estilos
@@ -214,7 +241,7 @@ El webhook es la **única fuente de verdad** del plan (flujo 5): volver de Check
 | Módulo | Responsabilidad |
 |---|---|
 | `src/modules/auth` | Inicio de sesión con GitHub (Auth.js v5), cuentas y *tenants* |
-| `src/modules/billing` | Webhook de Stripe → suscripción → plan (`Entitlements`). Checkout y Portal, pendientes |
+| `src/modules/billing` | Checkout y Portal de Stripe; webhook → suscripción → plan (`Entitlements`) |
 | `src/modules/api-keys` | Emitir, listar, revocar y **verificar** API keys |
 | `src/modules/llm-config` | Alta, prueba de conexión y rotación de la llave LLM del estudio, **cifrada en reposo** |
 | `src/modules/dev-seed` | `seed:dev` |

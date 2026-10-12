@@ -141,6 +141,8 @@ export const subscriptions = pgTable(
     currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }).notNull(),
     cancelAtPeriodEnd: boolean('cancel_at_period_end').default(false),
     canceledAt: timestamp('canceled_at', { withTimezone: true }),
+    /** `created` of the last Stripe event applied, to skip events delivered out of order. */
+    lastEventAt: timestamp('last_event_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

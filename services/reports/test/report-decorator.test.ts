@@ -106,6 +106,61 @@ describe('concrete decorators and composeReport', () => {
     expect(content.riskScore).toBeLessThan(100);
   });
 
+  describe('the risk score formula is pinned', () => {
+    // score = round(severity part (up to 90) + CVSS part (up to 10)), where
+    //   severity part = 90 * sum(weights) / (findings * 10), weights critical 10, high 7, medium 4,
+    //   low 1, info 0, and CVSS part = the average CVSS of the findings that have one.
+    // The sample finding carries a CVSS of its own: start from it without one.
+    const { cvss: _sampleCvss, ...withoutCvss } = sampleVulnerabilityFinding;
+    let counter = 0;
+    const finding = (severity: Finding['severity'], cvss?: number): Finding => ({
+      ...withoutCvss,
+      id: `finding-${(counter += 1)}`,
+      severity,
+      ...(cvss === undefined ? {} : { cvss }),
+    });
+    const scoreOf = (findings: Finding[]) =>
+      new SeverityScoreDecorator(new BasicAnalysisReport(findings)).generateContent().riskScore;
+
+    it('is 0 without findings and for informative findings only', () => {
+      expect(scoreOf([])).toBe(0);
+      expect(scoreOf([finding('info'), finding('info')])).toBe(0);
+    });
+
+    it.each([
+      // 90 * 10/10 + 9.8 = 99.8 -> 100
+      { name: 'one critical with CVSS 9.8', findings: [finding('critical', 9.8)], score: 100 },
+      // 90 * 7/10 + 7.5 = 70.5 -> 71
+      { name: 'one high with CVSS 7.5', findings: [finding('high', 7.5)], score: 71 },
+      // 90 * 4/10 = 36, and no CVSS
+      { name: 'one medium without CVSS', findings: [finding('medium')], score: 36 },
+      // 90 * 1/10 + 2 = 11
+      { name: 'one low with CVSS 2', findings: [finding('low', 2)], score: 11 },
+      // 90 * (7 + 4) / 20 = 49.5, CVSS average of the one that has it (7.5) -> 57
+      {
+        name: 'a high with CVSS 7.5 and a medium without',
+        findings: [finding('high', 7.5), finding('medium')],
+        score: 57,
+      },
+    ])('is $score for $name', ({ findings, score }) => {
+      expect(scoreOf(findings)).toBe(score);
+    });
+
+    it('is capped at 100', () => {
+      expect(scoreOf([finding('critical', 10), finding('critical', 10)])).toBe(100);
+    });
+
+    it('is an average, so informative findings dilute a critical one (known limit)', () => {
+      // 90 * 10/100 + 10 = 19: one critical among nine informative findings.
+      const diluted = [
+        finding('critical', 10),
+        ...Array.from({ length: 9 }, () => finding('info')),
+      ];
+      expect(scoreOf(diluted)).toBe(19);
+      // Documented in the README of Reports: read the counts by severity next to the score.
+    });
+  });
+
   it('SeverityScoreDecorator runs last so the score covers the layers before it', () => {
     // The score must be based on all findings in the chain, including ones added by prior decorators.
     const criticalFinding: Finding = {

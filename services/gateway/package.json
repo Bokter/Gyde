@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@gyde/contracts": "workspace:*",
+    "@gyde/discovery": "workspace:*",
     "@gyde/service-kit": "workspace:*",
     "@nestjs/common": "catalog:",
     "@nestjs/core": "catalog:",

@@ -150,10 +150,8 @@ describe('parsers (use fixtures/projects)', () => {
 });
 
 // The pipeline steps (analyzeLicenses, generateReport, LocalCLIPipeline output) are covered in
-// `pipeline-steps.test.ts`. Still open, and owned by someone else:
-describe('pending work owned by other pieces', () => {
-  it.todo('GitHubActionPipeline posts the report as a pull request comment (area 2)');
-});
+// `pipeline-steps.test.ts`. The pull request comment of the GitHub Action is not tested here: it
+// belongs to `apps/github-action` (`PullRequestCommentPipeline`, tested in its `test/run.test.ts`).
 
 describe('GydeApiClient', () => {
   const API_URL = 'http://gateway.test';

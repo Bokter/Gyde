@@ -23,7 +23,7 @@ Cuando no puede (sin llave, proveedor caído o error) publica un `AnalysisFailur
 Proveedores soportados hoy: **Anthropic**. Un tenant con otro proveedor (`openai`) recibe `AnalysisFailure` `llm-error` (`LLM provider "openai" is not supported yet`) y no sale ninguna petición: la llave solo se entrega al proveedor al que pertenece.
 
 - **Mock determinístico** (`src/infrastructure/providers/mock-finding-analyzer.ts`): responde **solo** con `LLM_MOCK_ENABLED=true` y **sin llave**; el mismo entrada produce siempre la misma salida.
-- **Anthropic** (`anthropic-finding-analyzer.ts`): `POST /v1/messages` con la llave del tenant (`x-api-key`), timeout de 30 s y respuesta interpretada como JSON estricto.
+- **Anthropic** (`anthropic-finding-analyzer.ts`): `POST /v1/messages` con la llave del tenant (`x-api-key`), timeout configurable (`LLM_PROVIDER_TIMEOUT_MS`, 30 s por defecto) y respuesta interpretada como JSON estricto.
 - El breaker es **por tenant + proveedor**: la llave inválida o el rate limit de un estudio no abre el circuito de los demás. Con el circuito abierto se sirve la **última clasificación cacheada** cuando los hallazgos son idénticos (mismo tenant, proveedor y huella); si no la hay, `llm-unavailable`.
 
 ## Seguridad (BYOK)
@@ -54,6 +54,7 @@ src/app.module.ts          composition root: enlaza puertos con adaptadores (ADR
 | `WEB_URL`, `REPORTS_URL` | — | URLs estáticas de respaldo si el registry no resuelve |
 | `REGISTRY_URL` | — | Con registry, Web y Reports se resuelven por discovery |
 | `LLM_MOCK_ENABLED` | false | Solo desarrollo: si el tenant no tiene llave, responde el mock |
-| `CB_*` | — | Umbrales del Circuit Breaker (`packages/resilience`) |
+| `CB_*` | — | Umbrales del Circuit Breaker (`packages/resilience`). `CB_CALL_TIMEOUT_MS` no se aplica a la llamada al modelo |
+| `LLM_PROVIDER_TIMEOUT_MS` | `30000` | Tiempo máximo de una llamada al proveedor de IA; el breaker espera este valor más 15 s, para que no corte una respuesta lenta y la cuente como fallo |
 
 Los criterios de aceptación son las 16 pruebas de `test/app.test.ts`.

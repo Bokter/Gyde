@@ -10,6 +10,13 @@ export const configSchema = baseEnv.extend({
   WEB_URL: z.url().optional(),
   REPORTS_URL: z.url().optional(),
 
+  /**
+   * How long one call to the LLM provider may take. The tenant + provider breaker waits longer
+   * than this (see `app.module.ts`): CB_CALL_TIMEOUT_MS is meant for the internal services and
+   * would cut a real, slow model answer and count it as a failure.
+   */
+  LLM_PROVIDER_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
+
   /** Development only: answer with the mock provider when a tenant has no LLM key. */
   LLM_MOCK_ENABLED: z.stringbool().default(false),
 });

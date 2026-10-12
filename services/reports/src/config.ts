@@ -7,7 +7,7 @@ export const configSchema = baseEnv.extend({
   /** Schema `reports` of the shared PostgreSQL (role `reports`). */
   REPORTS_DATABASE_URL: z.string().optional(),
 
-  /** Static URL used when the Service Registry cannot resolve Retrieval (local development). */
+  /** Static URL used when the Service Registry cannot resolve Retrieval (local development; default http://localhost:4300). */
   RETRIEVAL_URL: z.url().optional(),
   /** A report whose AI result does not arrive within this time becomes ready and degraded. */
   REPORTS_AI_TIMEOUT_MS: z.coerce.number().int().positive().default(60_000),

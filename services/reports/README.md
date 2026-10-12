@@ -2,7 +2,7 @@
 
 **Consolida** lo determinístico (Retrieval) y lo producido por el LLM en un **reporte de riesgo priorizado y explicable** (evidencia, impacto, recomendación). Es el **orquestador** del análisis: crea el trabajo, pide la evidencia a Retrieval y arma el reporte final.
 
-> **Estado:** `POST /internal/analyses` y `GET /internal/analyses/:id` **en vivo** (cliente HTTP de Retrieval con Circuit Breaker), **persistencia PostgreSQL** con migraciones y barrido de arranque, y render Markdown. Decorator (base hecha); decoradores concretos: **Área 4** (`docs/tasks/area-4-motor-llm-y-reportes.md`).
+> **Estado:** `POST /internal/analyses` y `GET /internal/analyses/:id` **en vivo** (cliente HTTP de Retrieval con Service Discovery y Circuit Breaker, mediante `ResilientHttpClient`), **persistencia PostgreSQL** con migraciones y barrido de arranque, y render Markdown. Decorator (base hecha); decoradores concretos: **Área 4** (`docs/tasks/area-4-motor-llm-y-reportes.md`).
 
 - Puerto: `REPORTS_PORT` (4500) · Solo red interna (el gateway es su cliente).
 - Datos propios: schema `reports` de PostgreSQL (`REPORTS_DATABASE_URL` es **opcional**: sin ella el servicio corre en memoria, pensado para desarrollo local y tests).
@@ -92,6 +92,6 @@ Los criterios de aceptación están como tests en `test/app.test.ts`, `test/post
 | `REPORTS_PORT` | 4500 | Puerto |
 | `INTERNAL_SERVICE_TOKEN` | — | Obligatoria |
 | `REPORTS_DATABASE_URL` | — | Conexión a PostgreSQL (schema `reports`). **Opcional**: sin ella el repositorio es en memoria |
-| `RETRIEVAL_URL` | — | URL estática de respaldo si el registry no resuelve |
+| `RETRIEVAL_URL` | `http://localhost:4300` | URL estática de respaldo si el registry no resuelve a Retrieval |
 | `REPORTS_AI_TIMEOUT_MS` | 60000 | Espera máxima del resultado de IA |
 | `REPORTS_RETRIEVAL_TIMEOUT_MS` | 90000 | Espera máxima de Retrieval tras aceptar el trabajo; pasado ese tiempo el análisis queda `failed` (`retrieval-error`). Mantenla por encima de la de IA |

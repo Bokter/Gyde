@@ -15,7 +15,8 @@ import { HttpRetrievalClient } from './infrastructure/http-retrieval-client';
 import { InMemoryReportRepository } from './infrastructure/in-memory-report-repository';
 import { PostgresReportRepository } from './infrastructure/postgres-report.repository';
 import { ReportsStartup } from './infrastructure/reports-startup';
-import { APP_CONFIG } from '@gyde/service-kit';
+import { createServiceResolver, staticUrls } from './infrastructure/service-resolver';
+import { APP_CONFIG, ResilientHttpClient } from '@gyde/service-kit';
 
 /** Ports a test (or a future adapter) may override when building the app. */
 export interface AppModuleOverrides {
@@ -55,10 +56,15 @@ export class AppModule {
           provide: RETRIEVAL_CLIENT,
           useFactory: (config: Config) =>
             overrides.retrieval ??
-            new HttpRetrievalClient({
-              retrievalUrl: config.RETRIEVAL_URL ?? 'http://localhost:4300',
-              internalToken: config.INTERNAL_SERVICE_TOKEN,
-            }),
+            new HttpRetrievalClient(
+              // Discovery first, the static RETRIEVAL_URL as a fallback, one breaker per dependency.
+              new ResilientHttpClient({
+                serviceName: 'reports',
+                resolver: createServiceResolver(config),
+                internalToken: config.INTERNAL_SERVICE_TOKEN,
+                fallbackUrls: staticUrls(config),
+              }),
+            ),
           inject: [APP_CONFIG],
         },
         {

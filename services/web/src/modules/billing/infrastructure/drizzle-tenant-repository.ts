@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as schema from '@/lib/db/schema';
+import type { Database } from '@/infrastructure/db/database';
 import type { Tenant } from '../domain/entities';
 import type { TenantRepository } from '../domain/repositories';
 
@@ -10,11 +11,14 @@ const pool = new Pool({
   max: 10,
 });
 
-const db = drizzle(pool, { schema });
+const defaultDb = drizzle(pool, { schema });
 
 export class DrizzleTenantRepository implements TenantRepository {
+  /** The pool-backed database by default; tests pass an in-memory PGlite one. */
+  constructor(private readonly db: Database = defaultDb) {}
+
   async findByOwnerId(ownerId: string): Promise<Tenant | null> {
-    const result = await db
+    const result = await this.db
       .select()
       .from(schema.tenants)
       .where(eq(schema.tenants.ownerId, ownerId))
@@ -23,12 +27,16 @@ export class DrizzleTenantRepository implements TenantRepository {
   }
 
   async findById(id: string): Promise<Tenant | null> {
-    const result = await db.select().from(schema.tenants).where(eq(schema.tenants.id, id)).limit(1);
+    const result = await this.db
+      .select()
+      .from(schema.tenants)
+      .where(eq(schema.tenants.id, id))
+      .limit(1);
     return this.mapTenant(result[0]) || null;
   }
 
   async findBySlug(slug: string): Promise<Tenant | null> {
-    const result = await db
+    const result = await this.db
       .select()
       .from(schema.tenants)
       .where(eq(schema.tenants.slug, slug))
@@ -37,7 +45,7 @@ export class DrizzleTenantRepository implements TenantRepository {
   }
 
   async findByStripeCustomerId(customerId: string): Promise<Tenant | null> {
-    const result = await db
+    const result = await this.db
       .select()
       .from(schema.tenants)
       .where(eq(schema.tenants.stripeCustomerId, customerId))
@@ -46,7 +54,7 @@ export class DrizzleTenantRepository implements TenantRepository {
   }
 
   async create(tenant: Omit<Tenant, 'id' | 'createdAt' | 'updatedAt'>): Promise<Tenant> {
-    const result = await db
+    const result = await this.db
       .insert(schema.tenants)
       .values({
         name: tenant.name,
@@ -64,7 +72,7 @@ export class DrizzleTenantRepository implements TenantRepository {
   }
 
   async update(id: string, data: Partial<Tenant>): Promise<Tenant> {
-    const result = await db
+    const result = await this.db
       .update(schema.tenants)
       .set(data)
       .where(eq(schema.tenants.id, id))

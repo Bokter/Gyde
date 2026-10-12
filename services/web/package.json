@@ -37,6 +37,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "catalog:",
     "@next/eslint-plugin-next": "catalog:",
     "@tailwindcss/postcss": "catalog:",
     "@types/node": "catalog:",

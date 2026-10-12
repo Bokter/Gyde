@@ -4,6 +4,8 @@ import { DrizzleAdapter } from '@auth/drizzle-adapter';
 import { db } from '@/lib/db/client';
 import * as schema from '@/lib/db/schema';
 import { createTenantOnFirstLogin } from './composition-root';
+import { authEvents } from './auth-events';
+import { githubProfile } from './github-profile';
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: DrizzleAdapter(db, {
@@ -19,6 +21,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       authorization: {
         params: { scope: 'read:user user:email' },
       },
+      profile: githubProfile,
     }),
   ],
   callbacks: {
@@ -35,35 +38,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return session;
     },
   },
-  events: {
-    async createUser({ user }) {
-      if (!user.id) return;
-      await createTenantOnFirstLogin.execute({
-        id: user.id,
-        githubId: '',
-        login: user.name || user.email || 'user',
-        name: user.name ?? null,
-        email: user.email ?? null,
-        avatarUrl: user.image ?? null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-    },
-    async linkAccount({ user, account }) {
-      if (account.provider === 'github' && user.id) {
-        await createTenantOnFirstLogin.execute({
-          id: user.id,
-          githubId: account.providerAccountId,
-          login: user.name || user.email || 'user',
-          name: user.name ?? null,
-          email: user.email ?? null,
-          avatarUrl: user.image ?? null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
-      }
-    },
-  },
+  events: authEvents(createTenantOnFirstLogin),
   pages: {
     signIn: '/auth/login',
     error: '/auth/login',

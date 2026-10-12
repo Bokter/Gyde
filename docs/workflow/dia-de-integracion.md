@@ -104,9 +104,9 @@ curl -s -X POST -H "x-internal-token: $T" -H 'content-type: application/json' lo
 
 **Estado:** ✅ verificado. | **Si falla:** Área 3 (`normalization`); si es un error de conexión a la base de datos, Área 1 (credenciales del compose).
 
-## 3. Recorrido por el gateway real (⏳ pendiente de integrar)
+## 3. Recorrido por el gateway real (✅ 2026-10-12 con la CLI y curl; faltan los límites del plan)
 
-> El gateway ya implementa autenticación de API keys y el enrutado a Reports (#62), pero esta sección **aún no se ha verificado con el stack real**, así que sigue ⏳. Necesita una **API key** emitida por la web (sección 6, paso 2) en la variable `KEY`.
+> El gateway ya implementa autenticación de API keys y el enrutado a Reports (#62). Necesita una **API key** (sección 6, paso 2: `seed:dev` o el dashboard) en la variable `KEY`.
 
 ```bash
 G=http://localhost:4000
@@ -136,6 +136,8 @@ curl -s -H "Authorization: Bearer $KEY" $G/v1/analyses/<analysisId>/markdown
 4. `202` con `analysisId`; el `GET` llega a `ready` con **los dos hallazgos esperados** (sección 4) y el Markdown los lista.
 5. Con `reports` apagado (`$C stop reports`): `POST /v1/analyses` responde **`503 upstream_unavailable`**, sin colgarse (arrancar de nuevo con `$C start reports`).
 6. Los límites del plan: una key de un plan agotado responde `402 plan_limit_exceeded` y más peticiones de las permitidas por minuto, `429`.
+
+**Estado:** ✅ 2026-10-12, con la CLI de la Área 4 y con curl sobre el stack de compose: `verify` devuelve el plan y los permisos (`401` con key inválida o sin cabecera), `POST /v1/analyses` responde `202` con `AnalysisAccepted`, `GET /v1/analyses/:id` devuelve un `Report` que valida el schema que el cliente exige y `/markdown` responde `text/markdown; charset=utf-8`; `/internal/*` por el gateway responde `404`. Pendientes de esta sección: el paso 5 (`reports` apagado → `503`) y los límites del plan (`402`/`429`).
 
 | Si falla | Responde |
 |---|---|
@@ -183,7 +185,9 @@ Para hacerlo a mano, el cuerpo de `POST /internal/analyses` sale de `infra/scrip
 
 La promesa: **el código fuente del cliente nunca sale de su entorno**, y los secretos (API keys, llave de IA del estudio) no aparecen en logs ni en la base de datos en claro. El proyecto de ejemplo `fixtures/projects/unity-sample` contiene en `Assets/Scripts/Player.cs` la marca `PROPRIETARY_MARKER_DO_NOT_SEND`.
 
-### 5.1 La solicitud que sale del cliente (⏳ necesita el gateway de la Área 1)
+### 5.1 La solicitud que sale del cliente
+
+> La CLI corre contra el gateway real desde 2026-10-12; el proxy es opcional pero es lo único que captura el cuerpo que sale.
 
 Capturar lo que la CLI manda de verdad, con un proxy de registro entre la CLI y el gateway:
 
@@ -199,7 +203,9 @@ node -e '
   }).listen(4999);'
 
 # Terminal 2: analizar el proyecto de ejemplo a través del proxy
-GYDE_API_KEY=$KEY GYDE_API_URL=http://localhost:4999 pnpm --filter @gyde/cli dev -- analyze fixtures/projects/unity-sample
+# Sin `--` antes de `analyze` (pnpm lo pasaría como ruta) y con la ruta absoluta:
+# el script del paquete corre con cwd en apps/cli.
+GYDE_API_KEY=$KEY GYDE_API_URL=http://localhost:4999 pnpm --filter @gyde/cli dev analyze "$PWD/fixtures/projects/unity-sample"
 grep -c PROPRIETARY_MARKER_DO_NOT_SEND gyde-captured.log      # debe imprimir 0
 grep -c '"dependencies"' gyde-captured.log                    # debe ser >= 1 (sí viaja la lista de dependencias)
 rm gyde-captured.log
@@ -239,8 +245,8 @@ Los seis pasos de [`docs/tasks/00-resumen.md`](../tasks/00-resumen.md), con coma
 | # | Paso | Comando o acción | Evidencia esperada | Responde |
 |---|---|---|---|---|
 | 1 | El stack sube y el registry lista las instancias | Sección 1 | Servicios `healthy` y una instancia por servicio en el registry | Área 1 |
-| 2 | En la web: iniciar sesión con GitHub, elegir un plan con Stripe (modo **test**), crear una API key y guardar la llave de IA del estudio | Navegador en `http://localhost:3000`. Tarjeta de prueba de Stripe: `4242 4242 4242 4242`. La API key se muestra **una sola vez**: guardarla en `KEY` | Plan activo, la key en `/dashboard/api-keys` y la llave de IA con solo los últimos 4 visibles. ⏳ Stripe y la llave de IA de la web aún no están integrados (hoy: inicio de sesión y API keys) | Área 2 |
-| 3 | `gyde analyze` imprime el reporte priorizado con la vulnerabilidad alta, el riesgo de licencia y la explicación de IA | `GYDE_API_KEY=$KEY pnpm --filter @gyde/cli dev -- analyze fixtures/projects/unity-sample` (con `LLM_MOCK_ENABLED=true` la explicación sale del mock; con una llave real, del proveedor). La CLI está integrada (#59): `--format text|json|markdown` y `--fail-on-degraded` | Los dos hallazgos esperados y `aiExplanation` en cada uno | Área 4 (CLI y reporte); Área 3 (hallazgos) |
+| 2 | En la web: iniciar sesión con GitHub, elegir un plan con Stripe (modo **test**), crear una API key y guardar la llave de IA del estudio | Navegador en `http://localhost:3000`. Tarjeta de prueba de Stripe: `4242 4242 4242 4242`. La API key se muestra **una sola vez**: guardarla en `KEY`. **Sin browser (✅ 2026-10-12):** `WEB_DATABASE_URL=postgres://web:<password-del-.env>@localhost:5432/gyde pnpm --filter web seed:dev` imprime la key una sola vez y crea el tenant `gyde-dev-seed` con plan **free** | Plan activo, la key en `/dashboard/api-keys` y la llave de IA con solo los últimos 4 visibles. ⏳ Stripe y la llave de IA de la web aún no están integrados (hoy: inicio de sesión y API keys). El tenant del seed es free: sin IA | Área 2 |
+| 3 | `gyde analyze` imprime el reporte priorizado con la vulnerabilidad alta y el riesgo de licencia | `GYDE_API_KEY=$KEY pnpm --filter @gyde/cli dev analyze "$PWD/fixtures/projects/unity-sample"` (sin `--` antes de `analyze`: pnpm lo pasaría como ruta; la ruta va absoluta porque el script corre con cwd en `apps/cli`). Con `LLM_MOCK_ENABLED=true` y un plan con IA, la explicación sale del mock. ✅ 2026-10-12 con la key del seed y `--format text\|json\|markdown` | ✅ Los dos hallazgos esperados (alta `SAMPLE-0001`, media GPL-3.0-only) y riesgo 57/100; exit code 1. `aiExplanation` solo con un plan que incluya IA (el seed es free: el informe sale `degraded=false`, sin la capa `ai-enrichment`) | Área 4 (CLI y reporte); Área 3 (hallazgos) |
 | 4 | **Apagar `llm-analysis`**: el reporte sale **degradado** y, tras 5 fallos, el **Circuit Breaker** abre y el resultado llega al instante | `$C kill llm-analysis` y repetir el análisis 7 veces (humo, caso 3, o la CLI) | `degraded=true`, `llm-unavailable`, los hallazgos determinísticos intactos. ✅ medido: las primeras 4 respuestas tardan unos 5 s cada una; desde la 5.ª, unos 0,25 s, y el log de Retrieval pasa de `fetch failed` a `its circuit is open` | Área 3 (breaker de Retrieval), Área 4 (degradado en Reports), Área 1 (`resilience`) |
 | 5 | La instancia caída desaparece del registry (Health Checker) | tras el paso 4: `curl -s -H "x-internal-token: $T" localhost:4100/v1/services/llm-analysis` | `"instances":[]` pocos segundos después de apagarla. ✅ medido: unos **10 s** tras `docker kill` (sin des-registro limpio); con `HEALTH_CHECK_INTERVAL_MS=5000` y `HEALTH_CHECK_MAX_FAILURES=3` el máximo esperado ronda los 15 a 20 s | Área 1 (`registry`) |
 | 6 | Verificar que no viaja código fuente | Sección 5 | La marca `PROPRIETARY_MARKER_DO_NOT_SEND` no aparece en la captura, los logs ni la base de datos | Área 4 (el cliente), todas las áreas (logs) |

@@ -348,6 +348,9 @@ importers:
       '@gyde/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@gyde/discovery':
+        specifier: workspace:*
+        version: link:../../packages/discovery
       '@gyde/service-kit':
         specifier: workspace:*
         version: link:../../packages/service-kit

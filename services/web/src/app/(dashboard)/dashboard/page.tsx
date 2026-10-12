@@ -33,7 +33,7 @@ export default async function DashboardPage() {
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <Link
           href="/dashboard/api-keys"
-          className="group rounded-xl border border-[var(--gyde-color-border-subtle)] bg-[var(--gyde-color-bg-surface)] p-6 hover:border-[var(--gyde-color-action-primary-bg)] hover:shadow-md transition-all"
+          className="group block no-underline rounded-xl border border-[var(--gyde-color-border-subtle)] bg-[var(--gyde-color-bg-surface)] p-6 hover:border-[var(--gyde-color-action-primary-bg)] hover:shadow-md transition-all"
         >
           <div className="flex items-center justify-between">
             <div className="rounded-lg bg-[var(--gyde-color-bg-brand-subtle)] p-3 text-[var(--gyde-color-fg-brand)]">
@@ -63,7 +63,7 @@ export default async function DashboardPage() {
 
         <Link
           href="/dashboard/billing"
-          className="group rounded-xl border border-[var(--gyde-color-border-subtle)] bg-[var(--gyde-color-bg-surface)] p-6 hover:border-[var(--gyde-color-action-primary-bg)] hover:shadow-md transition-all"
+          className="group block no-underline rounded-xl border border-[var(--gyde-color-border-subtle)] bg-[var(--gyde-color-bg-surface)] p-6 hover:border-[var(--gyde-color-action-primary-bg)] hover:shadow-md transition-all"
         >
           <div className="flex items-center justify-between">
             <div className="rounded-lg bg-[var(--gyde-color-bg-brand-subtle)] p-3 text-[var(--gyde-color-fg-brand)]">
@@ -95,7 +95,7 @@ export default async function DashboardPage() {
 
         <Link
           href="/dashboard/llm-config"
-          className="group rounded-xl border border-[var(--gyde-color-border-subtle)] bg-[var(--gyde-color-bg-surface)] p-6 hover:border-[var(--gyde-color-action-primary-bg)] hover:shadow-md transition-all"
+          className="group block no-underline rounded-xl border border-[var(--gyde-color-border-subtle)] bg-[var(--gyde-color-bg-surface)] p-6 hover:border-[var(--gyde-color-action-primary-bg)] hover:shadow-md transition-all"
         >
           <div className="flex items-center justify-between">
             <div className="rounded-lg bg-[var(--gyde-color-bg-brand-subtle)] p-3 text-[var(--gyde-color-fg-brand)]">
@@ -125,7 +125,7 @@ export default async function DashboardPage() {
           </span>
         </Link>
 
-        <div className="group rounded-xl border border-[var(--gyde-color-border-subtle)] bg-[var(--gyde-color-bg-surface)] p-6">
+        <div className="group block no-underline rounded-xl border border-[var(--gyde-color-border-subtle)] bg-[var(--gyde-color-bg-surface)] p-6">
           <div className="flex items-center justify-between">
             <div className="rounded-lg bg-[var(--gyde-color-bg-brand-subtle)] p-3 text-[var(--gyde-color-fg-brand)]">
               <TerminalIcon className="h-6 w-6" />

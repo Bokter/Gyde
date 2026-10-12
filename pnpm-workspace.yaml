@@ -20,6 +20,7 @@ catalog:
   '@next/eslint-plugin-next': ^15.1.0
   '@oslojs/crypto': ^1.0.1
   '@oslojs/encoding': ^1.1.0
+  '@tailwindcss/postcss': ^4.3.3
   '@types/node': ^24.19.1
   '@types/pg': ^8.23.1
   '@types/react': ^19.0.0
@@ -40,6 +41,7 @@ catalog:
   rxjs: ^7.8.2
   spdx-expression-parse: ^5.0.0
   stripe: ^17.5.0
+  tailwindcss: ^4.3.3
   tsup: ^8.5.1
   tsx: ^4.23.15
   # typescript-eslint does not support TypeScript >= 6.1 yet; revisit when it does.

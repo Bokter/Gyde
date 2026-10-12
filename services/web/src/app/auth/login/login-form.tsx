@@ -29,10 +29,10 @@ export function LoginForm() {
         </div>
 
         <div className="mt-8">
-          <div className="rounded-lg border border-[var(--gyde-color-border-control)] p-6">
+          <div className="rounded-xl border border-[var(--gyde-color-border-subtle)] bg-[var(--gyde-color-bg-surface)] p-6 shadow-sm">
             {error && (
               <div
-                className="mb-4 rounded-lg bg-red-50 border border-red-200 p-3 text-red-700 text-sm"
+                className="mb-4 rounded-lg border border-[var(--gyde-color-severity-critical-fg)] bg-[var(--gyde-color-severity-critical-bg)] p-3 text-sm text-[var(--gyde-color-severity-critical-fg)]"
                 role="alert"
               >
                 {error}
@@ -70,7 +70,7 @@ export function LoginForm() {
             <button
               onClick={handleGitHubLogin}
               disabled={loading}
-              className="text-[var(--gyde-color-fg-brand)] hover:underline font-medium"
+              className="inline-flex min-h-[44px] items-center text-[var(--gyde-color-fg-brand)] hover:underline font-medium"
             >
               Regístrate gratis
             </button>

@@ -3,7 +3,7 @@ import { PLAN_CATALOG } from '@gyde/contracts';
 import { redirect } from 'next/navigation';
 import { auth } from '@/modules/auth/infrastructure/auth.config';
 import type { BillingOverview } from '@/modules/billing/application/get-billing-overview';
-import { PLAN_MONTHLY_PRICE_USD } from '@/modules/billing/domain/plan-prices';
+import { DELIVERED_FEATURES, PLAN_MONTHLY_PRICE_USD } from '@/modules/billing/domain/plan-prices';
 import { billingModule } from '@/modules/billing/infrastructure/composition-root';
 
 const PLAN_NAMES: Record<Plan, string> = { free: 'Free', pro: 'Pro', studio: 'Studio' };
@@ -61,7 +61,9 @@ function features(entitlements: Entitlements): string[] {
     limits.projects === null
       ? 'Proyectos ilimitados'
       : `${limits.projects} ${limits.projects === 1 ? 'proyecto' : 'proyectos'}`,
-    ...(f.compatibilityAnalysis ? ['Análisis de compatibilidad'] : []),
+    ...(f.compatibilityAnalysis && DELIVERED_FEATURES.compatibilityAnalysis
+      ? ['Análisis de compatibilidad']
+      : []),
     ...(f.aiEnrichment ? ['Explicaciones con IA (con tu propia llave)'] : []),
   ];
 }

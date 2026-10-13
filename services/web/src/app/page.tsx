@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { PLAN_CATALOG, type Plan } from '@gyde/contracts';
-import { PLAN_MONTHLY_PRICE_USD } from '@/modules/billing/domain/plan-prices';
+import { DELIVERED_FEATURES, PLAN_MONTHLY_PRICE_USD } from '@/modules/billing/domain/plan-prices';
 
 const planOrder: Plan[] = ['free', 'pro', 'studio'];
 
@@ -19,8 +19,8 @@ export default function HomePage() {
               <span className="text-[var(--gyde-color-fg-brand)]">videojuegos</span>
             </h1>
             <p className="mt-6 text-lg text-[var(--gyde-color-fg-muted)] sm:text-xl max-w-2xl mx-auto">
-              Detecta vulnerabilidades, conflictos de licencias y riesgos de compatibilidad en tus
-              proyectos Unity y Unreal Engine. Tu código nunca sale de tu entorno.
+              Detecta vulnerabilidades y conflictos de licencias en tus proyectos Unity y Unreal
+              Engine. Tu código nunca sale de tu entorno.
             </p>
             <div className="mt-10 flex items-center justify-center gap-4">
               <Link
@@ -278,25 +278,26 @@ export default function HomePage() {
                         </span>
                       </li>
                     )}
-                    {plan.features.compatibilityAnalysis && (
-                      <li className="flex items-start gap-3">
-                        <svg
-                          className="h-5 w-5 shrink-0 text-[var(--gyde-color-action-primary-bg)] mt-0.5"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                          aria-hidden="true"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                        <span className="text-[var(--gyde-color-fg-default)]">
-                          Análisis de compatibilidad (motor + SDK)
-                        </span>
-                      </li>
-                    )}
+                    {plan.features.compatibilityAnalysis &&
+                      DELIVERED_FEATURES.compatibilityAnalysis && (
+                        <li className="flex items-start gap-3">
+                          <svg
+                            className="h-5 w-5 shrink-0 text-[var(--gyde-color-action-primary-bg)] mt-0.5"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            aria-hidden="true"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                          <span className="text-[var(--gyde-color-fg-default)]">
+                            Análisis de compatibilidad (motor + SDK)
+                          </span>
+                        </li>
+                      )}
                     {plan.features.aiEnrichment && (
                       <li className="flex items-start gap-3">
                         <svg

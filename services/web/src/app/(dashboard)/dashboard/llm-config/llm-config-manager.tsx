@@ -4,8 +4,11 @@ import Link from 'next/link';
 import { useCallback, useEffect, useReducer, useState, type FormEvent } from 'react';
 import type { LlmProviderConfigView } from '@gyde/contracts';
 import {
-  ANTHROPIC_MODEL_OPTIONS,
+  LLM_PROVIDER_OPTIONS,
   isOfferedModel,
+  isOfferedProvider,
+  modelsFor,
+  providerOption,
 } from '@/modules/llm-config/application/llm-model-options';
 import { Button, Card, Dialog, Input, Select } from '@/ui';
 import { messageFor, request } from '../dashboard-request';
@@ -20,8 +23,13 @@ const STATUS_LABEL: Record<LlmProviderConfigView['status'], string> = {
 
 const dateFormat = new Intl.DateTimeFormat('es', { dateStyle: 'medium', timeStyle: 'short' });
 
-function modelLabel(model: string): string {
-  return ANTHROPIC_MODEL_OPTIONS.find((option) => option.id === model)?.label ?? model;
+function providerLabel(provider: string): string {
+  return isOfferedProvider(provider) ? providerOption(provider).label : provider;
+}
+
+function modelLabel(provider: string, model: string): string {
+  if (!isOfferedProvider(provider)) return model;
+  return modelsFor(provider).find((option) => option.id === model)?.label ?? model;
 }
 
 export function LlmConfigManager() {
@@ -52,9 +60,9 @@ export function LlmConfigManager() {
       <header className={styles.header}>
         <h1 className={styles.title}>Llave de IA</h1>
         <p className={styles.lead}>
-          Con tu propia llave de Anthropic, los reportes incluyen explicaciones de cada hallazgo
-          escritas por Claude. Tú pagas el uso directamente a Anthropic; Gyde no guarda la llave en
-          claro ni la muestra.
+          Con tu propia llave de Anthropic o de Google Gemini, los reportes incluyen explicaciones
+          de cada hallazgo escritas por el modelo. Tú pagas el uso directamente a tu proveedor; Gyde
+          no guarda la llave en claro ni la muestra.
         </p>
       </header>
 
@@ -85,7 +93,7 @@ export function LlmConfigManager() {
         <dl className={styles.facts}>
           <div>
             <dt>Antes de guardarla</dt>
-            <dd>La probamos contra Anthropic con el modelo elegido, sin gastar tokens.</dd>
+            <dd>La probamos contra tu proveedor con el modelo elegido, sin gastar tokens.</dd>
           </div>
           <div>
             <dt>En la base de datos</dt>
@@ -156,11 +164,11 @@ function CurrentKey({
       <dl className={styles.summary}>
         <div>
           <dt>Proveedor</dt>
-          <dd>Anthropic</dd>
+          <dd>{providerLabel(config.provider)}</dd>
         </div>
         <div>
           <dt>Modelo</dt>
-          <dd>{modelLabel(config.model)}</dd>
+          <dd>{modelLabel(config.provider, config.model)}</dd>
         </div>
         <div>
           <dt>Llave</dt>
@@ -195,7 +203,11 @@ function SaveKeyForm({
 }) {
   const [form, dispatch] = useReducer(
     keyFormReducer,
-    current && isOfferedModel(current.model) ? current.model : undefined,
+    current &&
+      isOfferedProvider(current.provider) &&
+      isOfferedModel(current.model, current.provider)
+      ? { provider: current.provider, model: current.model }
+      : {},
     initialKeyForm,
   );
   const [fieldError, setFieldError] = useState<string | null>(null);
@@ -205,7 +217,8 @@ function SaveKeyForm({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const apiKey = form.apiKey.trim();
-    const invalid = validateApiKey(apiKey);
+    const provider = providerOption(form.provider);
+    const invalid = validateApiKey(apiKey, provider.label);
     setFieldError(invalid);
     if (invalid) return;
 
@@ -217,11 +230,11 @@ function SaveKeyForm({
         '/api/llm-config',
         {
           method: 'PUT',
-          body: JSON.stringify({ provider: 'anthropic', model: form.model, apiKey }),
+          body: JSON.stringify({ provider: form.provider, model: form.model, apiKey }),
         },
       );
       if (status !== 200 || !body?.config) {
-        dispatch({ type: 'failed', error: saveErrorMessage(status, body) });
+        dispatch({ type: 'failed', error: saveErrorMessage(status, body, provider.label) });
         return;
       }
       dispatch({ type: 'saved' });
@@ -235,12 +248,14 @@ function SaveKeyForm({
     }
   }
 
-  const selected = ANTHROPIC_MODEL_OPTIONS.find((option) => option.id === form.model);
+  const provider = providerOption(form.provider);
+  const models = modelsFor(form.provider);
+  const selected = models.find((option) => option.id === form.model);
 
   return (
     <Card aria-labelledby="llm-form-title">
       <h2 id="llm-form-title" className={styles.sectionTitle}>
-        {replacing ? 'Reemplazar la llave' : 'Conectar tu llave de Anthropic'}
+        {replacing ? 'Reemplazar la llave' : 'Conectar tu llave de IA'}
       </h2>
       {savedLast4 && (
         <p className={styles.success} role="status">
@@ -248,22 +263,36 @@ function SaveKeyForm({
         </p>
       )}
       <form className={styles.form} onSubmit={submit} noValidate>
-        <div className={styles.provider}>
-          <span className={styles.providerLabel}>Proveedor</span>
-          <span>Anthropic</span>
-        </div>
+        <Select
+          label="Proveedor"
+          hint={provider.billing}
+          value={form.provider}
+          disabled={form.status === 'saving'}
+          onChange={(event) => {
+            if (isOfferedProvider(event.target.value)) {
+              dispatch({ type: 'provider', provider: event.target.value });
+              setFieldError(null);
+            }
+          }}
+        >
+          {LLM_PROVIDER_OPTIONS.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
         <Select
           label="Modelo"
           hint={selected?.hint}
           value={form.model}
           disabled={form.status === 'saving'}
           onChange={(event) => {
-            if (isOfferedModel(event.target.value)) {
+            if (isOfferedModel(event.target.value, form.provider)) {
               dispatch({ type: 'model', model: event.target.value });
             }
           }}
         >
-          {ANTHROPIC_MODEL_OPTIONS.map((option) => (
+          {models.map((option) => (
             <option key={option.id} value={option.id}>
               {option.label}
             </option>
@@ -271,7 +300,7 @@ function SaveKeyForm({
         </Select>
         <Input
           label={replacing ? 'Llave nueva' : 'Llave de API'}
-          hint="La encuentras en console.anthropic.com, en API keys. Empieza por sk-ant-."
+          hint={provider.keyHint}
           type="password"
           value={form.apiKey}
           error={fieldError ?? undefined}

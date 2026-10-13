@@ -194,6 +194,21 @@ Y el webhook público de Stripe, descrito abajo.
 - Los precios que muestran la landing y `/dashboard/billing` ($29 y $99 al mes) salen de una sola constante, `PLAN_MONTHLY_PRICE_USD` (`domain/plan-prices.ts`). Son texto fijo: deben coincidir con los precios a los que apuntan `STRIPE_PRICE_PRO` y `STRIPE_PRICE_STUDIO`.
 - `/dashboard/billing` muestra siempre el aviso de **modo de prueba** con la tarjeta 4242 4242 4242 4242, porque el adaptador no acepta una clave que no sea `sk_test_`.
 
+## Landing (`/`)
+
+- **Barra superior** (`src/app/_components/site-header.tsx`): el nombre Gyde, los enlaces a «Características» y «Precios» (se ocultan por debajo de `sm`) y «Iniciar sesión» o «Ir al panel» según haya sesión.
+- **Botones de plan**: la landing lee la sesión y el plan del estudio (`GetBillingOverview`) y `planButtonAction` (`domain/plan-button-action.ts`) decide qué hace cada uno:
+
+  | Quién mira | Free | Pro | Studio |
+  |---|---|---|---|
+  | Sin sesión | Login | Login | Login |
+  | Free | Panel | Checkout | Checkout |
+  | Pro | Portal | Panel | Portal |
+  | Studio | Portal | Portal | Panel |
+
+  Tras el login siempre se llega al panel. Checkout y Portal son los mismos `POST /api/billing/checkout` y `/api/billing/portal` de Facturación. Un estudio que paga va siempre al Portal, nunca a un segundo Checkout (`StartCheckout` lo vuelve a comprobar en el servidor). Para cambiar entre Pro y Studio desde el Portal hay que activar el cambio de plan con los dos productos en Stripe (*Settings → Billing → Customer portal*); si no, el Portal solo permite cancelar.
+- Si el plan no se puede leer, los botones caen al login, que lleva al panel a quien ya tiene sesión.
+
 ## Webhook de Stripe (`POST /api/stripe/webhook`)
 
 El webhook es la **única fuente de verdad** del plan (flujo 5): volver de Checkout no cambia nada.

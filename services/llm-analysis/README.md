@@ -20,9 +20,10 @@ Cuando no puede (sin llave, proveedor caído o error) publica un `AnalysisFailur
 
 ## Proveedores
 
-Proveedores soportados hoy: **Anthropic**. Un tenant con otro proveedor (`openai`) recibe `AnalysisFailure` `llm-error` (`LLM provider "openai" is not supported yet`) y no sale ninguna petición: la llave solo se entrega al proveedor al que pertenece.
+Proveedores soportados hoy: **Anthropic** y **Google Gemini**. Un tenant con otro proveedor (`openai`) recibe `AnalysisFailure` `llm-error` (`LLM provider "openai" is not supported yet`) y no sale ninguna petición: la llave solo se entrega al proveedor al que pertenece.
 
 - **Mock determinístico** (`src/infrastructure/providers/mock-finding-analyzer.ts`): responde **solo** con `LLM_MOCK_ENABLED=true` y **sin llave**; el mismo entrada produce siempre la misma salida.
+- **Google Gemini** (`gemini-finding-analyzer.ts`): `POST /v1beta/models/{modelo}:generateContent` con la llave del tenant en la cabecera `x-goog-api-key` (**nunca en la URL**), salida en JSON (`responseMimeType`) y la misma validación estricta de lo que responde el modelo; el nombre del modelo se valida antes de ir a la ruta. Un bloqueo de seguridad del proveedor (`promptFeedback.blockReason`) es `llm-error`.
 - **Anthropic** (`anthropic-finding-analyzer.ts`): `POST /v1/messages` con la llave del tenant (`x-api-key`), timeout configurable (`LLM_PROVIDER_TIMEOUT_MS`, 30 s por defecto) y respuesta interpretada como JSON estricto.
 - El breaker es **por tenant + proveedor**: la llave inválida o el rate limit de un estudio no abre el circuito de los demás. Con el circuito abierto se sirve la **última clasificación cacheada** cuando los hallazgos son idénticos (mismo tenant, proveedor y huella); si no la hay, `llm-unavailable`.
 
@@ -40,7 +41,7 @@ src/application/           AnalyzeFindings (caso de uso) y BackgroundJobs
 src/domain/                prompt del modelo, fusión de explicaciones y redacción de secretos
 src/infrastructure/        ResilientHttpClient (discovery + *_URL) y sus adaptadores:
   providers/               HttpTenantLlmConfigProvider, MockFindingAnalyzer,
-                           AnthropicFindingAnalyzer, HttpReportsClient
+                           AnthropicFindingAnalyzer, GeminiFindingAnalyzer, HttpReportsClient
 src/http/                  controlador NestJS (202 en vivo)
 src/app.module.ts          composition root: enlaza puertos con adaptadores (ADR 0011)
 ```

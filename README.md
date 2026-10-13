@@ -8,7 +8,7 @@ Plataforma SaaS que detecta y gestiona vulnerabilidades, conflictos de licencias
 
 - **El análisis empieza en el entorno del cliente** (CLI y GitHub Action, que comenta el reporte en el pull request; la extensión de VS Code es un esqueleto). El código fuente **nunca sale de ahí**: solo viajan nombres de dependencias, versiones y licencias.
 - El backend cruza esa información con conocimiento normalizado de fuentes públicas (OSV en el MVP) y analiza vulnerabilidades y licencias de forma **determinística**.
-- Con un plan de pago y la llave del propio estudio (BYOK, Anthropic), un LLM explica y correlaciona los hallazgos.
+- Con un plan de pago y la llave del propio estudio (BYOK, Anthropic o Google Gemini), un LLM explica y correlaciona los hallazgos.
 - El resultado es un reporte **priorizado y explicable** (evidencia, impacto, recomendación).
 - Si la IA falla o no está configurada, el reporte sale **degradado** con los mismos hallazgos: el sistema **degrada, no se cae**.
 

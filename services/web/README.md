@@ -120,7 +120,7 @@ Cada módulo de `src/modules/*` es una *vertical slice* con las capas de [ADR-00
 
 - `application/ports/llm-key-cipher.ts` y `application/ports/llm-connection-tester.ts` son **puertos**: lo que el caso de uso necesita, expresado sin tecnología.
 - `application/save-llm-config.ts` (`SaveLlmConfig`) orquesta: valida el proveedor, prueba la conexión, cifra y guarda, solo con esos puertos.
-- `infrastructure/aes-gcm-llm-key-cipher.ts` es el adaptador de cifrado; `anthropic-connection-tester.ts` y `offline-connection-tester.ts` son dos adaptadores del mismo puerto.
+- `infrastructure/aes-gcm-llm-key-cipher.ts` es el adaptador de cifrado; `anthropic-connection-tester.ts`, `gemini-connection-tester.ts` y `offline-connection-tester.ts` son adaptadores del mismo puerto, y `provider-connection-tester.ts` prueba cada llave con el probador **de su propio proveedor** (una llave de Gemini nunca se envía a Anthropic).
 - `infrastructure/composition-root.ts` elige el adaptador según `LLM_CONNECTION_TESTER` y construye todo **en el primer uso**, no al importar: `next build` carga las rutas sin los secretos de ejecución, y una llave maestra ausente debe fallar la petición, no el build.
 
 ### Patrones que le tocan a web
@@ -142,7 +142,7 @@ El razonamiento general de dónde viven los patrones está en [ADR-0006](../../d
 | **AES-256-GCM** con **AAD = `tenantId`** para la llave LLM | Es cifrado autenticado; con el `tenantId` como dato autenticado, un texto cifrado copiado a la fila de otro tenant no descifra |
 | **SHA-256** para las API keys (solo se guarda el hash) | Las claves son aleatorias de 32 bytes, así que no hace falta un hash lento y la búsqueda por hash es directa. La clave en claro se muestra una vez y no se puede recuperar |
 | **Sesión en base de datos** (`session: { strategy: 'database' }`) | Una sesión se puede revocar borrando su fila; con JWT habría que esperar a que caduque. Caduca a los 30 días |
-| **Solo proveedor `anthropic`** | Es el único que `llm-analysis` sabe usar. Otro proveedor responde `400 unsupported-provider` sin probar nada |
+| **Solo proveedores con adaptador: `anthropic` y `gemini`** | Son los que `llm-analysis` sabe usar. Otro proveedor (`openai` está en el contrato, sin adaptador) responde `400 unsupported-provider` sin probar nada |
 | **Endpoints internos con `x-internal-token` en tiempo constante** | `rejectUnlessInternal` compara sobre digests SHA-256 con `timingSafeEqual`, así no filtra el contenido ni la longitud del token |
 
 Cómo está implementada la llave LLM (BYOK):
@@ -151,7 +151,7 @@ Cómo está implementada la llave LLM (BYOK):
 |---|---|
 | Cifrado | IV aleatorio de 12 bytes por cifrado; se guardan `kid`, `iv`, `auth_tag` y `encrypted_key` en `llm_configs`. Una clave maestra por `kid` (`LLM_KEY_ENCRYPTION_KEYS`, `LLM_KEY_ACTIVE_KID`) permite **rotar** |
 | Rotación | Añade `k2:<base64>` a `LLM_KEY_ENCRYPTION_KEYS` y pon `LLM_KEY_ACTIVE_KID=k2`. Lo nuevo se cifra con `k2`; lo existente se sigue descifrando con el `kid` guardado. Retira `k1` solo cuando ninguna fila lo use (`select kid, count(*) from llm_configs group by kid`) |
-| Prueba de conexión | `LLM_CONNECTION_TESTER=anthropic` llama `GET /v1/models/{model}` con el SDK oficial (no gasta tokens; valida llave y modelo). `offline` solo revisa la forma (`sk-ant-…`, modelo `claude-…`) y no usa la red: para demos sin conexión. Fallo → `422 connection-test-failed` con `reason` (`invalid-key`, `model-not-found`, `unreachable`) |
+| Prueba de conexión | `LLM_CONNECTION_TESTER=online` (o `anthropic`, el nombre histórico) consulta el modelo en el proveedor de la llave: `GET /v1/models/{model}` con el SDK oficial en Anthropic y `GET /v1beta/models/{model}` con la llave en la cabecera `x-goog-api-key` en Gemini (no gasta tokens; valida llave y modelo). `offline` solo revisa la forma (`sk-ant-…` y modelo `claude-…`; en Gemini, modelo `gemini-…`) y no usa la red: para demos sin conexión. Fallo → `422 connection-test-failed` con `reason` (`invalid-key`, `model-not-found`, `unreachable`) |
 | Reemplazar | Guardar otra vez: nueva prueba, nuevo IV, `kid` activo y `rotated_at` |
 | Revocar | Borra la fila; desde ese momento el endpoint interno responde `404` y llm-analysis publica `llm-not-configured` |
 | Arranque | Una llave maestra mal formada o un `LLM_KEY_ACTIVE_KID` inexistente hace fallar la petición con un error claro; los mensajes nombran el `kid`, nunca material de llave |

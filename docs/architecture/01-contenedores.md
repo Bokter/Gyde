@@ -1,6 +1,6 @@
 # Contenedores
 
-Siete contenedores de backend (seis del diagrama original más el registry) y la app web, más las apps que corren en el entorno del cliente. Los esquemas de cada mensaje están en [`@gyde/contracts`](../../packages/contracts/README.md); las rutas, en `ROUTES`.
+Siete contenedores de backend (seis del diagrama original más el registry) y la app web, más las apps que corren en el entorno del cliente. Los diagramas están en el [modelo C4](05-modelo-c4.md) (Structurizr), que es su única fuente. Los esquemas de cada mensaje están en [`@gyde/contracts`](../../packages/contracts/README.md); las rutas, en `ROUTES`.
 
 Puertos de desarrollo (ver `.env.example`): web 3000 · gateway 4000 · registry 4100 · normalization 4200 · retrieval 4300 · llm-analysis 4400 · reports 4500 · PostgreSQL 5432.
 
@@ -10,7 +10,7 @@ Puertos de desarrollo (ver `.env.example`): web 3000 · gateway 4000 · registry
 |---|---|---|---|---|---|
 | `gateway` | Autentica la API key, límites del plan, enruta | — (caché en memoria) | web, reports, registry | CLI, Action | 1 |
 | `registry` | Service Registry + Health Checker | en memoria | cada instancia (`/healthz`) | todos (vía `@gyde/discovery`) | 1 |
-| `web` | UI, Stripe, API keys, llaves LLM de los estudios | schema `web` | Stripe | gateway, llm-analysis, Stripe (webhook) | 2 |
+| `web` | UI, Stripe, API keys, llaves LLM de los estudios | schema `web` | Stripe, GitHub (OAuth), proveedor de IA (solo para probar la llave) | gateway, llm-analysis, Stripe (webhook) | 2 |
 | `normalization` | Ingiere y normaliza fuentes externas | schema `normalization` | fuentes externas | retrieval | 3 |
 | `retrieval` | Análisis determinístico y evidencia | — | normalization, reports, llm-analysis | reports | 3 |
 | `llm-analysis` | Interpreta y correlaciona con IA (BYOK) | — | web, proveedores de IA, reports | retrieval | 4 |
@@ -71,3 +71,4 @@ Los dos solo conocen la URL del gateway.
 | Los 6 contenedores y sus relaciones principales | Diagrama de contenedores del documento |
 | Service Registry y Health Checker | Descritos en el texto del patrón Service Discovery; contenedor de infraestructura añadido |
 | `llm-analysis → web` (llave BYOK) | Añadida: el diagrama no mostraba cómo llega la configuración de LLM del Servicio Web al servicio de análisis |
+| `web → proveedor de IA` | Añadida: el Servicio Web prueba la llave del estudio con el probador de su propio proveedor antes de guardarla |

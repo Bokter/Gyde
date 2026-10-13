@@ -12,7 +12,7 @@ allowBuilds:
 # Bump a version here once and the whole monorepo follows.
 catalog:
   '@actions/core': ^3.0.1
-  '@anthropic-ai/sdk': ^0.128.0
+  '@anthropic-ai/sdk': ^0.133.0
   '@auth/drizzle-adapter': ^1.8.0
   '@electric-sql/pglite': ^0.5.8
   '@nestjs/common': ^12.1.2
@@ -22,7 +22,7 @@ catalog:
   '@oslojs/crypto': ^1.0.1
   '@oslojs/encoding': ^1.1.0
   '@tailwindcss/postcss': ^4.3.3
-  '@types/node': ^24.19.1
+  '@types/node': ^24.19.2
   '@types/pg': ^8.23.1
   '@types/react': ^19.0.0
   '@types/react-dom': ^19.0.0

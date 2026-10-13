@@ -13,7 +13,9 @@
   },
   "dependencies": {
     "@gyde/contracts": "workspace:*",
-    "@gyde/resilience": "workspace:*"
+    "@gyde/resilience": "workspace:*",
+    "fast-xml-parser": "^5.11.2",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",

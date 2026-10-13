@@ -54,7 +54,7 @@ Una regla para `main` con:
 - [ ] **Block force pushes** y **Restrict deletions.**
 - [ ] **No** actives *Require linear history*: los releases entran con merge commit.
 
-El job `Docker image` del CI está en modo informativo hasta que el Área 1 lo deje verde; no lo marques como obligatorio todavía.
+El job `Docker image` del CI ya no es informativo: construye las imágenes de los siete servicios y de `dev-check`, y un fallo hace fallar el workflow. Marca los checks `Docker image (...)` como obligatorios en `dev` y `main` cuando el primer PR con este cambio los muestre en verde.
 
 ## 6. Actions (Settings → Actions → General)
 

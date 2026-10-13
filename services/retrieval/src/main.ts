@@ -5,6 +5,6 @@ import { createApp } from './http/app';
 
 const config = loadConfig(configSchema);
 const logger = createLogger({ name: 'retrieval', level: config.LOG_LEVEL });
-const app = createApp({ config, logger });
+const app = await createApp({ config, logger });
 
 await startService(app, { port: config.RETRIEVAL_PORT });

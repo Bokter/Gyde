@@ -2,9 +2,18 @@ import { createLogger, loadConfig, startService } from '@gyde/service-kit';
 
 import { configSchema } from './config';
 import { createApp } from './http/app';
+import { connectPostgres } from './infrastructure/db/database';
 
 const config = loadConfig(configSchema);
 const logger = createLogger({ name: 'normalization', level: config.LOG_LEVEL });
-const app = createApp({ config, logger });
+
+if (!config.NORMALIZATION_DATABASE_URL) {
+  throw new Error('NORMALIZATION_DATABASE_URL is required to start the service');
+}
+// A connection cut by the database must not kill the service: the pool reconnects by itself.
+const database = connectPostgres(config.NORMALIZATION_DATABASE_URL, (error) =>
+  logger.warn({ code: (error as { code?: string }).code }, 'A PostgreSQL connection was lost'),
+);
+const app = await createApp({ config, logger, database });
 
 await startService(app, { port: config.NORMALIZATION_PORT });

@@ -75,7 +75,7 @@ Tienes el módulo más delicado en seguridad: custodias **llaves de terceros**. 
 
 ### 6. GitHub Action (días 3 y 4)
 
-- [ ] Implementar `apps/github-action/src/main.ts` según su README: entradas de `action.yml`, `GitHubActionPipeline` + `GydeApiClient`, **un único comentario** de PR (se actualiza, no se duplica), falla según `fail-on`, `core.setSecret` para la key.
+- [ ] Implementar `apps/github-action/src/main.ts` según su README: entradas de `action.yml`, `GitHubActionPipeline` + `GydeApiClient` (tú implementas solo `publishResult`; el `parseDependencies` de ese pipeline lo entrega el Área 4), **un único comentario** de PR (se actualiza, no se duplica), falla según `fail-on`, `core.setSecret` para la key.
 - [ ] Empaquetada en `dist/index.js` sin `node_modules` (`pnpm --filter @gyde/github-action build`).
 - [ ] Mientras el motor no esté listo, usa un `AnalysisGateway` falso.
 

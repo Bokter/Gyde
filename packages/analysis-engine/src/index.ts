@@ -1,16 +1,21 @@
-export { GydeApiClient, type GydeApiClientOptions } from './client/gyde-api-client';
+export { GydeApiClient, GydeApiError, type GydeApiClientOptions } from './client/gyde-api-client';
 export { AnalysisPipeline, type AnalysisPipelineDeps } from './pipeline/analysis-pipeline';
 export {
   GitHubActionPipeline,
   type GitHubActionPipelineOptions,
 } from './pipeline/github-action.pipeline';
 export { LocalCLIPipeline, type LocalCliPipelineOptions } from './pipeline/local-cli.pipeline';
-export { buildAnalysisRequest } from './privacy/build-analysis-request';
 export {
-  createToolchainFactory,
-  detectGameEngine,
-  type ToolchainOptions,
-} from './toolchain/create-toolchain';
+  AnalysisWaitError,
+  waitForReport,
+  type ReportStage,
+  type WaitOptions,
+} from './pipeline/wait-for-report';
+export { buildAnalysisRequest } from './privacy/build-analysis-request';
+export { exitCodeForReport, type FailOn } from './report/exit-code';
+export { clean, cleanMultiline, formatReportText, sortFindings } from './report/format-text';
+export { createToolchainFactory, type ToolchainOptions } from './toolchain/create-toolchain';
+export { detectGameEngine, GameEngineDetectionError } from './toolchain/detect-game-engine';
 export type {
   AnalysisToolchainFactory,
   DependencyParser,

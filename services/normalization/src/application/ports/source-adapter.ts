@@ -29,3 +29,6 @@ export interface SourceAdapter {
   /** Maps one raw record into the common schema. Pure: no I/O, so it is trivial to test. */
   normalize(record: RawRecord): KnowledgeObject[];
 }
+
+/** DI token of the `SourceAdapter` port: `app.module.ts` binds it to an adapter (see ADR 0011). */
+export const SOURCE_ADAPTERS = Symbol('SourceAdapter');

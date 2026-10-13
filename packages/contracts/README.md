@@ -8,7 +8,7 @@ Esquemas **zod** y tipos TypeScript compartidos: es el acuerdo entre todas las p
 |---|---|
 | `analysis.ts` | `AnalysisRequest` y sus partes: lo único que el cliente puede enviar al backend |
 | `findings.ts` | `Finding` y `Evidence`: riesgos priorizados y explicables |
-| `knowledge.ts` | `KnowledgeObject` (esquema común del Pipeline de Normalización) y `KnowledgeQuery` |
+| `knowledge.ts` | `KnowledgeObject` (esquema común del Pipeline de Normalización), `KnowledgeQuery`, y las respuestas de la API de ingesta (`SourcesStatus`, `IngestResult`) |
 | `report.ts` | `Report`, estados del análisis, capas (Decorator) y motivos de resultado degradado |
 | `pipeline.ts` | Mensajes entre servicios: `CreateAnalysisJob`, `RetrieveRequest`, `DeterministicResult`, `LlmAnalysisRequest`, `AiResult`, `AnalysisFailure` |
 | `auth.ts` | Planes, `Entitlements`, `PLAN_CATALOG` y verificación de API keys |

@@ -1,6 +1,6 @@
 # Área 4: Motor, LLM y Reportes
 
-> **Responsable:** _(asignar)_ · Lee primero el [plan del equipo](00-resumen.md).
+> **Responsable:** @JDBorjaC (Área 4). Lee primero el [plan del equipo](00-resumen.md).
 
 ## Objetivo
 
@@ -16,10 +16,10 @@ Tu trabajo es el que más se ve en la demo: el reporte.
 
 | Módulo | Estado hoy | Tu trabajo |
 |---|---|---|
-| `packages/analysis-engine` | **Hecho:** orden del Template Method, fábricas Unity/Unreal, puerta de privacidad. **TODO:** parsers, `GydeApiClient`, pasos 4 y 5, hooks de los pipelines | Implementar lo TODO |
-| `apps/cli` | Stub que sale con código 2 | `gyde analyze` completo |
-| `services/llm-analysis` | Stubs `501`, puertos y caso de uso documentados | Proveedores, caso de uso, endpoint |
-| `services/reports` | Stubs `501`; **Decorator** (base) hecho y probado | Ciclo de vida, decoradores concretos, persistencia, Markdown |
+| `packages/analysis-engine` | **Hecho:** orden del Template Method, fábricas Unity/Unreal, puerta de privacidad, `CsharpDependencyParser`, `CppDependencyParser`, `detectGameEngine`, `GydeApiClient`, pasos 4 y 5, `LocalCLIPipeline` | Solo el hook `publishResult` de `GitHubActionPipeline` (comentario de PR, **Área 2**); `parseDependencies` ya usa la misma lógica que la CLI |
+| `apps/cli` | **Hecho:** `gyde analyze` completo (`text`, `json`, `markdown`, `--fail-on`, `--fail-on-degraded`, códigos de salida) | — |
+| `services/llm-analysis` | **Hecho:** `TenantLlmConfigProvider` (caché de 1 min), `FindingAnalyzer` (mock + proveedor real), `AnalyzeFindings`, circuito por tenant, `POST /internal/analyze` en segundo plano | Mantener: la llave nunca a disco ni a logs |
+| `services/reports` | **Hecho:** ciclo de vida, decoradores concretos, `composeReport`, Markdown y endpoints. **Pendiente de merge:** persistencia PostgreSQL (rama `feat/reports-postgres-persistence`) | Revisar y mergear ese PR (lleva las migraciones y el barrido de arranque) |
 
 ## Archivos
 
@@ -35,35 +35,35 @@ Tu trabajo es el que más se ve en la demo: el reporte.
 
 ### Reports (días 1 a 3: el Área 1 depende de `create` y `get`)
 
-- [ ] **`AnalysisLifecycle`** con la máquina de estados del README (`pending → retrieving → analyzing → ready`, `failed`): `create` guarda el trabajo, llama a Retrieval (con breaker y discovery) y responde `202`; `recordDeterministic`, `recordAi`, `recordFailure` y `getReport`. **Entrega `POST /internal/analyses` y `GET /internal/analyses/:id` el día 2.**
-- [ ] **Persistencia** en PostgreSQL (schema `reports`, `REPORTS_DATABASE_URL`, migraciones) detrás de `ReportRepository`.
-- [ ] **Degradado:** un reporte es `degraded` solo si se esperaba IA y no pudo correr (`llm-unavailable`, `llm-not-configured`, `llm-error`); si el plan o el cliente no pidieron IA, **no** lo es. Si el resultado de IA no llega en `REPORTS_AI_TIMEOUT_MS`, pasa a `ready` y degradado. Un fallo de Retrieval deja el reporte `failed` con un error claro.
-- [ ] **Decoradores concretos** sobre la base ya hecha: `SeverityScoreDecorator` (puntaje 0-100 determinístico, va **último**), `LicenseComplianceDecorator`, `AiEnrichmentDecorator` (mezcla el `AiResult` por id de hallazgo y respeta su prioridad). Devuelven objetos nuevos.
-- [ ] **`composeReport(input)`** arma la cadena según `Entitlements` (free: básico + licencias + severidad, nunca IA; pro y studio suman IA solo con un `AiResult` presente).
-- [ ] **`renderMarkdown`**: hallazgos ordenados por severidad con evidencia, impacto y recomendación, y un aviso claro cuando el reporte es degradado.
-- [ ] Endpoints: `GET /internal/analyses/:id/markdown`, `POST .../deterministic`, `POST .../ai-result`, `POST .../failure` (todos validan con los esquemas).
-- [ ] Todos los `it.todo` de `services/reports/test/*.test.ts` convertidos y verdes.
+- [x] **`AnalysisLifecycle`** con la máquina de estados del README (`pending → retrieving → analyzing → ready`, `failed`): `create` guarda el trabajo, llama a Retrieval (con breaker y discovery) y responde `202`; `recordDeterministic`, `recordAi`, `recordFailure` y `getReport`. **Entrega `POST /internal/analyses` y `GET /internal/analyses/:id` el día 2.**
+- [ ] **Persistencia** en PostgreSQL (schema `reports`, `REPORTS_DATABASE_URL`, migraciones) detrás de `ReportRepository`. **PR abierto** (rama `feat/reports-postgres-persistence`): `PostgresReportRepository`, migraciones con `drizzle`, `findStale` en el puerto y barrido de arranque (`sweepStaleAnalyses`) que cierra los análisis que una ejecución anterior dejó en `retrieving`/`analyzing`.
+- [x] **Degradado:** un reporte es `degraded` solo si se esperaba IA y no pudo correr (`llm-unavailable`, `llm-not-configured`, `llm-error`); si el plan o el cliente no pidieron IA, **no** lo es. Si el resultado de IA no llega en `REPORTS_AI_TIMEOUT_MS`, pasa a `ready` y degradado con `llm-unavailable`. Si `llm-analysis` está apagado, Retrieval ya publica ese motivo (Área 3). Un fallo de Retrieval deja el reporte `failed` con un error claro.
+- [x] **Decoradores concretos** sobre la base ya hecha: `SeverityScoreDecorator` (puntaje 0-100 determinístico, va **último**), `LicenseComplianceDecorator`, `AiEnrichmentDecorator` (mezcla el `AiResult` por id de hallazgo y respeta su prioridad). Devuelven objetos nuevos.
+- [x] **`composeReport(input)`** arma la cadena según `Entitlements` (free: básico + licencias + severidad, nunca IA; pro y studio suman IA solo con un `AiResult` presente).
+- [x] **`renderMarkdown`**: hallazgos ordenados por severidad con evidencia, impacto y recomendación, y un aviso claro cuando el reporte es degradado.
+- [x] Endpoints: `GET /internal/analyses/:id/markdown`, `POST .../deterministic`, `POST .../ai-result`, `POST .../failure` (todos validan con los esquemas).
+- [x] Todos los `it.todo` de `services/reports/test/*.test.ts` convertidos y verdes, salvo uno: el de la lectura y escritura en PostgreSQL (`app.test.ts`), que llega con el PR de persistencia. Hoy: 31 pruebas verdes y 1 `todo`.
 
 ### llm-analysis (días 2 a 4)
 
-- [ ] **`TenantLlmConfigProvider`** HTTP hacia Web (`GET /internal/tenants/:id/llm-config`), con caché **en memoria** de un minuto como máximo; la llave **nunca** se escribe a disco ni a logs.
-- [ ] **`FindingAnalyzer`**: un proveedor **mock determinístico** (solo con `LLM_MOCK_ENABLED=true`) y **un proveedor real** (Anthropic u OpenAI; usa la llave del tenant). El prompt correlaciona evidencia y contexto del proyecto; la salida se **valida con el esquema `AiResult`** y no se ejecuta nada de lo que devuelva el modelo.
-- [ ] **`AnalyzeFindings`** con las reglas del README: sin llave → `AnalysisFailure` `llm-not-configured`; circuito abierto o proveedor caído → `llm-unavailable` (sirve la última clasificación cacheada si existe); error del proveedor → `llm-error`. Nunca lanza hacia quien llama.
-- [ ] **Circuit Breaker por tenant + proveedor** (`@gyde/resilience`): un estudio con la llave inválida no abre el circuito de los demás.
-- [ ] `POST /internal/analyze` responde `202` al instante y termina en segundo plano publicando a Reports.
-- [ ] Prueba de seguridad: la llave **no aparece** en logs, errores ni mensajes publicados.
-- [ ] Todos los `it.todo` de `services/llm-analysis/test/app.test.ts` convertidos y verdes.
+- [x] **`TenantLlmConfigProvider`** HTTP hacia Web (`GET /internal/tenants/:id/llm-config`), con caché **en memoria** de un minuto como máximo; la llave **nunca** se escribe a disco ni a logs.
+- [x] **`FindingAnalyzer`**: un proveedor **mock determinístico** (solo con `LLM_MOCK_ENABLED=true`) y **un proveedor real** (Anthropic u OpenAI; usa la llave del tenant). El prompt correlaciona evidencia y contexto del proyecto; la salida se **valida con el esquema `AiResult`** y no se ejecuta nada de lo que devuelva el modelo.
+- [x] **`AnalyzeFindings`** con las reglas del README: sin llave → `AnalysisFailure` `llm-not-configured`; circuito abierto o proveedor caído → `llm-unavailable` (sirve la última clasificación cacheada si existe); error del proveedor → `llm-error`. Nunca lanza hacia quien llama.
+- [x] **Circuit Breaker por tenant + proveedor** (`@gyde/resilience`): un estudio con la llave inválida no abre el circuito de los demás.
+- [x] `POST /internal/analyze` responde `202` al instante y termina en segundo plano publicando a Reports.
+- [x] Prueba de seguridad: la llave **no aparece** en logs, errores ni mensajes publicados.
+- [x] Todos los `it.todo` de `services/llm-analysis/test/app.test.ts` convertidos y verdes.
 
 ### analysis-engine y CLI (días 1 a 4)
 
-- [ ] **`CsharpDependencyParser`** sobre `fixtures/projects/unity-sample`: el resultado es **exactamente** `expected-parse.json` (UPM desde `Packages/manifest.json`, NuGet desde `packages.config` con la licencia del `.nuspec`, versión del editor desde `ProjectVersion.txt`, ordenado por ecosistema y nombre, sin `com.unity.modules.*`).
-- [ ] **`CppDependencyParser`** y **`detectGameEngine`** sobre `unreal-sample` (la propuesta de `fixtures/README.md`; ajústala y documenta).
-- [ ] **`GydeApiClient`**: `Authorization: Bearer`, respuestas validadas con los esquemas, **Circuit Breaker + caché local** (sirve el último reporte como degradado), errores accionables para 401, 402 y 429, **nunca registra la API key**.
-- [ ] Pasos pendientes del **Template Method**: `analyzeLicenses` y `generateReport` (consulta con tiempo límite hasta `ready`, fallo claro si queda `failed`, resultado degradado desde la caché si el gateway no responde). Las dos implementaciones de fetchers (OSV/NVD) filtran la evidencia por fuente.
-- [ ] **`LocalCLIPipeline`** (`parseDependencies` con `buildAnalysisRequest`, `publishResult` a consola) y **`apps/cli`**: `gyde analyze [ruta]` con los argumentos y códigos de salida de su README; formatos `text`, `json` y `markdown`.
-- [ ] **Prueba de privacidad de punta a punta:** ejecutar el pipeline sobre `unity-sample` con un gateway falso y comprobar que el cuerpo enviado **no contiene** `PROPRIETARY_MARKER_DO_NOT_SEND` ni rutas de archivos.
-- [ ] El test de arquitectura que prohíbe sobrescribir `runAnalysis` sigue verde. Todos los `it.todo` de `packages/analysis-engine/test/acceptance.test.ts` convertidos.
-- [ ] `GitHubActionPipeline` lo implementa el Área 2 usando tu motor; deja los hooks bien documentados.
+- [x] **`CsharpDependencyParser`** sobre `fixtures/projects/unity-sample`: el resultado es **exactamente** `expected-parse.json` (UPM desde `Packages/manifest.json`, NuGet desde `packages.config` con la licencia del `.nuspec`, versión del editor desde `ProjectVersion.txt`, ordenado por ecosistema y nombre, sin `com.unity.modules.*`).
+- [x] **`CppDependencyParser`** y **`detectGameEngine`** sobre `unreal-sample` (la propuesta de `fixtures/README.md`; ajústala y documenta).
+- [x] **`GydeApiClient`**: `Authorization: Bearer`, respuestas validadas con los esquemas, **Circuit Breaker + caché local** (sirve el último reporte como degradado), errores accionables para 401, 402 y 429, **nunca registra la API key**.
+- [x] Pasos pendientes del **Template Method**: `analyzeLicenses` y `generateReport` (consulta con tiempo límite hasta `ready`, fallo claro si queda `failed`, resultado degradado desde la caché si el gateway no responde). Las dos implementaciones de fetchers (OSV/NVD) filtran la evidencia por fuente.
+- [x] **`LocalCLIPipeline`** (`parseDependencies` con `buildAnalysisRequest`, `publishResult` a consola; añade `--fail-on-degraded` al README del CLI) y **`apps/cli`**: `gyde analyze [ruta]` con los argumentos y códigos de salida de su README; formatos `text`, `json` y `markdown`.
+- [x] **Prueba de privacidad de punta a punta:** ejecutar el pipeline sobre `unity-sample` con un gateway falso y comprobar que el cuerpo enviado **no contiene** `PROPRIETARY_MARKER_DO_NOT_SEND` ni rutas de archivos.
+- [x] El test de arquitectura que prohíbe sobrescribir `runAnalysis` sigue verde. Todos los `it.todo` de `packages/analysis-engine/test/acceptance.test.ts` convertidos (queda solo el del comentario de PR de la Action, que es del **Área 2**).
+- [x] **`GitHubActionPipeline.parseDependencies`** es tuyo (la misma lógica que el CLI sobre `buildAnalysisRequest`). Su `publishResult` (comentario de PR) lo implementa el Área 2; deja ambos hooks bien documentados.
 
 ## Dependencias con otras áreas
 

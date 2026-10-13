@@ -1,0 +1,123 @@
+EVIDENCIA DE EJECUCION: HUMO DE PUNTA A PUNTA DE GYDE
+=======================================================
+
+Fecha:        2026-10-12
+Rama/commit:  dev @ 87be5c6
+Entorno:      Docker Compose, proyecto "gyde", 7 servicios + PostgreSQL, en local
+Comando:      COMPOSE_PROJECT_NAME=gyde KEEP_STACK=1 bash infra/scripts/smoke-retrieval.sh
+              (con SMOKE_API_KEY de una clave creada en /dashboard/api-keys; la clave
+               no se imprime ni se guarda en este archivo)
+Resultado:    SMOKE TEST PASSED
+
+
+1. SALIDA COMPLETA DEL SCRIPT
+-----------------------------
+
+== Ingesting the OSV fixtures (twice: the second run must change nothing)
+first : {"source":"osv","recordsProcessed":0,"recordsSkipped":0,"startedAt":"2026-10-12T17:41:25.218Z","finishedAt":"2026-10-12T17:41:25.227Z"}
+second: {"source":"osv","recordsProcessed":0,"recordsSkipped":0,"startedAt":"2026-10-12T17:41:25.288Z","finishedAt":"2026-10-12T17:41:25.291Z"}
+
+== Asking normalization for the sample packages
+candidates: osv:SAMPLE-0001, osv:SAMPLE-0003
+
+== Case 1: Free plan, no AI (ready, not degraded)
+free: status=ready degraded=false reason=-
+  - Acme.Serialization 1.4.0 is affected by SAMPLE-0001
+  - Acme.GplToolkit is GPL-3.0-only: review compatibility with proprietary distribution
+  layers: basic, license-compliance, severity-score
+
+== Case 1 again: the same request must give the same findings in the same order
+identical findings
+
+== Case 2: Pro plan, AI requested, llm-analysis on the mock (ready, not degraded, explained)
+pro+ai: status=ready degraded=false reason=-
+  - Acme.Serialization 1.4.0 is affected by SAMPLE-0001
+  - Acme.GplToolkit is GPL-3.0-only: review compatibility with proprietary distribution
+  layers: basic, license-compliance, ai-enrichment, severity-score
+
+== Case 3: Pro plan, AI requested, llm-analysis stopped (ready, degraded: llm-unavailable)
+ Container gyde-llm-analysis-1  Stopping
+ Container gyde-llm-analysis-1  Stopped
+pro+ai, llm down: status=ready degraded=true reason=llm-unavailable
+  - Acme.Serialization 1.4.0 is affected by SAMPLE-0001
+  - Acme.GplToolkit is GPL-3.0-only: review compatibility with proprietary distribution
+  layers: basic, license-compliance, severity-score
+
+== Gateway: GET /v1/auth/verify (valid key, wrong key, no key)
+200 / 401 / 401
+
+== Gateway: /internal/* is never routed
+answered 404 (not served)
+
+== Gateway: POST /v1/analyses, then GET until ready, then the Markdown
+gateway: status=ready degraded=false reason=-
+  - Acme.Serialization 1.4.0 is affected by SAMPLE-0001
+  - Acme.GplToolkit is GPL-3.0-only: review compatibility with proprietary distribution
+  layers: basic, license-compliance, severity-score
+markdown lists SAMPLE-0001
+
+== Gateway: with Reports stopped it answers 503 upstream_unavailable instead of hanging
+ Container gyde-reports-1  Stopping
+ Container gyde-reports-1  Stopped
+ Container gyde-postgres-1  Waiting
+ Container gyde-registry-1  Waiting
+ Container gyde-registry-1  Healthy
+ Container gyde-postgres-1  Healthy
+ Container gyde-reports-1  Starting
+ Container gyde-reports-1  Started
+503
+
+SMOKE TEST PASSED (gateway part ran: key, wrong key, /internal not routed, analysis, markdown and 503)
+
+
+2. ESTADO DEL STACK TRAS EL HUMO (docker compose -p gyde ... ps)
+----------------------------------------------------------------
+
+Los 8 contenedores en estado "healthy" (los de llm-analysis y reports se reiniciaron
+durante el humo a proposito y se recuperaron):
+
+gyde-gateway-1         gateway         Up 8 minutes (healthy)   4000
+gyde-llm-analysis-1    llm-analysis    Up 4 minutes (healthy)   4400
+gyde-normalization-1   normalization   Up 8 minutes (healthy)   4200
+gyde-postgres-1        postgres        Up 19 minutes (healthy)  5432
+gyde-registry-1        registry        Up 8 minutes (healthy)   4100
+gyde-reports-1         reports         Up 7 minutes (healthy)   4500
+gyde-retrieval-1       retrieval       Up 8 minutes (healthy)   4300
+gyde-web-1             web             Up 8 minutes (healthy)   3000
+
+
+3. QUE DEMUESTRA CADA PARTE (para la defensa)
+---------------------------------------------
+
+Requisito del enunciado                     Evidencia en esta salida
+------------------------------------------  ---------------------------------------------
+8.17 API / demo operativa                   Flujo real con gateway: verify 200/401/401,
+                                            POST /v1/analyses, GET hasta "ready", Markdown.
+8.15 Patron Decorator (Reports)             Capas del informe: basic, license-compliance,
+                                            ai-enrichment, severity-score. Sin IA no hay
+                                            la capa ai-enrichment (caso 1 vs caso 2).
+8.15 Circuit Breaker / Service Discovery    Con Reports detenido el gateway responde 503
+                                            upstream_unavailable en vez de colgarse y se
+                                            recupera cuando Reports vuelve.
+8.18 Manejo de errores y recuperacion       Caso 3: con llm-analysis caido el informe sale
+                                            "ready", degraded=true, reason=llm-unavailable,
+                                            con los mismos hallazgos deterministas.
+Seguridad del borde                         /internal/* no se enruta (404); clave invalida
+                                            y ausente dan 401.
+Calidad del motor                           Misma peticion, mismos hallazgos, mismo orden
+                                            (determinismo).
+Independencia del analisis y la IA          Los hallazgos son identicos con y sin IA.
+
+Nota: en la ingesta de OSV ambas pasadas muestran recordsProcessed=0 porque los fixtures
+ya estaban cargados de ejecuciones anteriores en esta base. Con una base vacia la primera
+pasada procesaria los registros y la segunda no cambiaria nada.
+
+
+4. CAPTURAS QUE ACOMPANAN ESTA EVIDENCIA (guardalas en esta misma carpeta)
+-------------------------------------------------------------------------
+
+- dashboard-api-keys.png   Panel /dashboard/api-keys: claves con prefijo y ultimos 4,
+                           una activa y otra revocada, y el texto que explica el hash SHA-256.
+- humo-terminal-1.png      Terminal: ingesta, casos 1, 2 y 3.
+- humo-terminal-2.png      Terminal: gateway, /internal, POST, Markdown y 503.
+- docker-ps-healthy.png    docker compose ps con todos los servicios healthy.

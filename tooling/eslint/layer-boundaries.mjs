@@ -4,10 +4,15 @@
  * Dependencies point inwards:
  *   http -> application -> domain
  *   infrastructure -> application
- * `main.ts` (composition root) is the only file allowed to wire implementations.
+ * `app.module.ts` (with `main.ts`) is the composition root: the only place allowed to bind ports
+ * to implementations. NestJS lives in `http/`, `infrastructure/` and the composition root;
+ * `domain/` and `application/` stay free of the framework (see ADR 0011).
  */
 
 const INFRASTRUCTURE_LIBS = [
+  '@nestjs/*',
+  'reflect-metadata',
+  'rxjs',
   'fastify',
   'fastify/*',
   '@fastify/*',
@@ -65,6 +70,6 @@ export const layerBoundaries = [
   restrict(
     'http',
     ['infrastructure'],
-    'http talks to use cases; concrete implementations are wired in main.ts.',
+    'http talks to use cases; concrete implementations are bound in app.module.ts.',
   ),
 ];

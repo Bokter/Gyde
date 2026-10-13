@@ -10,6 +10,7 @@ Esta carpeta describe **lo que se construye y por qué**. Las fuentes de verdad 
 | [02 Flujos](02-flujos.md) | Análisis completo, resultado degradado, Circuit Breaker, discovery, Stripe y BYOK |
 | [03 Patrones](03-patrones.md) | Dónde vive cada patrón arquitectónico y de diseño, y cómo se prueba |
 | [04 Datos, privacidad y seguridad](04-datos-privacidad-seguridad.md) | Qué sale del cliente, quién guarda qué y cómo se protegen las llaves |
+| [05 Modelo C4](05-modelo-c4.md) | Contexto, contenedores y componentes de los patrones, con el archivo del código de cada uno |
 
 ## Estilo: microservicios con aislamiento de fallos
 
@@ -101,3 +102,4 @@ Las flechas con línea continua son llamadas internas síncronas; las punteadas 
 | Protección del código propietario | `@gyde/contracts` (esquema estricto) y `packages/analysis-engine/src/privacy/` |
 | Modelo freemium y planes de suscripción | `services/web` (Stripe), `PLAN_CATALOG` en contratos, límites en `gateway`, capas del reporte en `reports` |
 | Despliegue independiente de cada contenedor | `services/*/Dockerfile` e `infra/compose/` |
+| Arquitectura limpia con NestJS (módulos, controladores, inyección de dependencias) | `services/*/src/{http,application,domain,infrastructure}` y `app.module.ts` como composition root; [ADR 0011](../adr/0011-nestjs-como-framework-de-los-servicios.md) |

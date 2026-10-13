@@ -1,0 +1,75 @@
+import { CircuitBreaker, createBreakerFromEnv } from '@gyde/resilience';
+import { APP_CONFIG } from '@gyde/service-kit';
+import { type DynamicModule, Module } from '@nestjs/common';
+
+import { IngestSource } from './application/ingest-source';
+import { ListSources } from './application/list-sources';
+import { QueryKnowledge } from './application/query-knowledge';
+import {
+  KNOWLEDGE_REPOSITORY,
+  type KnowledgeRepository,
+} from './application/ports/knowledge-repository';
+import { SOURCE_ADAPTERS, type SourceAdapter } from './application/ports/source-adapter';
+import type { Config } from './config';
+import { NormalizationController } from './http/normalization.controller';
+import { DATABASE, type DatabaseHandle } from './infrastructure/db/database';
+import { DatabaseLifecycle } from './infrastructure/db/database-lifecycle';
+import { PostgresKnowledgeRepository } from './infrastructure/postgres-knowledge.repository';
+import { OsvAdapter } from './infrastructure/sources/structured/osv.adapter';
+
+export interface AppModuleOptions {
+  /** The PostgreSQL connection (`main.ts` opens it; tests pass an in-memory database). */
+  database: DatabaseHandle;
+}
+
+/**
+ * Composition root of the service: the only place that knows concrete implementations.
+ * Each port is bound to its adapter here, and the use cases are built with `useFactory` so
+ * `application/` and `domain/` stay free of NestJS.
+ */
+@Module({})
+export class AppModule {
+  static register({ database }: AppModuleOptions): DynamicModule {
+    return {
+      module: AppModule,
+      controllers: [NormalizationController],
+      providers: [
+        { provide: DATABASE, useValue: database },
+        DatabaseLifecycle,
+        { provide: KNOWLEDGE_REPOSITORY, useClass: PostgresKnowledgeRepository },
+        {
+          // One adapter per source; each owns its own circuit breaker (a source that is down
+          // must not stop the others).
+          provide: SOURCE_ADAPTERS,
+          useFactory: (config: Config): SourceAdapter[] => [
+            new OsvAdapter({
+              useFixtures: config.INGEST_USE_FIXTURES,
+              fixturesDir: config.INGEST_FIXTURES_DIR,
+              apiUrl: config.OSV_API_URL,
+              bucketUrl: config.OSV_BUCKET_URL,
+              breaker: new CircuitBreaker(createBreakerFromEnv('normalization->osv')),
+            }),
+          ],
+          inject: [APP_CONFIG],
+        },
+        {
+          provide: QueryKnowledge,
+          useFactory: (repository: KnowledgeRepository) => new QueryKnowledge(repository),
+          inject: [KNOWLEDGE_REPOSITORY],
+        },
+        {
+          provide: ListSources,
+          useFactory: (adapters: SourceAdapter[], repository: KnowledgeRepository) =>
+            new ListSources({ adapters, repository }),
+          inject: [SOURCE_ADAPTERS, KNOWLEDGE_REPOSITORY],
+        },
+        {
+          provide: IngestSource,
+          useFactory: (adapters: SourceAdapter[], repository: KnowledgeRepository) =>
+            new IngestSource({ adapters, repository }),
+          inject: [SOURCE_ADAPTERS, KNOWLEDGE_REPOSITORY],
+        },
+      ],
+    };
+  }
+}

@@ -124,6 +124,8 @@ function toReport(stored: StoredAnalysis): Report {
  * - A report is `degraded` only when AI was expected and could not run.
  * - `partialSources` from Retrieval does NOT make a report degraded: it only means some knowledge
  *   sources were unavailable, but the deterministic findings are still valid.
+ * - The AI result may in theory arrive before the deterministic one: it is kept and the job stays
+ *   `retrieving` until the deterministic result completes it (never an empty `ready` report).
  * - Reading or recording an analysis that does not exist is a 404 (`HttpError('not_found')`), so
  *   the gateway never turns a missing id into a 500.
  * - The in-memory timers do not survive a service restart; `sweepStaleAnalyses()` closes what a
@@ -246,6 +248,17 @@ export class AnalysisLifecycle {
 
     if (stored.status !== 'retrieving') return;
 
+    // The AI result got here first (see `recordAi`): with both in hand the report is complete.
+    if (stored.aiExpected && stored.ai) {
+      await this.deps.repository.update({
+        ...stored,
+        deterministic: result,
+        status: 'ready',
+        completedAt: this.now().toISOString(),
+      });
+      return;
+    }
+
     if (stored.aiExpected) {
       await this.deps.repository.update({
         ...stored,
@@ -274,6 +287,14 @@ export class AnalysisLifecycle {
 
     // Late delivery: the timeout already fired and the job is done.
     if (stored.status === 'ready' || stored.status === 'failed') return;
+
+    // Without the deterministic result there is no report to complete: `ready` now would be an
+    // empty report that is not even degraded. Keep the AI result; `recordDeterministic` finishes
+    // the job. (Retrieval publishes the deterministic result first, so this is a safeguard.)
+    if (!stored.deterministic) {
+      await this.deps.repository.update({ ...stored, ai: result });
+      return;
+    }
 
     await this.deps.repository.update({
       ...stored,

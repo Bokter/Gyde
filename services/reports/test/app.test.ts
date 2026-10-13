@@ -332,6 +332,50 @@ describe('record methods and full lifecycle', () => {
     await app.close();
   });
 
+  it('an AI result that arrives before the deterministic one does not close an empty report', async () => {
+    const { app, analysisId, repo } = await createAndInspect(() => {}); // suppress timeout
+    const finding = { ...sampleVulnerabilityFinding, id: 'finding-1' };
+
+    // The AI result first (not what Retrieval does, but nothing in the network guarantees it).
+    const early = await app.inject({
+      method: 'POST',
+      url: `/internal/analyses/${analysisId}/ai-result`,
+      headers: auth,
+      payload: { analysisId, findings: [{ ...finding, aiExplanation: 'Explained.' }] },
+    });
+    expect(early.statusCode).toBe(204);
+    expect(repo.store.get(analysisId)?.status).toBe('retrieving');
+
+    // Then the deterministic one completes the job, with the explanations already there.
+    await app.inject({
+      method: 'POST',
+      url: `/internal/analyses/${analysisId}/deterministic`,
+      headers: auth,
+      payload: {
+        analysisId,
+        findings: [finding],
+        evidence: [],
+        coverage: { vulnerabilities: true, compatibility: true, licenses: true },
+        partialSources: false,
+      },
+    });
+    expect(repo.store.get(analysisId)?.status).toBe('ready');
+
+    const getRes = await app.inject({
+      method: 'GET',
+      url: `/internal/analyses/${analysisId}`,
+      headers: asTenant('tenant-1'),
+    });
+    const report = Report.parse(getRes.json());
+    expect(report.status).toBe('ready');
+    expect(report.degraded).toBe(false);
+    expect(report.findings).toHaveLength(1);
+    expect(report.appliedLayers).toContain('ai-enrichment');
+    expect(report.findings[0]?.aiExplanation).toBe('Explained.');
+
+    await app.close();
+  });
+
   it('an llm failure makes the report ready and degraded with the reason (never failed)', async () => {
     const { app, analysisId, repo } = await createAndInspect(() => {}); // suppress timeout
 

@@ -18,7 +18,7 @@ catalog:
   '@nestjs/common': ^12.1.2
   '@nestjs/core': ^12.1.2
   '@nestjs/platform-fastify': ^12.1.2
-  '@next/eslint-plugin-next': ^15.1.0
+  '@next/eslint-plugin-next': ^16.4.0
   '@oslojs/crypto': ^1.0.1
   '@oslojs/encoding': ^1.1.0
   '@tailwindcss/postcss': ^4.3.3

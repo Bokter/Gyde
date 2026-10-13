@@ -577,9 +577,9 @@ importers:
       '@gyde/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@gyde/resilience':
+      '@gyde/discovery':
         specifier: workspace:*
-        version: link:../../packages/resilience
+        version: link:../../packages/discovery
       '@gyde/service-kit':
         specifier: workspace:*
         version: link:../../packages/service-kit

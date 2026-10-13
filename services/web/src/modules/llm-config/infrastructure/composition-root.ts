@@ -7,7 +7,9 @@ import { SaveLlmConfig } from '../application/save-llm-config';
 import { AesGcmLlmKeyCipher } from './aes-gcm-llm-key-cipher';
 import { AnthropicConnectionTester } from './anthropic-connection-tester';
 import { DrizzleLlmConfigRepository } from './drizzle-llm-config-repository';
+import { GeminiConnectionTester } from './gemini-connection-tester';
 import { OfflineConnectionTester } from './offline-connection-tester';
+import { ProviderConnectionTester } from './provider-connection-tester';
 
 export interface LlmConfigModule {
   save: SaveLlmConfig;
@@ -21,8 +23,15 @@ export interface LlmConfigModule {
 function connectionTester(): LlmConnectionTester {
   const mode = process.env.LLM_CONNECTION_TESTER ?? 'anthropic';
   if (mode === 'offline') return new OfflineConnectionTester();
-  if (mode === 'anthropic') return new AnthropicConnectionTester();
-  throw new Error('LLM_CONNECTION_TESTER must be "anthropic" or "offline"');
+  // "anthropic" is the historical name of the online mode; "online" says what it is now that the
+  // key is tested with the tester of its own provider.
+  if (mode === 'anthropic' || mode === 'online') {
+    return new ProviderConnectionTester({
+      anthropic: new AnthropicConnectionTester(),
+      gemini: new GeminiConnectionTester(),
+    });
+  }
+  throw new Error('LLM_CONNECTION_TESTER must be "online" (or "anthropic") or "offline"');
 }
 
 let instance: LlmConfigModule | undefined;

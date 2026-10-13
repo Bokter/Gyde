@@ -1,7 +1,7 @@
 import type { LlmProvider } from '@gyde/contracts';
 
 /** Providers a studio can register today: only the ones llm-analysis can actually call. */
-export const SUPPORTED_LLM_PROVIDERS: readonly LlmProvider[] = ['anthropic'];
+export const SUPPORTED_LLM_PROVIDERS: readonly LlmProvider[] = ['anthropic', 'gemini'];
 
 /** AES-256-GCM output, all binary parts base64-encoded. `kid` names the master key used. */
 export interface EncryptedSecret {

@@ -107,6 +107,33 @@ describe('/api/llm-config never leaks the studio key', () => {
     expect(state.logs()).not.toContain(STUDIO_KEY);
   });
 
+  it('stores a Gemini key like any other: tested with its provider, never echoed', async () => {
+    const GEMINI_KEY = 'AIzaSENTINEL-gemini-key-0123456789abcdef';
+    const test = vi.fn(async () => ({ ok: true as const }));
+    useTester({ test });
+
+    const saved = await put({
+      provider: 'gemini',
+      model: 'gemini-3.5-flash-lite',
+      apiKey: GEMINI_KEY,
+    });
+    const read = await GET();
+
+    expect(saved.status).toBe(200);
+    // The tester receives the provider the studio chose, so the key goes to that provider only.
+    expect(test).toHaveBeenCalledWith(expect.objectContaining({ provider: 'gemini' }));
+    for (const body of [await saved.text(), await read.text()]) {
+      expect(body).not.toContain(GEMINI_KEY);
+      expect(JSON.parse(body).config).toMatchObject({
+        provider: 'gemini',
+        model: 'gemini-3.5-flash-lite',
+        keyLast4: GEMINI_KEY.slice(-4),
+        status: 'active',
+      });
+    }
+    expect(state.logs()).not.toContain(GEMINI_KEY);
+  });
+
   it('rejects providers llm-analysis cannot use, before testing anything', async () => {
     const test = vi.fn(async () => ({ ok: true as const }));
     useTester({ test });

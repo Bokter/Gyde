@@ -331,6 +331,74 @@ describe('the analyzer is chosen by the tenant provider', () => {
     expect(everything).not.toContain(openaiKey);
   });
 
+  it('sends a gemini tenant to the Gemini adapter and an anthropic one to the Anthropic adapter', async () => {
+    const seen: string[] = [];
+    const mock = new MockFindingAnalyzer();
+    const spy = (name: string): FindingAnalyzer => ({
+      analyze: (request, credentials) => {
+        seen.push(`${name}:${credentials.tenantId}:${credentials.model}`);
+        return mock.analyze(request, credentials);
+      },
+    });
+    const services = new FakeServices(token);
+    services.setConfig(
+      'tenant-1',
+      tenantConfig({
+        provider: 'gemini',
+        model: 'gemini-test-flash',
+        apiKey: 'AIza-gemini-key-0123456789',
+      }),
+    );
+    services.setConfig('tenant-2', tenantConfig({ tenantId: 'tenant-2' }));
+    const { run } = await start({
+      services,
+      module: { analyzer: spy('anthropic'), geminiAnalyzer: spy('gemini') },
+    });
+
+    await run(analysisPayload({ analysisId: 'analysis-1', tenantId: 'tenant-1' }));
+    await run(analysisPayload({ analysisId: 'analysis-2', tenantId: 'tenant-2' }));
+
+    expect(services.failures).toEqual([]);
+    expect(services.aiResults.map((result) => result.analysisId)).toEqual([
+      'analysis-1',
+      'analysis-2',
+    ]);
+    expect(seen).toEqual(['gemini:tenant-1:gemini-test-flash', 'anthropic:tenant-2:claude-test']);
+  });
+
+  it('keeps one breaker per tenant and provider: a failing Gemini key does not open Anthropic', async () => {
+    const services = new FakeServices(token);
+    services.setConfig(
+      'tenant-1',
+      tenantConfig({ provider: 'gemini', model: 'gemini-test-flash' }),
+    );
+    const failing: FindingAnalyzer = {
+      analyze: () => Promise.reject(new Error('Gemini answered 403')),
+    };
+    // The tenant's config is cached for a minute: the clock lets the test change it afterwards.
+    let clock = 0;
+    const { run } = await start({
+      services,
+      module: { geminiAnalyzer: failing, now: () => clock },
+    });
+
+    // Past the two failures that open the circuit of tenant-1 + gemini.
+    for (const id of ['analysis-1', 'analysis-2', 'analysis-3']) {
+      await run(analysisPayload({ analysisId: id, tenantId: 'tenant-1' }));
+    }
+    services.setConfig('tenant-1', tenantConfig({ provider: 'anthropic' }));
+    clock += 120_000;
+    await run(analysisPayload({ analysisId: 'analysis-4', tenantId: 'tenant-1' }));
+
+    expect(services.failures.slice(0, 3).map((f) => f.analysisId)).toEqual([
+      'analysis-1',
+      'analysis-2',
+      'analysis-3',
+    ]);
+    // The same tenant, now with an Anthropic key, is served: that breaker is another one.
+    expect(services.aiResults.map((r) => r.analysisId)).toEqual(['analysis-4']);
+  });
+
   it('keeps serving an anthropic tenant next to an unsupported one', async () => {
     const services = new FakeServices(token);
     services.setConfig('tenant-1', tenantConfig({ provider: 'openai', apiKey: openaiKey }));

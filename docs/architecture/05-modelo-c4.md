@@ -18,7 +18,7 @@ flowchart LR
     github(["GitHub<br/>inicio de sesión (OAuth)<br/>y Actions"])
     stripe(["Stripe<br/>suscripciones (modo test)"])
     fuentes(["Fuentes públicas<br/>OSV (MVP) · NVD · GHSA"])
-    ia(["Proveedor de IA<br/>Anthropic, con la llave<br/>del propio estudio (BYOK)"])
+    ia(["Proveedor de IA<br/>Anthropic o Google Gemini, con la llave<br/>del propio estudio (BYOK)"])
 
     dev -->|"CLI / Action / extensión<br/>(solo nombres, versiones y licencias)"| gyde
     dev -->|"panel web: llaves, plan, facturación"| gyde
@@ -52,7 +52,7 @@ flowchart TB
     end
     stripe(["Stripe"])
     fuentes(["OSV"])
-    ia(["Anthropic"])
+    ia(["Anthropic · Gemini"])
 
     cli --> engine
     action --> engine

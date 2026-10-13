@@ -13,6 +13,7 @@ import {
 import type { Config } from './config';
 import { LlmAnalysisController } from './http/llm-analysis.controller';
 import { AnthropicFindingAnalyzer } from './infrastructure/providers/anthropic-finding-analyzer';
+import { GeminiFindingAnalyzer } from './infrastructure/providers/gemini-finding-analyzer';
 import { HttpReportsClient } from './infrastructure/providers/http-reports-client';
 import { HttpTenantLlmConfigProvider } from './infrastructure/providers/http-tenant-llm-config.provider';
 import { MockFindingAnalyzer } from './infrastructure/providers/mock-finding-analyzer';
@@ -21,6 +22,8 @@ import { createServiceResolver } from './infrastructure/service-resolver';
 const INTERNAL_HTTP = Symbol('ResilientHttpClient');
 /** The mock is not a port: it is one more adapter of `FINDING_ANALYZER`, chosen by configuration. */
 const MOCK_FINDING_ANALYZER = Symbol('MockFindingAnalyzer');
+/** The Gemini adapter: one more adapter of the `FindingAnalyzer` port, chosen by the tenant's provider. */
+const GEMINI_FINDING_ANALYZER = Symbol('GeminiFindingAnalyzer');
 
 /** Extra time the breaker allows on top of the provider's timeout, so the provider's wins. */
 const BREAKER_MARGIN_MS = 15_000;
@@ -40,6 +43,8 @@ export interface AppModuleOverrides {
   fetch?: typeof fetch;
   /** Replaces the Anthropic provider (`FINDING_ANALYZER`), e.g. a stub in a test. */
   analyzer?: FindingAnalyzer;
+  /** Replaces the Gemini provider, e.g. a stub in a test. */
+  geminiAnalyzer?: FindingAnalyzer;
   mockAnalyzer?: FindingAnalyzer;
   /** Overrides the `CB_*` defaults of the breakers (the per tenant + provider one included). */
   breakerOptions?: Partial<CircuitBreakerOptions>;
@@ -91,6 +96,16 @@ export class AppModule {
           inject: [APP_CONFIG],
         },
         {
+          provide: GEMINI_FINDING_ANALYZER,
+          useFactory: (config: Config): FindingAnalyzer =>
+            overrides.geminiAnalyzer ??
+            new GeminiFindingAnalyzer({
+              timeoutMs: config.LLM_PROVIDER_TIMEOUT_MS,
+              ...(overrides.fetch && { fetch: overrides.fetch }),
+            }),
+          inject: [APP_CONFIG],
+        },
+        {
           provide: MOCK_FINDING_ANALYZER,
           useValue: overrides.mockAnalyzer ?? new MockFindingAnalyzer(),
         },
@@ -104,6 +119,7 @@ export class AppModule {
           useFactory: (
             tenantConfig: TenantLlmConfigProvider,
             analyzer: FindingAnalyzer,
+            geminiAnalyzer: FindingAnalyzer,
             mockAnalyzer: FindingAnalyzer,
             reports: ReportsClient,
             config: Config,
@@ -112,7 +128,7 @@ export class AppModule {
               tenantConfig,
               // The providers this service supports, by the tenant's `LlmProvider`. FINDING_ANALYZER
               // is the Anthropic adapter; a new provider adds its entry here, nowhere else.
-              analyzers: { anthropic: analyzer },
+              analyzers: { anthropic: analyzer, gemini: geminiAnalyzer },
               mockAnalyzer,
               mockEnabled: config.LLM_MOCK_ENABLED,
               reports,
@@ -130,6 +146,7 @@ export class AppModule {
           inject: [
             TENANT_LLM_CONFIG_PROVIDER,
             FINDING_ANALYZER,
+            GEMINI_FINDING_ANALYZER,
             MOCK_FINDING_ANALYZER,
             REPORTS_CLIENT,
             APP_CONFIG,

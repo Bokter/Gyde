@@ -2,13 +2,13 @@
 
 ## 1. Qué sale del entorno del cliente
 
-La propuesta de valor incluye proteger el código propietario: el análisis empieza **localmente** (CLI, Action o extensión) y al backend solo viaja información no sensible.
+La propuesta de valor incluye proteger el código propietario: el análisis empieza **localmente** (CLI o Action) y al backend solo viaja información no sensible.
 
 | Permitido (`AnalysisRequest`) | Prohibido |
 |---|---|
 | Nombre, versión, ecosistema y licencia declarada de cada dependencia | Código fuente, fragmentos o diffs |
 | Motor, versión del motor, SDKs y plataformas objetivo | Rutas de archivos o nombres de carpetas del proyecto |
-| Tipo y versión del cliente (CLI / Action / extensión) | URL del repositorio, nombres de ramas, usuarios, equipos |
+| Tipo y versión del cliente (CLI / Action) | URL del repositorio, nombres de ramas, usuarios, equipos |
 | Opciones del análisis (`includeAi`) | Cualquier otro dato |
 
 **Cómo se impone (defensa en profundidad):**

@@ -59,7 +59,7 @@ docs(tasks): clarify area 3 acceptance criteria
 |---|---|
 | Servicios | `gateway`, `web`, `normalization`, `retrieval`, `llm-analysis`, `reports`, `registry` |
 | Paquetes | `contracts`, `analysis-engine`, `resilience`, `discovery`, `service-kit`, `design-tokens` |
-| Apps | `cli`, `github-action`, `vscode-extension` |
+| Apps | `cli`, `github-action` |
 | Transversales | `repo`, `tooling`, `ci`, `infra`, `fixtures`, `deps`, `deps-dev` (los dos últimos los usa Dependabot) |
 | Documentación | `architecture`, `adr`, `design`, `tasks`, `workflow`, `readme` |
 

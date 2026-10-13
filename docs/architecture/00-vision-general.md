@@ -68,7 +68,7 @@ Las flechas con línea continua son llamadas internas síncronas; las punteadas 
 
 ## Alcance del MVP
 
-**Dentro:** análisis de dependencias, versiones desactualizadas, licencias y compatibilidad (motor + SDK + plataforma) para proyectos Unity y Unreal; reporte priorizado y explicable; suscripciones con Stripe (modo test); API keys; llaves LLM por estudio; CLI, GitHub Action y extensión de VS Code (esta última como esqueleto).
+**Dentro:** análisis de dependencias, versiones desactualizadas, licencias y compatibilidad (motor + SDK + plataforma) para proyectos Unity y Unreal; reporte priorizado y explicable; suscripciones con Stripe (modo test); API keys; llaves LLM por estudio; CLI y GitHub Action.
 
 **Fuera:** análisis estático del código fuente del cliente (ningún componente del documento lo hace y contradiría la privacidad), más motores que Unity y Unreal, escalado automático real y despliegue en la nube.
 
@@ -98,7 +98,7 @@ Las flechas con línea continua son llamadas internas síncronas; las punteadas 
 | **Abstract Factory** (`AnalysisToolchainFactory`, Unity/Unreal) | `packages/analysis-engine/src/toolchain/` |
 | **Template Method** (`AnalysisPipeline`) | `packages/analysis-engine/src/pipeline/` y `BaseAnalyzer` en `services/retrieval` |
 | **Decorator** (`ReportComponent` y decoradores) | `services/reports/src/domain/report/` |
-| GitHub Action · extensión local · CLI | `apps/github-action`, `apps/vscode-extension`, `apps/cli` |
+| GitHub Action · CLI | `apps/github-action`, `apps/cli` |
 | Protección del código propietario | `@gyde/contracts` (esquema estricto) y `packages/analysis-engine/src/privacy/` |
 | Modelo freemium y planes de suscripción | `services/web` (Stripe), `PLAN_CATALOG` en contratos, límites en `gateway`, capas del reporte en `reports` |
 | Despliegue independiente de cada contenedor | `services/*/Dockerfile` e `infra/compose/` |

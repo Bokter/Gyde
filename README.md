@@ -6,7 +6,7 @@ Plataforma SaaS que detecta y gestiona vulnerabilidades, conflictos de licencias
 
 ## Qué hace
 
-- **El análisis empieza en el entorno del cliente** (CLI y GitHub Action, que comenta el reporte en el pull request; la extensión de VS Code es un esqueleto). El código fuente **nunca sale de ahí**: solo viajan nombres de dependencias, versiones y licencias.
+- **El análisis empieza en el entorno del cliente** (CLI y GitHub Action, que comenta el reporte en el pull request). El código fuente **nunca sale de ahí**: solo viajan nombres de dependencias, versiones y licencias.
 - El backend cruza esa información con conocimiento normalizado de fuentes públicas (OSV en el MVP) y analiza vulnerabilidades y licencias de forma **determinística**.
 - Con un plan de pago y la llave del propio estudio (BYOK, Anthropic o Google Gemini), un LLM explica y correlaciona los hallazgos.
 - El resultado es un reporte **priorizado y explicable** (evidencia, impacto, recomendación).
@@ -101,7 +101,7 @@ Necesita recursos: ver [Recursos de Docker Desktop](#recursos-de-docker-desktop)
 
 | Carpeta | Contenido |
 |---|---|
-| `apps/` | Lo que corre en la máquina del cliente: `cli`, `github-action`, `vscode-extension` |
+| `apps/` | Lo que corre en la máquina del cliente: `cli`, `github-action` |
 | `services/` | Un contenedor por carpeta: `gateway`, `web`, `normalization`, `retrieval`, `llm-analysis`, `reports`, `registry` |
 | `packages/` | Librerías compartidas: `contracts` (esquemas zod), `analysis-engine`, `resilience`, `discovery`, `service-kit`, `design-tokens` |
 | `tooling/` | Configuración compartida (TypeScript, ESLint con las reglas de capas, Prettier, Vitest) |
@@ -163,7 +163,7 @@ Lista completa: [ADR](docs/adr/README.md).
 
 ## Alcance y límites
 
-Fuera del MVP o en esqueleto, de forma declarada: extensión de VS Code, `CompatibilityAnalyzer`, fuentes NVD y GHSA, y los contadores de plan y tasa del gateway (en memoria, se pierden al reiniciar). La GitHub Action está implementada y probada con un gateway falso, pero un runner de GitHub no alcanza un gateway local, así que no se demuestra en vivo. Un análisis que llevaba poco tiempo en curso cuando Reports se reinició puede quedar sin cerrar si su resultado no llega (límite del barrido de arranque, ver [`services/reports/README.md`](services/reports/README.md)). La caché de verificación de claves dura 60 s, así que una clave revocada puede seguir válida ese tiempo.
+Fuera del MVP o en esqueleto, de forma declarada: `CompatibilityAnalyzer`, fuentes NVD y GHSA, y los contadores de plan y tasa del gateway (en memoria, se pierden al reiniciar). La GitHub Action está implementada y probada con un gateway falso, pero un runner de GitHub no alcanza un gateway local, así que no se demuestra en vivo. Un análisis que llevaba poco tiempo en curso cuando Reports se reinició puede quedar sin cerrar si su resultado no llega (límite del barrido de arranque, ver [`services/reports/README.md`](services/reports/README.md)). La caché de verificación de claves dura 60 s, así que una clave revocada puede seguir válida ese tiempo.
 
 ## Documentación
 

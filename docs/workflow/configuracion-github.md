@@ -11,7 +11,7 @@ El flujo es `rama de trabajo → dev → main` (ver [`CONTRIBUTING.md`](../../CO
 3. Pon `dev` como **rama por defecto** (paso 3) y activa las protecciones (pasos 4 y 5).
 4. **Limpia los PRs de Dependabot** que se abrieron antes de existir `dev` (apuntan a `main`):
    - Ciérralos todos. **Al cerrar un PR, Dependabot borra su rama solo**: no borres ramas `dependabot/*` a mano.
-   - Los de `@types/node` y `@types/vscode` **no volverán**: `.github/dependabot.yml` ya los ignora a propósito (los tipos deben coincidir con Node 24 y con `engines.vscode`).
+   - Los de `@types/node` **no volverán**: `.github/dependabot.yml` ya los ignora a propósito (los tipos deben coincidir con Node 24).
    - Los de acciones del CI Dependabot los **abre de nuevo contra `dev`** en su próxima corrida semanal, o al instante comentando `@dependabot recreate` en el PR antes de cerrarlo. Los revisa el Área 1 de a uno (los saltos de versión mayor pueden romper el CI).
    - Haz esto **después** de integrar a `main` el PR que trae las reglas de `dependabot.yml`; si no, podría reabrir los de tipos.
 5. Solo entonces avisa al equipo: cada quien parte de `dev`.

@@ -1,6 +1,6 @@
 # @gyde/analysis-engine
 
-Motor del **cliente** (corre en la máquina del usuario o en el runner de CI). Lo usan `apps/cli`, `apps/github-action` y `apps/vscode-extension`. Aquí viven los patrones de diseño **Template Method** y **Abstract Factory** del documento de arquitectura, y la **puerta de privacidad**.
+Motor del **cliente** (corre en la máquina del usuario o en el runner de CI). Lo usan `apps/cli` y `apps/github-action`. Aquí viven los patrones de diseño **Template Method** y **Abstract Factory** del documento de arquitectura, y la **puerta de privacidad**.
 
 > **Estado:** los patrones, los pasos del pipeline y los dos parsers (C# y C++) están implementados y probados; en este paquete el Área 4 ya no tiene tareas abiertas (el `publishResult` de la Action, el comentario de PR, lo rellena `apps/github-action`). Criterios de aceptación en `test/acceptance.test.ts`.
 

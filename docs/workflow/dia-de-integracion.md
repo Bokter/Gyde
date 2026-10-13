@@ -19,7 +19,7 @@ Estado de cada paso, a **2026-10-12** (se actualiza el día de la integración):
 | Área | Responsable | Módulos |
 |---|---|---|
 | **1** Plataforma, Gateway y Resiliencia | @FatimaCas | `resilience`, `discovery`, `registry`, `gateway`, `infra/` (compose, Dockerfiles, scripts) y el CI |
-| **2** Web, Pagos y Superficies | @kicconsu | `web` (inicio de sesión, Stripe, API keys, llave de IA del estudio), `github-action`, `vscode-extension`, `design-tokens` |
+| **2** Web, Pagos y Superficies | @kicconsu | `web` (inicio de sesión, Stripe, API keys, llave de IA del estudio), `github-action`, `design-tokens` |
 | **3** Conocimiento | @Bokter | `normalization`, `retrieval`, `fixtures/sources` |
 | **4** Motor, LLM y Reportes | @JDBorjaC | `analysis-engine`, `cli`, `llm-analysis`, `reports`, `fixtures/projects` |
 

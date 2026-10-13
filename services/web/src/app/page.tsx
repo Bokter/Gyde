@@ -100,16 +100,16 @@ export default async function HomePage() {
         <section className="relative overflow-hidden py-20 lg:py-32" aria-labelledby="hero-heading">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-3xl mx-auto">
-              <p className="mb-4 font-[family-name:var(--font-bricolage-grotesque)] text-xl font-bold text-[var(--gyde-color-fg-brand)]">
-                Gyde
-              </p>
               <h1
                 id="hero-heading"
-                className="text-4xl font-bold tracking-tight text-[var(--gyde-color-fg-default)] sm:text-6xl"
+                className="text-6xl font-bold tracking-tight text-[var(--gyde-color-fg-brand)] sm:text-8xl"
               >
+                Gyde
+              </h1>
+              <p className="mt-4 font-[family-name:var(--font-bricolage-grotesque)] text-2xl font-bold tracking-tight text-[var(--gyde-color-fg-default)] sm:text-4xl">
                 Seguridad para tus dependencias de{' '}
                 <span className="text-[var(--gyde-color-fg-brand)]">videojuegos</span>
-              </h1>
+              </p>
               <p className="mt-6 text-lg text-[var(--gyde-color-fg-muted)] sm:text-xl max-w-2xl mx-auto">
                 Detecta vulnerabilidades y conflictos de licencias en tus proyectos Unity y Unreal
                 Engine. Tu código nunca sale de tu entorno.

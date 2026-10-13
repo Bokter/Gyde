@@ -1,13 +1,58 @@
-import { auth } from '@/modules/auth/infrastructure/auth.config';
+import type { Entitlements, LlmProviderConfigView, Plan } from '@gyde/contracts';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { createLogger } from '@/lib/logger';
+import { auth } from '@/modules/auth/infrastructure/auth.config';
+import { billingModule } from '@/modules/billing/infrastructure/composition-root';
+import { llmConfigModule } from '@/modules/llm-config/infrastructure/composition-root';
 
-async function getTenantData(_userId: string) {
-  // TODO: Implementar cuando tengamos los casos de uso
-  return {
-    plan: 'free' as const,
-    llmConfig: null,
-  };
+const logger = createLogger('dashboard');
+
+const PLAN_NAMES: Record<Plan, string> = { free: 'Free', pro: 'Pro', studio: 'Studio' };
+const UNAVAILABLE = 'No disponible';
+const ACTION_README =
+  'https://github.com/Bokter/Gyde/tree/dev/apps/github-action#cómo-se-demuestra-y-cómo-se-usaría';
+
+/** Runs one read; a failure is logged (name only) and shown as unavailable, not as a guess. */
+async function read<T>(what: string, run: () => Promise<T>): Promise<T | undefined> {
+  try {
+    return await run();
+  } catch (error) {
+    logger.error({
+      msg: `Read ${what} for the dashboard failed`,
+      errorName: (error as Error)?.name,
+    });
+    return undefined;
+  }
+}
+
+async function getTenantData(userId: string) {
+  const entitlements = await read<Entitlements | null>('the plan', async () => {
+    const billing = billingModule();
+    const tenantId = await billing.accounts.tenantIdForUser(userId);
+    return tenantId ? ((await billing.overview.execute(tenantId))?.entitlements ?? null) : null;
+  });
+  const llmConfig = await read<LlmProviderConfigView | null>('the AI key', async () => {
+    const llm = llmConfigModule();
+    const tenantId = await llm.tenantIdForUser(userId);
+    return tenantId ? llm.view.execute(tenantId) : null;
+  });
+  return { entitlements, llmConfig };
+}
+
+function planLabel(entitlements: Entitlements | null | undefined): string {
+  return entitlements ? PLAN_NAMES[entitlements.plan] : UNAVAILABLE;
+}
+
+function llmLabel(
+  entitlements: Entitlements | null | undefined,
+  llmConfig: LlmProviderConfigView | null | undefined,
+): string {
+  if (entitlements && !entitlements.features.aiEnrichment) return 'Requiere Pro o Studio';
+  if (llmConfig === undefined) return UNAVAILABLE;
+  if (llmConfig?.status === 'active') return 'Activa';
+  if (llmConfig?.status === 'invalid') return 'Llave inválida';
+  return 'No configurada';
 }
 
 export default async function DashboardPage() {
@@ -70,7 +115,7 @@ export default async function DashboardPage() {
               <CreditCardIcon className="h-6 w-6" />
             </div>
             <span className="text-sm font-medium text-[var(--gyde-color-fg-muted)]">
-              {tenant?.plan === 'free' ? 'Free' : tenant?.plan === 'pro' ? 'Pro' : 'Studio'}
+              {planLabel(tenant.entitlements)}
             </span>
           </div>
           <h3 className="mt-4 text-lg font-semibold text-[var(--gyde-color-fg-default)]">
@@ -102,7 +147,7 @@ export default async function DashboardPage() {
               <BrainIcon className="h-6 w-6" />
             </div>
             <span className="text-sm font-medium text-[var(--gyde-color-fg-muted)]">
-              {tenant?.llmConfig ? 'Configurada' : 'No configurada'}
+              {llmLabel(tenant.entitlements, tenant.llmConfig)}
             </span>
           </div>
           <h3 className="mt-4 text-lg font-semibold text-[var(--gyde-color-fg-default)]">
@@ -138,16 +183,23 @@ export default async function DashboardPage() {
             Integración
           </h3>
           <p className="mt-2 text-sm text-[var(--gyde-color-fg-muted)]">
-            Instala el CLI o la GitHub Action para analizar tus proyectos.
+            Analiza tus proyectos con el CLI (la API key en <code>GYDE_API_KEY</code>) o con la
+            GitHub Action copiada en tu repositorio.
           </p>
           <div className="mt-4 space-y-2">
             <code className="block rounded bg-[var(--gyde-color-bg-canvas)] px-3 py-2 text-xs font-mono text-[var(--gyde-color-fg-default)] overflow-x-auto">
-              gyde analyze --api-key $GYDE_API_KEY
+              gyde analyze
             </code>
             <code className="block rounded bg-[var(--gyde-color-bg-canvas)] px-3 py-2 text-xs font-mono text-[var(--gyde-color-fg-default)] overflow-x-auto">
-              uses: gyde/gyde-action@v1
+              uses: ./.github/actions/gyde
             </code>
           </div>
+          <a
+            href={ACTION_README}
+            className="mt-3 inline-block text-sm font-medium text-[var(--gyde-color-fg-brand)] hover:underline"
+          >
+            Cómo instalar la Action (aún sin versión publicada)
+          </a>
         </div>
       </div>
 

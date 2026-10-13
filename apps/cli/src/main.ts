@@ -1,8 +1,11 @@
 #!/usr/bin/env node
-// Entry point of the `gyde` CLI. The logic lives in run.ts so it can be tested without executing.
-import { run } from './run';
+// Entry point of the `gyde` CLI.
+//
+// TODO(area-4): parse the arguments (see README.md), pick the toolchain with
+// `detectGameEngine` + `createToolchainFactory`, build a `LocalCLIPipeline` with a `GydeApiClient`
+// and run it. The exit code comes from the report (see the table in README.md).
 
-process.exitCode = await run(process.argv.slice(2), process.env, {
-  stdout: (text) => void process.stdout.write(text),
-  stderr: (text) => void process.stderr.write(text),
-});
+process.stderr.write(
+  'gyde: not implemented yet. See docs/tasks/area-4-motor-llm-y-reportes.md for the plan.\n',
+);
+process.exitCode = 2;

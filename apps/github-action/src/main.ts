@@ -1,18 +1,10 @@
-// Entry point of the GitHub Action (the `runs.main` of action.yml). The logic lives in run.ts so
-// it can be tested without a runner.
-import * as core from '@actions/core';
+// Entry point of the GitHub Action (the `runs.main` of action.yml).
+//
+// TODO(area-2): read the inputs declared in action.yml (INPUT_API-KEY, INPUT_API-URL, ...), build a
+// `GitHubActionPipeline` with a `GydeApiClient`, run it, post the report as a pull request comment
+// and fail the step when the report has findings at or above `fail-on`.
 
-import { run } from './run';
-
-await run(process.env, {
-  setSecret: core.setSecret,
-  info: core.info,
-  warning: core.warning,
-  setFailed: core.setFailed,
-  setOutput: core.setOutput,
-  writeSummary: async (markdown) => {
-    // Set by every GitHub runner; missing only when the bundle runs outside one.
-    if (!process.env.GITHUB_STEP_SUMMARY) return;
-    await core.summary.addRaw(markdown, true).write();
-  },
-});
+process.stderr.write(
+  'gyde action: not implemented yet. See docs/tasks/area-2-web-pagos-y-superficies.md.\n',
+);
+process.exitCode = 1;

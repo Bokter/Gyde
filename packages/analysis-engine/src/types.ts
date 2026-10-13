@@ -29,6 +29,4 @@ export interface AnalysisGateway {
   submitAnalysis(request: AnalysisRequest): Promise<AnalysisAccepted>;
   /** GET /v1/analyses/:analysisId */
   getReport(analysisId: string): Promise<Report>;
-  /** GET /v1/analyses/:analysisId/markdown: the report rendered by the backend. */
-  getMarkdown(analysisId: string): Promise<string>;
 }

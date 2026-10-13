@@ -2,7 +2,7 @@
 
 Mantiene la lista actualizada de **instancias activas y saludables** de cada servicio, para que nadie "hardcodee" direcciones que cambian con el autoescalado (patrón **Service Discovery**). Es un servicio de infraestructura muy pequeño: no aparece en el diagrama de contenedores, pero sí en el documento (sección 3.1: *Service Registry* y *Health Checker*).
 
-> **Estado:** implementado y verificado (**Área 1**, `docs/tasks/area-1-plataforma-y-borde.md`). Cliente: `@gyde/discovery`.
+> **Estado:** esqueleto ejecutable (501). Implementación: **Área 1** (`docs/tasks/area-1-plataforma-y-borde.md`). Cliente: `@gyde/discovery`.
 
 - Puerto: `REGISTRY_PORT` (4100) · Solo red interna · Todas las rutas `/v1/*` exigen `x-internal-token`.
 
@@ -28,8 +28,7 @@ Mantiene la lista actualizada de **instancias activas y saludables** de cada ser
 src/domain/          InstanceRegistry (registro con TTL, reglas puras y reloj inyectable)
 src/application/     casos de uso (register, heartbeat, deregister, resolve) y puerto HealthProbe
 src/infrastructure/  HealthProbe sobre HTTP y el bucle del Health Checker
-src/http/            controladores NestJS (ya declarados como stubs 501)
-src/app.module.ts    composition root: enlaza puertos con adaptadores (ADR 0011)
+src/http/            rutas (ya declaradas como stubs)
 ```
 
 ## Configuración

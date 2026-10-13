@@ -1,7 +1,5 @@
 import { type ErrorCode, HTTP_STATUS_BY_CODE } from '@gyde/contracts';
 
-export type { ErrorCode };
-
 /**
  * Throw this from any handler or use case adapter: the error handler installed by `buildApp`
  * turns it into the standard `ApiError` envelope with the right HTTP status.

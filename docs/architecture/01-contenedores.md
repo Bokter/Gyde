@@ -60,7 +60,7 @@ Orquesta el análisis (crea el trabajo, pide evidencia a retrieval, recibe los r
 | App | Papel |
 |---|---|
 | `apps/cli` | `gyde analyze`: `LocalCLIPipeline` sobre `@gyde/analysis-engine` |
-| `apps/github-action` | `PullRequestCommentPipeline` (sobre `GitHubActionPipeline`): analiza el proyecto del runner y mantiene un único comentario en el PR |
+| `apps/github-action` | `GitHubActionPipeline`: lee el runner y comenta en el PR |
 | `apps/vscode-extension` | Comando de VS Code sobre el mismo motor (esqueleto en el MVP) |
 
 Los tres solo conocen la URL del gateway.

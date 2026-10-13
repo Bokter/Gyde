@@ -1,10 +1,6 @@
 {
   "ghsa_id": "GHSA-0000-0000-0001",
   "cve_id": null,
-  "identifiers": [
-    { "type": "GHSA", "value": "GHSA-0000-0000-0001" },
-    { "type": "OTHER", "value": "SAMPLE-0001" }
-  ],
   "url": "https://api.github.com/advisories/GHSA-0000-0000-0001",
   "html_url": "https://github.com/advisories/GHSA-0000-0000-0001",
   "summary": "Sample advisory: unsafe deserialization in Acme.Serialization",

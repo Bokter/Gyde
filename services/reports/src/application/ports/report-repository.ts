@@ -26,13 +26,4 @@ export interface ReportRepository {
   create(analysis: StoredAnalysis): Promise<void>;
   get(id: string): Promise<StoredAnalysis | undefined>;
   update(analysis: StoredAnalysis): Promise<void>;
-  /**
-   * Analyses in `status` whose last write is older than `cutoff`: the input of the startup sweep
-   * (`AnalysisLifecycle.sweepStaleAnalyses`). The in-memory adapter returns `[]`, since a restart
-   * empties it anyway.
-   */
-  findStale(status: ReportStatus, cutoff: Date): Promise<StoredAnalysis[]>;
 }
-
-/** DI token of the `ReportRepository` port: `app.module.ts` binds it to an adapter (see ADR 0011). */
-export const REPORT_REPOSITORY = Symbol('ReportRepository');

@@ -4,7 +4,9 @@ import { createLogger } from '@gyde/service-kit';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { BackgroundJobs } from '../src/application/background-jobs';
-import type { AppModuleOverrides } from '../src/app.module';
+import type { FindingAnalyzer } from '../src/application/ports/finding-analyzer';
+import { breakerCallTimeoutMs, type AppModuleOverrides } from '../src/app.module';
+import { MockFindingAnalyzer } from '../src/infrastructure/providers/mock-finding-analyzer';
 import { configSchema } from '../src/config';
 import { createApp } from '../src/http/app';
 import { FakeServices, HOSTS, analysisPayload } from './support/fake-services';
@@ -17,6 +19,7 @@ const open: Awaited<ReturnType<typeof createApp>>[] = [];
 afterEach(async () => {
   await Promise.all(open.splice(0).map((app) => app.close()));
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
 });
 
 /** Only the "2 failures in a row" rule opens a circuit in these tests. */
@@ -397,5 +400,33 @@ describe('POST /internal/analyze', () => {
     release();
     await jobs.idle();
     expect(services.aiResults).toHaveLength(1);
+  });
+});
+
+describe('the breaker waits for the provider', () => {
+  it('does not cut a slow model answer at CB_CALL_TIMEOUT_MS, which is meant for internal calls', async () => {
+    // A real model can take seconds; the generic 10 s of the breaker would turn that into a
+    // failure (llm-unavailable). Here the generic limit is 50 ms and the model answers in 250 ms.
+    vi.stubEnv('CB_CALL_TIMEOUT_MS', '50');
+    const services = new FakeServices(token);
+    services.setConfig('tenant-1', tenantConfig());
+    const mock = new MockFindingAnalyzer();
+    const slowAnalyzer: FindingAnalyzer = {
+      analyze: async (request, credentials) => {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        return mock.analyze(request, credentials);
+      },
+    };
+    // `testBreakers` has no callTimeoutMs: the composition root's default (the provider's) applies.
+    const { run } = await start({ services, module: { analyzer: slowAnalyzer } });
+
+    await run();
+
+    expect(services.failures).toEqual([]);
+    expect(services.aiResults).toHaveLength(1);
+  });
+
+  it('waits longer than the provider itself, so the provider is the one that gives up', () => {
+    expect(breakerCallTimeoutMs(30_000)).toBeGreaterThan(30_000);
   });
 });

@@ -22,6 +22,18 @@ const INTERNAL_HTTP = Symbol('ResilientHttpClient');
 /** The mock is not a port: it is one more adapter of `FINDING_ANALYZER`, chosen by configuration. */
 const MOCK_FINDING_ANALYZER = Symbol('MockFindingAnalyzer');
 
+/** Extra time the breaker allows on top of the provider's timeout, so the provider's wins. */
+const BREAKER_MARGIN_MS = 15_000;
+
+/**
+ * `CB_CALL_TIMEOUT_MS` (10 s) fits calls between our own services, but a real model answer
+ * (up to 4096 tokens) can take longer. The LLM breakers use the provider's timeout plus a margin:
+ * a slow answer is not cut and counted as a failure, and a hung call still ends.
+ */
+export function breakerCallTimeoutMs(providerTimeoutMs: number): number {
+  return providerTimeoutMs + BREAKER_MARGIN_MS;
+}
+
 /** Ports a test (or a future adapter) may override when building the app. */
 export interface AppModuleOverrides {
   /** The network itself: tests answer Web, Reports and Anthropic with a fake fetch. */
@@ -70,9 +82,13 @@ export class AppModule {
         },
         {
           provide: FINDING_ANALYZER,
-          useFactory: (): FindingAnalyzer =>
+          useFactory: (config: Config): FindingAnalyzer =>
             overrides.analyzer ??
-            new AnthropicFindingAnalyzer(overrides.fetch ? { fetch: overrides.fetch } : {}),
+            new AnthropicFindingAnalyzer({
+              timeoutMs: config.LLM_PROVIDER_TIMEOUT_MS,
+              ...(overrides.fetch && { fetch: overrides.fetch }),
+            }),
+          inject: [APP_CONFIG],
         },
         {
           provide: MOCK_FINDING_ANALYZER,
@@ -100,7 +116,11 @@ export class AppModule {
               mockAnalyzer,
               mockEnabled: config.LLM_MOCK_ENABLED,
               reports,
-              ...(overrides.breakerOptions && { breakerOptions: overrides.breakerOptions }),
+              breakerOptions: {
+                // The breaker never gives up before the provider's own timeout does.
+                callTimeoutMs: breakerCallTimeoutMs(config.LLM_PROVIDER_TIMEOUT_MS),
+                ...overrides.breakerOptions,
+              },
               ...(overrides.now && { now: overrides.now }),
               onError: (error, context) =>
                 logger.error(

@@ -107,7 +107,7 @@ Necesita recursos: ver [Recursos de Docker Desktop](#recursos-de-docker-desktop)
 | `tooling/` | Configuración compartida (TypeScript, ESLint con las reglas de capas, Prettier, Vitest) |
 | `infra/` | Docker Compose, esquemas de PostgreSQL y scripts (incluida la prueba de humo) |
 | `fixtures/` | Proyectos Unity/Unreal de ejemplo y respuestas grabadas, con resultados esperados |
-| `docs/` | Arquitectura, C4, decisiones (ADR), diseño y flujo de trabajo |
+| `docs/` | Arquitectura (con el modelo C4 en Structurizr), decisiones (ADR), diseño y flujo de trabajo |
 
 Stack: TypeScript · pnpm + Turborepo · NestJS sobre Fastify (servicios) · Next.js (Servicio Web) · PostgreSQL (un schema y un rol por servicio) · Docker Compose · Vitest.
 
@@ -123,8 +123,8 @@ Cada servicio separa cuatro capas y la dependencia apunta siempre hacia adentro:
 | `http/` | **Controladores** o handlers: reciben, validan (zod) y llaman a un caso de uso | `GatewayController`, `ApiKeyGuard` |
 
 - La regla **la impone `pnpm lint`** ([`tooling/eslint/layer-boundaries.mjs`](tooling/eslint/layer-boundaries.mjs)): `domain/` y `application/` no pueden importar NestJS, Fastify, Drizzle, Stripe ni `infrastructure/`. Los casos de uso se construyen en el *composition root* (`app.module.ts`).
-- El desacoplamiento se nota en que **se cambia un adaptador sin tocar el caso de uso**: Reports usa `PostgresReportRepository` (o `InMemoryReportRepository` si no hay `REPORTS_DATABASE_URL`) detrás del puerto `ReportRepository`; el Servicio Web tiene dos adaptadores del puerto de prueba de conexión (Anthropic y uno sin red).
-- Diagramas por componente, con el archivo de cada pieza: [Modelo C4](docs/architecture/05-modelo-c4.md).
+- El desacoplamiento se nota en que **se cambia un adaptador sin tocar el caso de uso**: Reports usa `PostgresReportRepository` (o `InMemoryReportRepository` si no hay `REPORTS_DATABASE_URL`) detrás del puerto `ReportRepository`; el Servicio Web tiene un adaptador del puerto de prueba de conexión por proveedor de IA y uno sin red; llm-analysis, uno del puerto `FindingAnalyzer` por proveedor.
+- Diagramas de contexto, contenedores y componentes, con el archivo de cada pieza: [Modelo C4](docs/architecture/05-modelo-c4.md), exportado de una única fuente en Structurizr DSL ([`workspace.dsl`](docs/architecture/c4/workspace.dsl)).
 
 ## Patrones implementados
 
@@ -170,7 +170,7 @@ Fuera del MVP o en esqueleto, de forma declarada: `CompatibilityAnalyzer`, fuent
 | | |
 |---|---|
 | [Arquitectura](docs/architecture/00-vision-general.md) | Contenedores, flujos, patrones, datos y seguridad |
-| [Modelo C4](docs/architecture/05-modelo-c4.md) | Contexto, contenedores y componentes |
+| [Modelo C4](docs/architecture/05-modelo-c4.md) | Contexto, contenedores y componentes (Structurizr, única fuente de los diagramas) |
 | [Decisiones (ADR)](docs/adr/README.md) | Por qué se decidió cada cosa |
 | [Evidencia de ejecución](docs/evidence/humo-2026-10-12.txt) | Salida de la prueba de humo de punta a punta |
 | [Día de integración](docs/workflow/dia-de-integracion.md) | Lista de verificación y guion de la demo |

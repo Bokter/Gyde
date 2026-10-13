@@ -10,7 +10,7 @@ Esta carpeta describe **lo que se construye y por qué**. Las fuentes de verdad 
 | [02 Flujos](02-flujos.md) | Análisis completo, resultado degradado, Circuit Breaker, discovery, Stripe y BYOK |
 | [03 Patrones](03-patrones.md) | Dónde vive cada patrón arquitectónico y de diseño, y cómo se prueba |
 | [04 Datos, privacidad y seguridad](04-datos-privacidad-seguridad.md) | Qué sale del cliente, quién guarda qué y cómo se protegen las llaves |
-| [05 Modelo C4](05-modelo-c4.md) | Contexto, contenedores y componentes de los patrones, con el archivo del código de cada uno |
+| [05 Modelo C4](05-modelo-c4.md) | Contexto, contenedores y componentes (Structurizr, única fuente de los diagramas), con el archivo del código de cada uno |
 
 ## Estilo: microservicios con aislamiento de fallos
 
@@ -24,38 +24,9 @@ Los microservicios permiten aislar módulos que funcionan de forma independiente
 
 ## Diagrama de contenedores
 
-```mermaid
-flowchart TB
-    cliente["CLI · GitHub Action · Extensión VS Code<br/>(entorno del cliente)"]
-    subgraph backend["Backend Gyde (microservicios)"]
-        gw["API Gateway<br/>enruta y autentica"]
-        web["Servicio Web<br/>pagos y configuración de LLMs"]
-        rep["Servicio de Reportes<br/>reporte final priorizado"]
-        ret["Servicio de Retrieval<br/>filtra evidencia relevante"]
-        norm["Pipeline de Normalización<br/>estandariza fuentes externas"]
-        llm["Servicio Análisis LLM<br/>interpreta y correlaciona"]
-        reg["Service Registry + Health Checker<br/>(infraestructura)"]
-    end
-    stripe(["Stripe"])
-    fuentes(["Fuentes externas<br/>CVE · GHSA · OSV · NVD · docs"])
-    ia(["Proveedores de IA"])
+![Contenedores de Gyde](c4/Contenedores.svg)
 
-    cliente -->|"HTTPS / JSON"| gw
-    gw -->|"gestiona pagos y configuración"| web
-    gw -->|"solicita / genera reporte"| rep
-    rep -->|"solicita evidencia"| ret
-    ret -->|"consulta evidencia normalizada"| norm
-    ret -->|"envía evidencia para análisis"| llm
-    llm -->|"devuelve hallazgos priorizados"| rep
-    llm -.->|"llave del estudio (BYOK)"| web
-    stripe -.->|"webhook"| web
-    web -.->|"cargos y consultas"| stripe
-    norm -.->|"vulnerabilidades, avisos y docs"| fuentes
-    llm -.->|"inferencia"| ia
-    gw -.->|"descubre instancias"| reg
-```
-
-Las flechas con línea continua son llamadas internas síncronas; las punteadas son relaciones externas o de infraestructura. Respecto al diagrama original se añaden dos aristas, ambas decididas en los ADR: `llm-analysis → web` (la llave BYOK del estudio) y el **Service Registry** como contenedor de infraestructura.
+Vista exportada del [modelo C4](05-modelo-c4.md), que es la única fuente de los diagramas de arquitectura ([`c4/workspace.dsl`](c4/workspace.dsl)). Respecto al diagrama del documento de arquitectura se añaden aristas decididas en los ADR: `llm-analysis → web` (la llave BYOK del estudio), el **Service Registry** como contenedor de infraestructura y `web → proveedor de IA` (la prueba de la llave al guardarla).
 
 ## Invariantes (reglas que no se rompen)
 

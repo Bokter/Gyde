@@ -14,7 +14,7 @@ Cliente de **Service Discovery** (documento de arquitectura, patrón 2). Las ins
 
 ## Flujo (documento, sección 3.2)
 
-1. El cliente (CLI / Action / extensión) dispara el análisis contra el **Gateway**.
+1. El cliente (CLI o Action) dispara el análisis contra el **Gateway**.
 2. El **Gateway** consulta al Registry por una instancia del servicio requerido.
 3. El Registry responde con una instancia activa y saludable.
 4. El Gateway envía la solicitud a través del **Circuit Breaker** de esa dependencia (`@gyde/resilience`), no directamente.

@@ -7,7 +7,7 @@ Los diagramas muestran el comportamiento **objetivo** del MVP. Los pasos del Tem
 ```mermaid
 sequenceDiagram
     autonumber
-    actor U as CLI / Action / Extensión
+    actor U as CLI / Action
     participant GW as Gateway
     participant WEB as Servicio Web
     participant REP as Reportes

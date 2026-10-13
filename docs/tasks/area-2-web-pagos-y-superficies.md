@@ -4,13 +4,13 @@
 
 ## Objetivo
 
-Construir el **Servicio Web** (Next.js): inicio de sesión, **suscripciones con Stripe**, **API keys** y la **llave de IA de cada estudio (BYOK)**, con los dos endpoints internos que otros servicios necesitan. Además, las superficies que corren en el entorno del cliente: la **GitHub Action** y (si alcanza) la **extensión de VS Code**. Eres dueña o dueño del diseño: [`sistema-de-diseno.md`](../design/sistema-de-diseno.md) y `@gyde/design-tokens`.
+Construir el **Servicio Web** (Next.js): inicio de sesión, **suscripciones con Stripe**, **API keys** y la **llave de IA de cada estudio (BYOK)**, con los dos endpoints internos que otros servicios necesitan. Además, la superficie que corre en el entorno del cliente: la **GitHub Action** (la extensión de VS Code se recortó y se eliminó del repositorio). Eres dueña o dueño del diseño: [`sistema-de-diseno.md`](../design/sistema-de-diseno.md) y `@gyde/design-tokens`.
 
 Tienes el módulo más delicado en seguridad: custodias **llaves de terceros**. Léete antes [Datos, privacidad y seguridad](../architecture/04-datos-privacidad-seguridad.md) y el [ADR 0007](../adr/0007-llaves-llm-por-estudio-byok.md).
 
 ## Lecturas obligatorias
 
-[`CONTRIBUTING.md`](../../CONTRIBUTING.md) · [Visión general](../architecture/00-vision-general.md) · [Flujos](../architecture/02-flujos.md) (5 y 6) · [Datos, privacidad y seguridad](../architecture/04-datos-privacidad-seguridad.md) · [ADR 0007](../adr/0007-llaves-llm-por-estudio-byok.md) · [Sistema de diseño](../design/sistema-de-diseno.md) · README de `services/web`, `packages/design-tokens`, `apps/github-action`, `apps/vscode-extension` y `packages/contracts`.
+[`CONTRIBUTING.md`](../../CONTRIBUTING.md) · [Visión general](../architecture/00-vision-general.md) · [Flujos](../architecture/02-flujos.md) (5 y 6) · [Datos, privacidad y seguridad](../architecture/04-datos-privacidad-seguridad.md) · [ADR 0007](../adr/0007-llaves-llm-por-estudio-byok.md) · [Sistema de diseño](../design/sistema-de-diseno.md) · README de `services/web`, `packages/design-tokens`, `apps/github-action` y `packages/contracts`.
 
 ## Qué construyes y cómo está hoy
 
@@ -19,11 +19,10 @@ Tienes el módulo más delicado en seguridad: custodias **llaves de terceros**. 
 | `services/web` | Solo carpetas por módulo y README | Crear la app Next.js e implementar todo |
 | `packages/design-tokens` | Hecho y probado | Usarlo; extenderlo si hace falta |
 | `apps/github-action` | `action.yml` y stub | Implementar (apoyada en el motor del Área 4) |
-| `apps/vscode-extension` | Manifiesto y stub | Comando y panel (primero en recortarse) |
 
 ## Archivos
 
-**Sí tocas:** `services/web/**` · `apps/github-action/**` · `apps/vscode-extension/**` · `packages/design-tokens/**` · `docs/design/**` · la línea de `web` en `infra/compose/compose.yaml` y un `services/web/Dockerfile` (coordina con el Área 1).
+**Sí tocas:** `services/web/**` · `apps/github-action/**` · `packages/design-tokens/**` · `docs/design/**` · la línea de `web` en `infra/compose/compose.yaml` y un `services/web/Dockerfile` (coordina con el Área 1).
 
 **No tocas:** el resto de servicios, `packages/analysis-engine`, `resilience`, `discovery`. Para `packages/contracts` abre un PR pequeño y pide revisión a otra área. Para añadir Next a ESLint, edita `eslint.config.mjs` con un cambio mínimo y avisa.
 
@@ -79,9 +78,9 @@ Tienes el módulo más delicado en seguridad: custodias **llaves de terceros**. 
 - [ ] Empaquetada en `dist/index.js` sin `node_modules` (`pnpm --filter @gyde/github-action build`).
 - [ ] Mientras el motor no esté listo, usa un `AnalysisGateway` falso.
 
-### 7. Extensión de VS Code (opcional)
+### 7. Extensión de VS Code (recortada)
 
-- [ ] Comando `Gyde: Analyze project`, API key en `context.secrets`, resultado en un panel o canal de salida.
+Recortada: se eliminó `apps/vscode-extension` del repositorio y el cliente queda en CLI y GitHub Action.
 
 ## Dependencias con otras áreas
 

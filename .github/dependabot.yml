@@ -20,9 +20,6 @@ updates:
       # Types must match the runtime we target: Node 24 (.nvmrc, Dockerfiles).
       - dependency-name: '@types/node'
         update-types: [version-update:semver-major]
-      # Types cannot be newer than engines.vscode of the extension (^1.100).
-      - dependency-name: '@types/vscode'
-        update-types: [version-update:semver-major, version-update:semver-minor]
 
   - package-ecosystem: github-actions
     directory: /

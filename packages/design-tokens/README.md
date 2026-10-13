@@ -1,6 +1,6 @@
 # @gyde/design-tokens
 
-Tokens de diseño de Gyde: **una sola fuente de verdad** (JSON estilo W3C DTCG) compilada a **variables CSS** `--gyde-*`. Los usan el Servicio Web, el visor de reportes y la extensión de VS Code.
+Tokens de diseño de Gyde: **una sola fuente de verdad** (JSON estilo W3C DTCG) compilada a **variables CSS** `--gyde-*`. Los usan el Servicio Web y el visor de reportes.
 
 > Fuente, paleta y reglas de uso: [`docs/design/sistema-de-diseno.md`](../../docs/design/sistema-de-diseno.md).
 

@@ -8,7 +8,7 @@ Puertos de desarrollo (ver `.env.example`): web 3000 · gateway 4000 · registry
 
 | Servicio | Responsabilidad | Datos propios | Llama a | La llaman | Área |
 |---|---|---|---|---|---|
-| `gateway` | Autentica la API key, límites del plan, enruta | — (caché en memoria) | web, reports, registry | CLI, Action, extensión | 1 |
+| `gateway` | Autentica la API key, límites del plan, enruta | — (caché en memoria) | web, reports, registry | CLI, Action | 1 |
 | `registry` | Service Registry + Health Checker | en memoria | cada instancia (`/healthz`) | todos (vía `@gyde/discovery`) | 1 |
 | `web` | UI, Stripe, API keys, llaves LLM de los estudios | schema `web` | Stripe | gateway, llm-analysis, Stripe (webhook) | 2 |
 | `normalization` | Ingiere y normaliza fuentes externas | schema `normalization` | fuentes externas | retrieval | 3 |
@@ -61,9 +61,8 @@ Orquesta el análisis (crea el trabajo, pide evidencia a retrieval, recibe los r
 |---|---|
 | `apps/cli` | `gyde analyze`: `LocalCLIPipeline` sobre `@gyde/analysis-engine` |
 | `apps/github-action` | `PullRequestCommentPipeline` (sobre `GitHubActionPipeline`): analiza el proyecto del runner y mantiene un único comentario en el PR |
-| `apps/vscode-extension` | Comando de VS Code sobre el mismo motor (esqueleto en el MVP) |
 
-Los tres solo conocen la URL del gateway.
+Los dos solo conocen la URL del gateway.
 
 ## Qué está dibujado y qué se añadió
 

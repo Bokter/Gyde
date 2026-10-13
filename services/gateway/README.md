@@ -1,6 +1,6 @@
 # gateway: API Gateway
 
-Único punto de entrada del backend para la **CLI, la GitHub Action y la extensión de VS Code**. Autentica la API key, aplica límites del plan y enruta a los servicios internos descubriéndolos en el Service Registry y llamándolos detrás de un Circuit Breaker.
+Único punto de entrada del backend para la **CLI y la GitHub Action**. Autentica la API key, aplica límites del plan y enruta a los servicios internos descubriéndolos en el Service Registry y llamándolos detrás de un Circuit Breaker.
 
 > **Estado:** implementado (**Área 1**, `docs/tasks/area-1-plataforma-y-borde.md`): autenticación por API key, `GET /v1/auth/verify`, análisis (`POST` y `GET`), límite del plan (`402`) y límite de tasa (`429`).
 

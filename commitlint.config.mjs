@@ -19,7 +19,6 @@ const scopes = [
   // apps
   'cli',
   'github-action',
-  'vscode-extension',
   // cross-cutting
   'repo',
   'tooling',

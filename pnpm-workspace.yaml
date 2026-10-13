@@ -11,38 +11,9 @@ allowBuilds:
 # Single version policy: every workspace package references these with "catalog:".
 # Bump a version here once and the whole monorepo follows.
 catalog:
-  '@actions/core': ^3.0.1
-  '@anthropic-ai/sdk': ^0.128.0
-  '@auth/drizzle-adapter': ^1.8.0
-  '@electric-sql/pglite': ^0.5.8
-  '@nestjs/common': ^12.1.2
-  '@nestjs/core': ^12.1.2
-  '@nestjs/platform-fastify': ^12.1.2
-  '@next/eslint-plugin-next': ^15.1.0
-  '@oslojs/crypto': ^1.0.1
-  '@oslojs/encoding': ^1.1.0
-  '@tailwindcss/postcss': ^4.3.3
   '@types/node': ^24.19.1
-  '@types/pg': ^8.23.1
-  '@types/react': ^19.0.0
-  '@types/react-dom': ^19.0.0
-  '@types/spdx-expression-parse': ^4.0.0
-  drizzle-kit: ^0.31.11
-  drizzle-orm: ^0.45.4
-  eslint: ^9.17.0
   fastify: ^5.12.5
-  jose: ^5.9.6
-  next: ^15.1.0
-  next-auth: ^5.0.0-beta.25
-  pg: ^8.23.1
   pino: ^10.4.0
-  react: ^19.0.0
-  react-dom: ^19.0.0
-  reflect-metadata: ^0.2.2
-  rxjs: ^7.8.2
-  spdx-expression-parse: ^5.0.0
-  stripe: ^17.5.0
-  tailwindcss: ^4.3.3
   tsup: ^8.5.1
   tsx: ^4.23.15
   # typescript-eslint does not support TypeScript >= 6.1 yet; revisit when it does.

@@ -1,6 +1,6 @@
 # Flujos
 
-Los diagramas muestran el comportamiento **objetivo** del MVP. Los pasos del Template Method del cliente (los cinco del documento: autenticar, parsear, vulnerabilidades, licencias y reporte; más `submitAnalysis`, que envía la solicitud, y `publishResult`, que entrega el resultado) se corresponden con los mensajes numerados de abajo; ver [ADR 0004](../adr/0004-el-backend-orquesta-el-analisis.md).
+Los diagramas muestran el comportamiento **objetivo** del MVP. Los pasos del Template Method del cliente (autenticar, parsear, vulnerabilidades, licencias, reporte, publicar) se corresponden con los mensajes numerados de abajo; ver [ADR 0004](../adr/0004-el-backend-orquesta-el-analisis.md).
 
 ## 1. Análisis completo (camino feliz)
 
@@ -68,9 +68,7 @@ sequenceDiagram
     REP-->>U: reporte degradado, sin explicación de IA
 ```
 
-Un reporte es **degradado** solo si se esperaba IA y no pudo correr: `llm-unavailable` (circuito abierto o proveedor caído), `llm-not-configured` (el estudio aún no cargó su llave), `llm-error` (el proveedor respondió con error). Si el plan o el cliente no pidieron IA, el reporte **no** es degradado. Que parte de las fuentes de conocimiento no estuviera disponible (`partialSources` en el resultado determinístico) tampoco lo hace degradado.
-
-**Quién publica el motivo.** `llm-analysis` publica `llm-not-configured`, `llm-error` y `llm-unavailable` (circuito por tenant + proveedor abierto o proveedor caído). Si el propio `llm-analysis` no responde (por ejemplo, está apagado en la demo), la llamada de Retrieval hacia él falla o su Circuit Breaker está abierto: entonces **Retrieval** publica el `AnalysisFailure` con `stage: 'llm'` y `reason: 'llm-unavailable'`. Como red de seguridad, si nada llega en `REPORTS_AI_TIMEOUT_MS`, Reports cierra el análisis como `ready` + degradado con `llm-unavailable`.
+Un reporte es **degradado** solo si se esperaba IA y no pudo correr: `llm-unavailable` (circuito abierto o proveedor caído), `llm-not-configured` (el estudio aún no cargó su llave), `llm-error` (el proveedor respondió con error). Si el plan o el cliente no pidieron IA, el reporte **no** es degradado.
 
 El cliente también degrada: si el gateway no responde, su Circuit Breaker sirve el último reporte guardado en la caché local, marcado como degradado.
 
@@ -79,7 +77,7 @@ El cliente también degrada: si el gateway no responde, su Circuit Breaker sirve
 ```mermaid
 stateDiagram-v2
     [*] --> Cerrado
-    Cerrado --> Abierto: 5 fallos seguidos o 50% en la ventana (al menos CB_MIN_CALLS)
+    Cerrado --> Abierto: 5 fallos seguidos o 50% en la ventana
     Abierto --> Semiabierto: pasa el tiempo de espera
     Semiabierto --> Cerrado: las llamadas de prueba funcionan
     Semiabierto --> Abierto: una prueba falla y se reinicia el temporizador
@@ -87,7 +85,7 @@ stateDiagram-v2
 
 | Situación | Decisión (documento, tabla 3.3) |
 |---|---|
-| Los fallos superan el umbral (5 fallos consecutivos o 50 % de las solicitudes en una ventana de tiempo, con al menos `CB_MIN_CALLS` llamadas) | Pasa a **abierto**: deja de llamar al servicio y responde de inmediato con el fallback (última respuesta cacheada o mensaje de análisis parcial) |
+| Los fallos superan el umbral (5 fallos o 50 % de las solicitudes en una ventana de tiempo) | Pasa a **abierto**: deja de llamar al servicio y responde de inmediato con el fallback (última respuesta cacheada o mensaje de análisis parcial) |
 | Transcurre el tiempo de espera en abierto | Pasa a **semiabierto**: permite un número limitado de solicitudes de prueba |
 | Las pruebas tienen éxito | Vuelve a **cerrado** y reanuda el tráfico normal |
 | Las pruebas fallan | Vuelve a **abierto**, reiniciando el temporizador |

@@ -7,10 +7,12 @@ import {
   ErrorCode,
   Finding,
   HTTP_STATUS_BY_CODE,
+  IngestResult,
   KnowledgeObject,
   PLAN_CATALOG,
   ROUTES,
   Report,
+  SourcesStatus,
   buildPath,
 } from '../src';
 import {
@@ -81,5 +83,48 @@ describe('errors', () => {
     const ok = { error: { code: 'not_found', message: 'No such analysis' } };
     expect(ApiError.safeParse(ok).success).toBe(true);
     expect(ApiError.safeParse({ ...ok, stack: 'at foo' }).success).toBe(false);
+  });
+});
+
+describe('ingestion API responses', () => {
+  it('accepts a source that was never ingested and one that failed after a good run', () => {
+    expect(
+      SourcesStatus.parse({
+        sources: [
+          { name: 'nvd', kind: 'structured', trust: 'high', status: 'never' },
+          {
+            name: 'osv',
+            kind: 'structured',
+            trust: 'high',
+            status: 'failed',
+            lastIngestedAt: '2026-10-01T10:00:00Z',
+            lastAttemptAt: '2026-10-01T11:00:00Z',
+            lastError: 'OSV answered 503',
+          },
+        ],
+      }).sources,
+    ).toHaveLength(2);
+  });
+
+  it('rejects an unknown status and unknown fields', () => {
+    const source = { name: 'osv', kind: 'structured', trust: 'high' };
+    expect(SourcesStatus.safeParse({ sources: [{ ...source, status: 'running' }] }).success).toBe(
+      false,
+    );
+    expect(
+      SourcesStatus.safeParse({ sources: [{ ...source, status: 'ok', apiKey: 'x' }] }).success,
+    ).toBe(false);
+  });
+
+  it('describes a finished ingestion', () => {
+    const result = {
+      source: 'osv',
+      recordsProcessed: 3,
+      recordsSkipped: 0,
+      startedAt: '2026-10-01T10:00:00Z',
+      finishedAt: '2026-10-01T10:00:02Z',
+    };
+    expect(IngestResult.parse(result)).toEqual(result);
+    expect(IngestResult.safeParse({ ...result, recordsProcessed: -1 }).success).toBe(false);
   });
 });

@@ -13,3 +13,9 @@ export interface ReportsClient {
 export interface LlmClient {
   dispatch(request: LlmAnalysisRequest): Promise<void>;
 }
+
+/** DI token of the `ReportsClient` port: `app.module.ts` binds it to an adapter (see ADR 0011). */
+export const REPORTS_CLIENT = Symbol('ReportsClient');
+
+/** DI token of the `LlmClient` port: `app.module.ts` binds it to an adapter (see ADR 0011). */
+export const LLM_CLIENT = Symbol('LlmClient');

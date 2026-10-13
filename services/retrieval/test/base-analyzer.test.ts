@@ -70,31 +70,12 @@ describe('BaseAnalyzer (Template Method)', () => {
   });
 });
 
-/** Acceptance criteria for Area 3. Turn each `it.todo` into a real test as you build it. */
-describe('VulnerabilityAnalyzer', () => {
-  it.todo('flags Acme.Serialization 1.4.0 against the sample advisory (introduced 0, fixed 1.5.0)');
-  it.todo('does not flag 1.5.0 (the first fixed version) nor later versions');
-  it.todo('honors lastAffected and explicit version lists');
-  it.todo('matches by ecosystem AND name, never by name alone');
-  it.todo('puts the advisory evidence, impact and recommendation in the finding');
-});
-
-describe('LicenseAnalyzer', () => {
-  it.todo('flags GPL-3.0-only as a copyleft risk for proprietary distribution');
-  it.todo('understands SPDX expressions (MIT OR Apache-2.0 is fine, GPL-3.0-only AND MIT is not)');
-  it.todo('reports a missing or unknown license as an informational finding');
-  it.todo('is gated by entitlements.features.licenseCompliance');
-});
-
+/**
+ * Acceptance criteria for Area 3 that are still to build. The vulnerability and license cases live
+ * in their own test files; the RetrieveEvidence use case and the plan gates in app.test.ts.
+ */
 describe('CompatibilityAnalyzer', () => {
   it.todo('flags a package that does not support the project game engine version');
   it.todo('takes the SDKs and the target platforms into account');
   it.todo('is gated by entitlements.features.compatibilityAnalysis');
-});
-
-describe('RetrieveEvidence use case', () => {
-  it.todo('publishes the deterministic result to Reports before involving the LLM');
-  it.todo('dispatches to llm-analysis only when the plan allows AI and the client asked for it');
-  it.todo('publishes an AnalysisFailure (retrieval-error) when the knowledge cannot be fetched');
-  it.todo('keeps working with partialSources=true when the normalization service is degraded');
 });

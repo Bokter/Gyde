@@ -2,8 +2,12 @@ import { z } from 'zod';
 
 import { Id, IsoDateTime } from './common';
 
-/** LLM providers a studio can bring its own key for (BYOK). Extend through a reviewed PR. */
-export const LlmProvider = z.enum(['anthropic', 'openai']);
+/**
+ * LLM providers a studio can bring its own key for (BYOK). Extend through a reviewed PR.
+ * `openai` is in the contract but llm-analysis has no adapter for it yet: a key for it is
+ * refused (`SUPPORTED_LLM_PROVIDERS` in Web, and the analyzer map of llm-analysis).
+ */
+export const LlmProvider = z.enum(['anthropic', 'gemini', 'openai']);
 export type LlmProvider = z.infer<typeof LlmProvider>;
 
 /** Body used by a studio to register its key. `apiKey` is write-only: it is never returned. */

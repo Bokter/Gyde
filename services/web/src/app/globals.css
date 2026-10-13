@@ -1,0 +1,77 @@
+@import 'tailwindcss';
+@import '@gyde/design-tokens/css';
+
+:root {
+  --font-bricolage-grotesque: 'Bricolage Grotesque', system-ui, sans-serif;
+  --font-figtree: 'Figtree', system-ui, sans-serif;
+  --font-jetbrains-mono: 'JetBrains Mono', monospace;
+}
+
+/* Element defaults live in a layer so Tailwind utilities (and CSS Modules) can override them. */
+@layer base {
+  html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-family: var(--font-figtree);
+    font-size: var(--gyde-font-size-base);
+    line-height: var(--gyde-font-line-height-normal);
+    color: var(--gyde-color-fg-default);
+    background-color: var(--gyde-color-bg-canvas);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-bricolage-grotesque);
+    line-height: var(--gyde-font-line-height-tight);
+    font-weight: 700;
+    color: var(--gyde-color-fg-default);
+  }
+
+  code,
+  pre,
+  kbd,
+  samp {
+    font-family: var(--font-jetbrains-mono);
+    font-size: var(--gyde-font-size-sm);
+  }
+
+  a {
+    color: var(--gyde-color-fg-brand);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  a:hover {
+    text-decoration-thickness: 2px;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--gyde-color-focus-ring);
+    outline-offset: 2px;
+    box-shadow: var(--gyde-shadow-focus);
+  }
+
+  ::selection {
+    background-color: var(--gyde-color-bg-brand-subtle);
+    color: var(--gyde-color-fg-brand);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

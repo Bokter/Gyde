@@ -11,7 +11,7 @@ Los documentos describen siete contenedores, tres clientes y varias librerías c
 
 TypeScript en todo el proyecto, en un **monorepo** con **pnpm workspaces** y **Turborepo**:
 
-- Servicios con **Fastify**, validación con **zod**, pruebas con **Vitest**; Servicio Web con **Next.js**; datos en **PostgreSQL**.
+- Servicios con **NestJS sobre Fastify** ([ADR 0011](0011-nestjs-como-framework-de-los-servicios.md)), validación con **zod**, pruebas con **Vitest**; Servicio Web con **Next.js**; datos en **PostgreSQL**.
 - **Una sola versión de cada dependencia compartida** mediante el catálogo de pnpm (`pnpm-workspace.yaml`).
 - Los paquetes compartidos se publican **como código fuente** en el workspace; cada servicio los empaqueta con `tsup` (dejando las dependencias de npm como externas, declaradas en su `package.json`).
 - TypeScript queda en **~6.0.x** porque `typescript-eslint` aún no soporta 6.1 o superior.

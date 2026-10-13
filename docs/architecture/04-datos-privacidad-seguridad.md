@@ -2,13 +2,13 @@
 
 ## 1. Qué sale del entorno del cliente
 
-La propuesta de valor incluye proteger el código propietario: el análisis empieza **localmente** (CLI, Action o extensión) y al backend solo viaja información no sensible.
+La propuesta de valor incluye proteger el código propietario: el análisis empieza **localmente** (CLI o Action) y al backend solo viaja información no sensible.
 
 | Permitido (`AnalysisRequest`) | Prohibido |
 |---|---|
 | Nombre, versión, ecosistema y licencia declarada de cada dependencia | Código fuente, fragmentos o diffs |
 | Motor, versión del motor, SDKs y plataformas objetivo | Rutas de archivos o nombres de carpetas del proyecto |
-| Tipo y versión del cliente (CLI / Action / extensión) | URL del repositorio, nombres de ramas, usuarios, equipos |
+| Tipo y versión del cliente (CLI / Action) | URL del repositorio, nombres de ramas, usuarios, equipos |
 | Opciones del análisis (`includeAi`) | Cualquier otro dato |
 
 **Cómo se impone (defensa en profundidad):**
@@ -29,7 +29,7 @@ Una instancia de PostgreSQL, **un schema y un rol por servicio que persiste**, s
 | `reports` | `reports` | análisis y reportes |
 | `gateway`, `retrieval`, `llm-analysis`, `registry` | — | sin persistencia (caché en memoria) |
 
-Los reportes contienen nombres de dependencias y hallazgos, no código del cliente. Definir una política de retención es parte del Área 4 (por defecto, la del plan).
+Los reportes contienen nombres de dependencias y hallazgos, no código del cliente. La política de retención queda fuera del camino E2E del MVP: por defecto se conservan según el plan y, si se implementa, es una constante documentada en `reports` (Área 4), no una función nueva.
 
 ## 3. Llaves LLM de los estudios (BYOK)
 

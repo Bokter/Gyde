@@ -25,9 +25,25 @@ inputs:
     required: false
     default: 'true'
   comment-on-pr:
-    description: Post the report as a pull request comment.
+    description: Post the report as a pull request comment (one comment, updated on every run).
     required: false
     default: 'true'
+  fail-on-degraded:
+    description: Fail the step when the report is degraded (the AI layer could not run). By default it is only a warning.
+    required: false
+    default: 'false'
+  github-token:
+    description: Token used to comment on the pull request. The workflow needs the pull-requests write permission.
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  analysis-id:
+    description: Id of the Gyde analysis.
+  risk-score:
+    description: Risk score from 0 to 100 (empty when the severity layer did not run).
+  degraded:
+    description: Whether the report is degraded ("true" or "false").
 
 runs:
   using: node24

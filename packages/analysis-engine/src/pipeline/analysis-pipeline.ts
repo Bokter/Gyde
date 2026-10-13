@@ -1,11 +1,22 @@
-import type { AnalysisRequest, AuthVerifyResponse, Finding, Report } from '@gyde/contracts';
+import type {
+  AnalysisRequest,
+  AuthVerifyResponse,
+  ClientInfo,
+  Finding,
+  Report,
+} from '@gyde/contracts';
 
+import { buildAnalysisRequest } from '../privacy/build-analysis-request';
 import type { AnalysisToolchainFactory } from '../toolchain/ports';
 import type { AnalysisGateway, AnalysisJob } from '../types';
+
+import { waitForReport, type WaitOptions } from './wait-for-report';
 
 export interface AnalysisPipelineDeps {
   gateway: AnalysisGateway;
   toolchain: AnalysisToolchainFactory;
+  /** Polling interval and timeout while waiting for the remote stages. */
+  wait?: WaitOptions;
 }
 
 /**
@@ -26,13 +37,30 @@ export interface AnalysisPipelineDeps {
  * Steps 3-5 are stages of the same remote job (`retrieving` → `analyzing` → `ready`), not three
  * separate round trips: the backend orchestrates (see docs/adr/).
  */
+/**
+ * The algorithm and its invariant steps. A concrete pipeline fills only the two hooks
+ * (`parseDependencies`, `publishResult`); TypeScript has no `final`, so architecture tests assert
+ * that no subclass defines any of these names (see `analysis-pipeline.test.ts`).
+ */
+export const INVARIANT_STEPS = [
+  'runAnalysis',
+  'authenticateKey',
+  'submitAnalysis',
+  'fetchVulnerabilities',
+  'analyzeLicenses',
+  'generateReport',
+  'buildRequest',
+] as const;
+
 export abstract class AnalysisPipeline {
   protected readonly gateway: AnalysisGateway;
   protected readonly toolchain: AnalysisToolchainFactory;
+  protected readonly wait: WaitOptions;
 
-  constructor({ gateway, toolchain }: AnalysisPipelineDeps) {
+  constructor({ gateway, toolchain, wait }: AnalysisPipelineDeps) {
     this.gateway = gateway;
     this.toolchain = toolchain;
+    this.wait = wait ?? {};
   }
 
   /** The template method. Do not override it. */
@@ -62,17 +90,28 @@ export abstract class AnalysisPipeline {
     return this.toolchain.createVulnerabilityFetcher().fetchVulnerabilities(job);
   }
 
-  /** TODO(area-4): wait for the deterministic stage and return the license findings. */
-  protected async analyzeLicenses(_job: AnalysisJob): Promise<Finding[]> {
-    throw new Error('TODO(area-4): AnalysisPipeline.analyzeLicenses is not implemented yet');
+  /** Deterministic stage of the remote job: the license findings (`kind === 'license'`). */
+  protected async analyzeLicenses(job: AnalysisJob): Promise<Finding[]> {
+    const report = await waitForReport(this.gateway, job, 'deterministic', this.wait);
+    return report.findings.filter((finding) => finding.kind === 'license');
   }
 
   /**
-   * TODO(area-4): poll `gateway.getReport` until `ready` (or `failed`), with a timeout. If the
-   * gateway is unreachable, serve the last cached report flagged as degraded.
+   * Waits for the final report (`ready`). A `failed` analysis raises a clear error with the
+   * report's message; if the gateway is unreachable `GydeApiClient` serves the last cached report
+   * flagged `degraded`.
    */
-  protected async generateReport(_job: AnalysisJob): Promise<Report> {
-    throw new Error('TODO(area-4): AnalysisPipeline.generateReport is not implemented yet');
+  protected async generateReport(job: AnalysisJob): Promise<Report> {
+    return waitForReport(this.gateway, job, 'ready', this.wait);
+  }
+
+  /** Shared by the two concrete pipelines: parse locally and pass through the privacy gate. */
+  protected async buildRequest(
+    client: ClientInfo,
+    includeAi: boolean | undefined,
+  ): Promise<AnalysisRequest> {
+    const parsed = await this.toolchain.createDependencyParser().parseDependencies();
+    return buildAnalysisRequest({ parsed, client, options: { includeAi: includeAi ?? true } });
   }
 
   // --- Hooks: environment specific -----------------------------------------------------------

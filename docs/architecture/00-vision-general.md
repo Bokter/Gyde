@@ -10,6 +10,7 @@ Esta carpeta describe **lo que se construye y por qué**. Las fuentes de verdad 
 | [02 Flujos](02-flujos.md) | Análisis completo, resultado degradado, Circuit Breaker, discovery, Stripe y BYOK |
 | [03 Patrones](03-patrones.md) | Dónde vive cada patrón arquitectónico y de diseño, y cómo se prueba |
 | [04 Datos, privacidad y seguridad](04-datos-privacidad-seguridad.md) | Qué sale del cliente, quién guarda qué y cómo se protegen las llaves |
+| [05 Modelo C4](05-modelo-c4.md) | Contexto, contenedores y componentes (Structurizr, única fuente de los diagramas), con el archivo del código de cada uno |
 
 ## Estilo: microservicios con aislamiento de fallos
 
@@ -23,38 +24,9 @@ Los microservicios permiten aislar módulos que funcionan de forma independiente
 
 ## Diagrama de contenedores
 
-```mermaid
-flowchart TB
-    cliente["CLI · GitHub Action · Extensión VS Code<br/>(entorno del cliente)"]
-    subgraph backend["Backend Gyde (microservicios)"]
-        gw["API Gateway<br/>enruta y autentica"]
-        web["Servicio Web<br/>pagos y configuración de LLMs"]
-        rep["Servicio de Reportes<br/>reporte final priorizado"]
-        ret["Servicio de Retrieval<br/>filtra evidencia relevante"]
-        norm["Pipeline de Normalización<br/>estandariza fuentes externas"]
-        llm["Servicio Análisis LLM<br/>interpreta y correlaciona"]
-        reg["Service Registry + Health Checker<br/>(infraestructura)"]
-    end
-    stripe(["Stripe"])
-    fuentes(["Fuentes externas<br/>CVE · GHSA · OSV · NVD · docs"])
-    ia(["Proveedores de IA"])
+![Contenedores de Gyde](c4/Contenedores.svg)
 
-    cliente -->|"HTTPS / JSON"| gw
-    gw -->|"gestiona pagos y configuración"| web
-    gw -->|"solicita / genera reporte"| rep
-    rep -->|"solicita evidencia"| ret
-    ret -->|"consulta evidencia normalizada"| norm
-    ret -->|"envía evidencia para análisis"| llm
-    llm -->|"devuelve hallazgos priorizados"| rep
-    llm -.->|"llave del estudio (BYOK)"| web
-    stripe -.->|"webhook"| web
-    web -.->|"cargos y consultas"| stripe
-    norm -.->|"vulnerabilidades, avisos y docs"| fuentes
-    llm -.->|"inferencia"| ia
-    gw -.->|"descubre instancias"| reg
-```
-
-Las flechas con línea continua son llamadas internas síncronas; las punteadas son relaciones externas o de infraestructura. Respecto al diagrama original se añaden dos aristas, ambas decididas en los ADR: `llm-analysis → web` (la llave BYOK del estudio) y el **Service Registry** como contenedor de infraestructura.
+Vista exportada del [modelo C4](05-modelo-c4.md), que es la única fuente de los diagramas de arquitectura ([`c4/workspace.dsl`](c4/workspace.dsl)). Respecto al diagrama del documento de arquitectura se añaden aristas decididas en los ADR: `llm-analysis → web` (la llave BYOK del estudio), el **Service Registry** como contenedor de infraestructura y `web → proveedor de IA` (la prueba de la llave al guardarla).
 
 ## Invariantes (reglas que no se rompen)
 
@@ -67,7 +39,7 @@ Las flechas con línea continua son llamadas internas síncronas; las punteadas 
 
 ## Alcance del MVP
 
-**Dentro:** análisis de dependencias, versiones desactualizadas, licencias y compatibilidad (motor + SDK + plataforma) para proyectos Unity y Unreal; reporte priorizado y explicable; suscripciones con Stripe (modo test); API keys; llaves LLM por estudio; CLI, GitHub Action y extensión de VS Code (esta última como esqueleto).
+**Dentro:** análisis de dependencias, versiones desactualizadas, licencias y compatibilidad (motor + SDK + plataforma) para proyectos Unity y Unreal; reporte priorizado y explicable; suscripciones con Stripe (modo test); API keys; llaves LLM por estudio; CLI y GitHub Action.
 
 **Fuera:** análisis estático del código fuente del cliente (ningún componente del documento lo hace y contradiría la privacidad), más motores que Unity y Unreal, escalado automático real y despliegue en la nube.
 
@@ -97,7 +69,8 @@ Las flechas con línea continua son llamadas internas síncronas; las punteadas 
 | **Abstract Factory** (`AnalysisToolchainFactory`, Unity/Unreal) | `packages/analysis-engine/src/toolchain/` |
 | **Template Method** (`AnalysisPipeline`) | `packages/analysis-engine/src/pipeline/` y `BaseAnalyzer` en `services/retrieval` |
 | **Decorator** (`ReportComponent` y decoradores) | `services/reports/src/domain/report/` |
-| GitHub Action · extensión local · CLI | `apps/github-action`, `apps/vscode-extension`, `apps/cli` |
+| GitHub Action · CLI | `apps/github-action`, `apps/cli` |
 | Protección del código propietario | `@gyde/contracts` (esquema estricto) y `packages/analysis-engine/src/privacy/` |
 | Modelo freemium y planes de suscripción | `services/web` (Stripe), `PLAN_CATALOG` en contratos, límites en `gateway`, capas del reporte en `reports` |
 | Despliegue independiente de cada contenedor | `services/*/Dockerfile` e `infra/compose/` |
+| Arquitectura limpia con NestJS (módulos, controladores, inyección de dependencias) | `services/*/src/{http,application,domain,infrastructure}` y `app.module.ts` como composition root; [ADR 0011](../adr/0011-nestjs-como-framework-de-los-servicios.md) |

@@ -26,3 +26,7 @@ El Servicio Web "administra y configura los LLM usados (llaves, credenciales)". 
 
 - **Llaves solo de la plataforma:** más simple y seguro, pero Gyde absorbería el costo de IA y deja a los estudios sin control sobre el proveedor que procesa sus metadatos.
 - **Ambas (plataforma por defecto + BYOK opcional):** lo más completo y lo más caro para 5 días. Queda como evolución posible: el esquema se puede ampliar sin romper lo existente.
+
+## Actualización: segundo proveedor (Google Gemini)
+
+La decisión no cambia: el estudio sigue trayendo su llave. Lo que se comprobó es la extensibilidad del diseño: añadir **Google Gemini** fue **un adaptador nuevo** del puerto `FindingAnalyzer` (`gemini-finding-analyzer.ts`), su probador de conexión en el Servicio Web y una entrada más en el mapa de proveedores, **sin tocar los casos de uso ni el dominio**. Se mantienen las reglas: la llave solo se entrega al proveedor al que pertenece, viaja en una cabecera (nunca en la URL), no aparece en logs ni mensajes, y cada tenant + proveedor tiene su propio Circuit Breaker. `openai` sigue en el contrato sin adaptador: se rechaza.

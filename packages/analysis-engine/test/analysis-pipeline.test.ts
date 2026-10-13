@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AnalysisPipeline,
   GitHubActionPipeline,
+  INVARIANT_STEPS,
   LocalCLIPipeline,
   type AnalysisGateway,
   type AnalysisToolchainFactory,
@@ -21,6 +22,7 @@ function fakeGateway(calls: string[], overrides: Partial<AnalysisGateway> = {}):
       return { analysisId: 'analysis-1', status: 'pending' };
     },
     getReport: async () => sampleReportReady,
+    getMarkdown: async () => '# report',
     ...overrides,
   };
 }
@@ -104,11 +106,26 @@ describe('AnalysisPipeline (Template Method)', () => {
   });
 });
 
-describe('architecture rule: the template method is final by convention', () => {
+function overriddenInvariants(Pipeline: { prototype: object }): string[] {
+  return INVARIANT_STEPS.filter((step) =>
+    Object.prototype.hasOwnProperty.call(Pipeline.prototype, step),
+  );
+}
+
+describe('architecture rule: the template method and its invariant steps are final by convention', () => {
   it.each([LocalCLIPipeline, GitHubActionPipeline])(
-    '%o does not override runAnalysis',
+    '%o only fills the hooks: it overrides no invariant step',
     (Pipeline) => {
-      expect(Object.prototype.hasOwnProperty.call(Pipeline.prototype, 'runAnalysis')).toBe(false);
+      expect(overriddenInvariants(Pipeline)).toEqual([]);
     },
   );
+
+  it('notices a pipeline that overrides an invariant step', () => {
+    class Skipper extends LocalCLIPipeline {
+      protected override async authenticateKey(): Promise<never> {
+        throw new Error('a subclass must not skip the authentication');
+      }
+    }
+    expect(overriddenInvariants(Skipper)).toEqual(['authenticateKey']);
+  });
 });

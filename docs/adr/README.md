@@ -17,3 +17,4 @@ Para proponer o cambiar una decisión: copia la plantilla con el siguiente núme
 | [0009](0009-postgresql-un-schema-por-servicio.md) | PostgreSQL: un schema y un rol por servicio | Aceptada |
 | [0010](0010-rama-dev-de-integracion.md) | Rama `dev` de integración antes de `main` | Aceptada |
 | [0011](0011-nestjs-como-framework-de-los-servicios.md) | NestJS como framework de los servicios del backend | Aceptada |
+| [0012](0012-dtos-entidades-y-pureza-de-capas.md) | DTOs, entidades y pureza de capas en los servicios NestJS | Propuesta |

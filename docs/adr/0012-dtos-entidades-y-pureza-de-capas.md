@@ -13,7 +13,7 @@ Una auditoría de los seis servicios contra la guía "Arquitectura limpia aplica
 - `reports.controller.ts` llama al dominio sin caso de uso.
 - Las reglas actuales (`layer-boundaries.mjs`) solo prohíben capas exteriores y librerías de infraestructura; no impiden contratos, Zod ni `node:*`.
 
-El framework no es el problema (ya es NestJS). Falta el contenido de las capas. La línea base de violaciones está en `context/refactor/BASELINE.md` (31 violaciones con `tooling/eslint/purity.config.mjs`).
+El framework no es el problema (ya es NestJS). Falta el contenido de las capas. La línea base era de 31 violaciones al ejecutar `pnpm exec eslint --config tooling/eslint/purity.config.mjs services/<svc>/src` sobre `dev` (gateway 3, registry 2, retrieval 10, normalization 3, llm-analysis 4, reports 9).
 
 ## Decisión
 
@@ -23,7 +23,7 @@ Resumen de las secciones 1 a 6 de `CONVENTIONS.md` del plan de refactor:
 - **`application/`** importa `domain/` y relativos propios; sin `zod`, `@gyde/service-kit`, `@gyde/resilience`, `@gyde/discovery`, `@nestjs/*`, `node:*`, `infrastructure/` ni `http/`.
 - **DTO = tipo plano** (`export type XxxDto`) en `application/dto/`, sin decoradores ni Zod. La validación en runtime sigue en el borde con `ZodValidationPipe(Schema)`; mappers puros en `http/mappers/` convierten contrato ↔ DTO.
 - **Entidades por servicio** donde haya reglas e invariantes (fábricas `create`/`rehydrate`); no hay paquete de dominio compartido. Los patrones existentes (Template Method, Decorator) se conservan.
-- **Errores de aplicación** en `application/errors.ts` (`extends Error` con `code`, sin HTTP) y un filtro en `http/application-error.filter.ts` que los traduce a `HttpError` con el mismo status, código y mensaje de hoy.
+- **Errores de aplicación** en `application/errors.ts` (`extends Error` con `code`, sin HTTP) y un interceptor (`APP_INTERCEPTOR`) en `http/application-error.interceptor.ts` que los traduce a `HttpError` con el mismo status, código y mensaje de hoy.
 - **Controladores delgados**: validar → mapear a DTO → caso de uso → mapear a respuesta.
 - **Sin cambios de contrato externo**: rutas, códigos HTTP, payloads y cabeceras no cambian; no se tocan `packages/contracts` ni `packages/service-kit`.
 - **Lint estricto** en `tooling/eslint/purity.config.mjs`, ejecutable por servicio y conectado a `pnpm lint` en WP-3.
@@ -39,7 +39,7 @@ _(Pendiente: la tabla se completa en WP-3.)_
 ## Consecuencias
 
 - El dominio se prueba sin Nest, sin BD y sin contratos; el código coincide con lo que dicen ADR 0002 y CONTRIBUTING.
-- Se paga con más archivos (DTOs, mappers, errores, filtros) y con mapeos explícitos en los bordes.
+- Se paga con más archivos (DTOs, mappers, errores, interceptor) y con mapeos explícitos en los bordes.
 - Los ADR 0002, 0003 y 0011 llevarán una nota de actualización que apunte a este (WP-3).
 - Queda abierta la deuda aceptada: los casos de uso de paso con `import type` de contratos.
 

@@ -1,6 +1,4 @@
-import type { ServiceName } from '@gyde/contracts';
-
-import type { ServiceInstance } from '../../domain/service-instance';
+import type { ServiceInstance, ServiceName } from '../../domain/service-instance';
 
 export const REGISTRY_REPOSITORY = Symbol('RegistryRepository');
 

@@ -1,6 +1,6 @@
-import type { InstanceInfo } from '@gyde/contracts';
 import { HttpError } from '@gyde/service-kit';
 
+import type { InstanceDto } from './dto/registry.dto';
 import type { RegistryRepository } from './ports/registry-repository';
 
 export const HEARTBEAT_INSTANCE = Symbol('HeartbeatInstance');
@@ -11,7 +11,7 @@ export class HeartbeatInstance {
     private readonly options: { now?: () => number } = {},
   ) {}
 
-  async execute(instanceId: string): Promise<InstanceInfo> {
+  async execute(instanceId: string): Promise<InstanceDto> {
     const instance = await this.repository.findById(instanceId);
     if (!instance) {
       throw new HttpError('not_found', `Instance "${instanceId}" is not registered`);
@@ -20,6 +20,6 @@ export class HeartbeatInstance {
     const currentDate = this.options.now ? new Date(this.options.now()) : new Date();
     instance.touchHeartbeat(currentDate);
     await this.repository.save(instance);
-    return instance.toContract();
+    return instance.snapshot();
   }
 }

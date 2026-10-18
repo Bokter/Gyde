@@ -1,13 +1,10 @@
-import type { AiResult, InternalLlmConfig, LlmAnalysisRequest } from '@gyde/contracts';
+import type { AiResult, InternalLlmConfig } from '@gyde/contracts';
 
 import type { FindingAnalyzer } from '../../application/ports/finding-analyzer';
-import {
-  MODEL_SYSTEM_PROMPT,
-  ModelPayload,
-  applyModelPayload,
-  buildUserPrompt,
-  extractJsonText,
-} from '../../domain/prompt';
+import type { AnalysisInput } from '../../domain/analysis';
+import { MODEL_SYSTEM_PROMPT, applyModelPayload, buildUserPrompt } from '../../domain/prompt';
+import { parseAiResult } from '../mappers/ai-result.mapper';
+import { parseModelOutput } from './model-output.parser';
 
 export const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com';
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -50,7 +47,7 @@ export class GeminiFindingAnalyzer implements FindingAnalyzer {
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   }
 
-  async analyze(request: LlmAnalysisRequest, credentials: InternalLlmConfig): Promise<AiResult> {
+  async analyze(request: AnalysisInput, credentials: InternalLlmConfig): Promise<AiResult> {
     const model = credentials.model.replace(/^models\//, '');
     if (!MODEL_ID.test(model)) throw new Error('Gemini model name is not valid');
 
@@ -80,7 +77,6 @@ export class GeminiFindingAnalyzer implements FindingAnalyzer {
       .join('');
     if (!text.trim()) throw new Error('Gemini answered without text content');
 
-    const payload = ModelPayload.parse(JSON.parse(extractJsonText(text)));
-    return applyModelPayload(request, payload);
+    return parseAiResult(applyModelPayload(request, parseModelOutput(text)));
   }
 }

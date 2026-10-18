@@ -1,7 +1,12 @@
-import { type AnalysisFailure, type DeterministicResult, ROUTES, buildPath } from '@gyde/contracts';
+import { ROUTES, buildPath } from '@gyde/contracts';
 import type { ResilientHttpClient } from '@gyde/service-kit';
 
+import type { AnalysisFailureDto, DeterministicResultDto } from '../application/dto/retrieval.dto';
 import type { ReportsClient } from '../application/ports/downstream';
+import {
+  toAnalysisFailureContract,
+  toDeterministicResultContract,
+} from './mappers/pipeline.mapper';
 import { ServiceUnavailableError, toUnavailable } from './unavailable';
 
 export interface HttpReportsClientOptions {
@@ -26,14 +31,14 @@ export class HttpReportsClient implements ReportsClient {
     this.sleep = options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
   }
 
-  publishDeterministicResult(result: DeterministicResult): Promise<void> {
+  publishDeterministicResult(result: DeterministicResultDto): Promise<void> {
     const path = buildPath(ROUTES.reports.deterministicResult, { analysisId: result.analysisId });
-    return this.post(path, result);
+    return this.post(path, toDeterministicResultContract(result));
   }
 
-  publishFailure(failure: AnalysisFailure): Promise<void> {
+  publishFailure(failure: AnalysisFailureDto): Promise<void> {
     const path = buildPath(ROUTES.reports.failure, { analysisId: failure.analysisId });
-    return this.post(path, failure);
+    return this.post(path, toAnalysisFailureContract(failure));
   }
 
   private async post(path: string, body: unknown): Promise<void> {

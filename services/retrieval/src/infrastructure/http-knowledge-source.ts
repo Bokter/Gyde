@@ -1,11 +1,13 @@
 import { createHash } from 'node:crypto';
 
-import { type KnowledgeQuery, KnowledgeQueryResult, ROUTES } from '@gyde/contracts';
+import { KnowledgeQueryResult, ROUTES } from '@gyde/contracts';
 import type { FallbackCache } from '@gyde/resilience';
 import type { ResilientHttpClient } from '@gyde/service-kit';
 
+import type { KnowledgeAnswerDto, KnowledgeQueryDto } from '../application/dto/retrieval.dto';
 import { KnowledgeUnavailableError } from '../application/errors';
-import type { KnowledgeAnswer, KnowledgeSource } from '../application/ports/knowledge-source';
+import type { KnowledgeSource } from '../application/ports/knowledge-source';
+import { toKnowledgeEntry, toKnowledgeQueryContract } from './mappers/knowledge.mapper';
 import { ServiceUnavailableError, toUnavailable } from './unavailable';
 
 /**
@@ -19,7 +21,8 @@ export class HttpKnowledgeSource implements KnowledgeSource {
     private readonly cache: FallbackCache<KnowledgeQueryResult>,
   ) {}
 
-  async query(query: KnowledgeQuery): Promise<KnowledgeAnswer> {
+  async query(dto: KnowledgeQueryDto): Promise<KnowledgeAnswerDto> {
+    const query = toKnowledgeQueryContract(dto);
     const key = createHash('sha256').update(JSON.stringify(query)).digest('hex');
     try {
       const json = await this.http
@@ -29,11 +32,11 @@ export class HttpKnowledgeSource implements KnowledgeSource {
         });
       const answer = KnowledgeQueryResult.parse(json);
       await this.cache.set(key, answer);
-      return { objects: answer.objects, partial: false };
+      return { entries: answer.objects.map(toKnowledgeEntry), partial: false };
     } catch (error) {
       if (!(error instanceof ServiceUnavailableError)) throw error;
       const stale = await this.cache.get(key);
-      if (stale) return { objects: stale.value.objects, partial: true };
+      if (stale) return { entries: stale.value.objects.map(toKnowledgeEntry), partial: true };
       throw new KnowledgeUnavailableError(error.message);
     }
   }

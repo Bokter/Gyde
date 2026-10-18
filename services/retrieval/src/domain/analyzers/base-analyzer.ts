@@ -1,17 +1,18 @@
 import {
-  type AnalysisRequest,
+  type Dependency,
   type Evidence,
   type Finding,
-  type KnowledgeObject,
+  type KnowledgeEntry,
   SEVERITY_ORDER,
-} from '@gyde/contracts';
+} from '../model';
 
 export type AnalyzerName = 'vulnerabilities' | 'compatibility' | 'licenses';
 
 export interface AnalyzerInput {
-  request: AnalysisRequest;
+  /** The part of the analysis request the analyzers read: the dependencies of the project. */
+  request: { readonly dependencies: readonly Dependency[] };
   /** Candidates already fetched from the normalization service (by ecosystem and package name). */
-  knowledge: readonly KnowledgeObject[];
+  knowledge: readonly KnowledgeEntry[];
 }
 
 export interface AnalyzerResult {

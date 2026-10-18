@@ -1,6 +1,5 @@
-import type { Finding } from '@gyde/contracts';
-
 import type { ReportComponent, ReportContent } from './report-component';
+import type { Finding } from './report-types';
 
 /** ConcreteComponent: the raw report with the deterministic findings (vulnerabilities, licenses…). */
 export class BasicAnalysisReport implements ReportComponent {

@@ -12,64 +12,21 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { NestFastifyApplication } from '@gyde/service-kit';
 
 import type { AppModuleOverrides } from '../src/app.module';
-import type { ReportRepository, StoredAnalysis } from '../src/application/ports/report-repository';
-import type { TimerName } from '../src/application/analysis-lifecycle';
-import type { RetrievalClient } from '../src/application/ports/retrieval-client';
+import type { AnalysisSnapshot } from '../src/domain/entities/analysis-types';
+import type { TimerName } from '../src/application/analysis-watchdog';
 import { configSchema } from '../src/config';
 import type { DatabaseHandle } from '../src/infrastructure/db/database';
-import { PostgresReportRepository } from '../src/infrastructure/postgres-report.repository';
+import { PostgresReportRepository } from '../src/infrastructure/repositories/postgres-report.repository';
 import { createApp } from '../src/http/app';
+import { FakeRepository, FakeRetrieval } from './support/fakes';
 import { createPgliteDatabase } from './support/pglite';
+import { viaSnapshots } from './support/snapshots';
 
 const token = 'test-internal-token-123456';
 const config = configSchema.parse({ INTERNAL_SERVICE_TOKEN: token });
 const auth = { [HEADERS.internalToken]: token };
 /** What the gateway sends on a read: the internal token plus the tenant of the API key. */
 const asTenant = (tenantId: string) => ({ ...auth, [HEADERS.tenantId]: tenantId });
-
-/** Fake repository: records every call so the tests can assert on it. */
-class FakeRepository implements ReportRepository {
-  readonly store = new Map<string, StoredAnalysis>();
-  readonly calls: string[] = [];
-  /** Makes the update that finishes a job fail (the watchdog runs one of those). */
-  failReadyUpdates = false;
-
-  async create(analysis: StoredAnalysis): Promise<void> {
-    this.calls.push(`create:${analysis.id}`);
-    this.store.set(analysis.id, structuredClone(analysis));
-  }
-
-  async get(id: string): Promise<StoredAnalysis | undefined> {
-    this.calls.push(`get:${id}`);
-    const found = this.store.get(id);
-    return found ? structuredClone(found) : undefined;
-  }
-
-  async update(analysis: StoredAnalysis): Promise<void> {
-    if (this.failReadyUpdates && analysis.status === 'ready') throw new Error('db is down');
-    this.calls.push(`update:${analysis.id}`);
-    this.store.set(analysis.id, structuredClone(analysis));
-  }
-
-  /**
-   * Nothing is stale: the timers of this process cover every job it started, and the startup
-   * sweep only runs when the app is built with a database (PostgreSQL tests use the real one).
-   */
-  async findStale(_status: ReportStatus, _cutoff: Date): Promise<StoredAnalysis[]> {
-    return [];
-  }
-}
-
-/** Fake retrieval: records the requests it received; can be told to fail. */
-class FakeRetrieval implements RetrievalClient {
-  readonly requests: unknown[] = [];
-  failWith?: Error;
-
-  async retrieve(request: unknown): Promise<void> {
-    this.requests.push(request);
-    if (this.failWith) throw this.failWith;
-  }
-}
 
 async function buildApp(
   overrides: AppModuleOverrides = {},
@@ -601,7 +558,7 @@ describe('record methods and full lifecycle', () => {
 /** PR H: a restart must not leave analyses stuck in `retrieving`/`analyzing` forever. */
 describe('startup sweep', () => {
   /** What a previous run left in the database: rows written long before this process started. */
-  function leftover(id: string, status: ReportStatus): StoredAnalysis {
+  function leftover(id: string, status: ReportStatus): AnalysisSnapshot {
     return {
       id,
       tenantId: 'tenant-1',
@@ -615,7 +572,7 @@ describe('startup sweep', () => {
   it('closes the analyses a previous run left in progress when the service starts', async () => {
     const database = createPgliteDatabase();
     await database.migrate(); // the schema (and the rows) of the run that went down
-    const repository = new PostgresReportRepository(database.db);
+    const repository = viaSnapshots(new PostgresReportRepository(database.db));
     await repository.create(leftover('stale-analyzing', 'analyzing'));
     await repository.create(leftover('stale-retrieving', 'retrieving'));
     await repository.create({

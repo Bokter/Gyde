@@ -48,10 +48,10 @@ workspace "Gyde" "Detecta vulnerabilidades, conflictos de licencia y riesgos en 
                         gatewayHttpMapper = component "gateway.mapper (http)" "Valida con los contratos la entrada y la salida HTTP y la convierte en DTO." "services/gateway/src/http/mappers/gateway.mapper.ts"
                     }
                     group "gateway: application" {
-                        authenticate = component "AuthenticateApiKey" "Verifica la key con caché indexada por su SHA-256 y devuelve el Principal." "services/gateway/src/application/use-cases/authenticate-api-key.use-case.ts"
-                        submit = component "SubmitAnalysis" "Crea el análisis aplicando los límites del plan (Entitlements y contador de uso)." "services/gateway/src/application/use-cases/submit-analysis.use-case.ts"
-                        getReport = component "GetReport" "Lee el reporte de un análisis del tenant." "services/gateway/src/application/use-cases/get-report.use-case.ts"
-                        rateLimit = component "EnforceRateLimit" "Límite de tasa por clave de API (apiKeyId), ventana fija de 1 minuto." "services/gateway/src/application/use-cases/enforce-rate-limit.use-case.ts"
+                        authenticate = component "AuthenticateApiKeyUseCase" "Verifica la key con caché indexada por su SHA-256 y devuelve el Principal." "services/gateway/src/application/use-cases/authenticate-api-key.use-case.ts"
+                        submit = component "SubmitAnalysisUseCase" "Crea el análisis aplicando los límites del plan (Entitlements y contador de uso)." "services/gateway/src/application/use-cases/submit-analysis.use-case.ts"
+                        getReport = component "GetReportUseCase" "Lee el reporte de un análisis del tenant." "services/gateway/src/application/use-cases/get-report.use-case.ts"
+                        rateLimit = component "EnforceRateLimitUseCase" "Límite de tasa por clave de API (apiKeyId), ventana fija de 1 minuto." "services/gateway/src/application/use-cases/enforce-rate-limit.use-case.ts"
                         gatewayDto = component "DTO del gateway" "Formas de datos de la capa de aplicación, sin tipos de transporte." "services/gateway/src/application/dto/gateway.dto.ts"
                         gatewayErrors = component "Errores de aplicación" "GatewayError, UnauthorizedError y PlanLimitExceededError." "services/gateway/src/application/errors.ts"
                         authPorts = component "ApiKeyVerifier, AuthCache, KeyHasher" "Puertos de la autenticación." "services/gateway/src/application/ports/" "Puerto"
@@ -115,7 +115,7 @@ workspace "Gyde" "Detecta vulnerabilidades, conflictos de licencia y riesgos en 
                         retrievalHttpMapper = component "retrieval.mapper" "Valida con el contrato la entrada HTTP y la convierte en DTO." "services/retrieval/src/http/mappers/retrieval.mapper.ts"
                     }
                     group "retrieval: application" {
-                        retrieve = component "RetrieveEvidence" "Orquesta los analizadores y publica a reports y, si el plan lo permite, a llm-analysis. Nunca rechaza: consume sus propios errores." "services/retrieval/src/application/use-cases/retrieve-evidence.use-case.ts"
+                        retrieve = component "RetrieveEvidenceUseCase" "Orquesta los analizadores y publica a reports y, si el plan lo permite, a llm-analysis. Nunca rechaza: consume sus propios errores." "services/retrieval/src/application/use-cases/retrieve-evidence.use-case.ts"
                         backgroundJobs = component "BackgroundJobs" "Ejecuta el caso de uso fuera de la petición; un fallo inesperado solo se registra." "services/retrieval/src/application/background-jobs.ts"
                         retrievalDto = component "DTO de retrieval" "Formas de datos de la capa de aplicación." "services/retrieval/src/application/dto/retrieval.dto.ts"
                         retrievalErrors = component "Errores de aplicación" "KnowledgeUnavailableError y LlmUnavailableError." "services/retrieval/src/application/errors.ts"
@@ -144,7 +144,7 @@ workspace "Gyde" "Detecta vulnerabilidades, conflictos de licencia y riesgos en 
                         llmHttpMapper = component "llm-analysis.mapper" "Valida con el contrato la entrada HTTP y la convierte en DTO." "services/llm-analysis/src/http/mappers/llm-analysis.mapper.ts"
                     }
                     group "llm-analysis: application" {
-                        analyze = component "AnalyzeFindings" "Pide la configuración del tenant, elige el adaptador de su proveedor, llama al modelo a través de ModelCallPolicy y publica el resultado o el motivo del fallo." "services/llm-analysis/src/application/use-cases/analyze-findings.use-case.ts"
+                        analyze = component "AnalyzeFindingsUseCase" "Pide la configuración del tenant, elige el adaptador de su proveedor, llama al modelo a través de ModelCallPolicy y publica el resultado o el motivo del fallo." "services/llm-analysis/src/application/use-cases/analyze-findings.use-case.ts"
                         llmDto = component "DTO de llm-analysis" "Formas de datos de la capa de aplicación." "services/llm-analysis/src/application/dto/llm-analysis.dto.ts"
                         backgroundJobs = component "BackgroundJobs" "Ejecuta el caso de uso fuera de la petición." "services/llm-analysis/src/application/background-jobs.ts"
                         analyzerPort = component "FindingAnalyzer" "Puerto agnóstico del proveedor de IA. openai figura en el contrato sin adaptador." "services/llm-analysis/src/application/ports/finding-analyzer.ts" "Puerto"
@@ -245,7 +245,6 @@ workspace "Gyde" "Detecta vulnerabilidades, conflictos de licencia y riesgos en 
         # Componentes: gateway
         gyde.cli.apiClient -> gyde.gateway.guards "Authorization: Bearer <API key>" "HTTPS/JSON"
         gyde.action -> gyde.gateway.guards "Authorization: Bearer <API key>" "HTTPS/JSON"
-        gyde.gateway.guards -> gyde.gateway.keyFormat "Descarta keys mal formadas"
         gyde.gateway.guards -> gyde.gateway.authenticate "Autentica"
         gyde.gateway.guards -> gyde.gateway.rateLimit "Limita"
         gyde.gateway.controller -> gyde.gateway.gatewayHttpMapper "Valida y convierte"
@@ -259,7 +258,6 @@ workspace "Gyde" "Detecta vulnerabilidades, conflictos de licencia y riesgos en 
         gyde.gateway.submit -> gyde.gateway.reportsPort "Usa"
         gyde.gateway.submit -> gyde.gateway.limitPorts "Cuenta el uso del plan"
         gyde.gateway.submit -> gyde.gateway.tenantUsage "Calcula el periodo de facturación"
-        gyde.gateway.submit -> gyde.gateway.principal "Lee los Entitlements"
         gyde.gateway.getReport -> gyde.gateway.reportReaderPort "Usa"
         gyde.gateway.rateLimit -> gyde.gateway.limitPorts "Usa"
         gyde.gateway.webVerifier -> gyde.gateway.authPorts "Implementa" "" "Implementa"
@@ -268,7 +266,6 @@ workspace "Gyde" "Detecta vulnerabilidades, conflictos de licencia y riesgos en 
         gyde.gateway.httpReports -> gyde.gateway.reportReaderPort "Implementa" "" "Implementa"
         gyde.gateway.memoryLimits -> gyde.gateway.limitPorts "Implementa" "" "Implementa"
         gyde.gateway.memoryLimits -> gyde.gateway.rateWindow "Cuenta con"
-        gyde.gateway.memoryLimits -> gyde.gateway.tenantUsage "Cuenta con"
         gyde.gateway.webVerifier -> gyde.gateway.gatewayInfraMapper "Valida la respuesta"
         gyde.gateway.httpReports -> gyde.gateway.gatewayInfraMapper "Valida y convierte"
         gyde.gateway.webVerifier -> gyde.web "Verifica la API key" "HTTP/JSON, /internal, x-internal-token"

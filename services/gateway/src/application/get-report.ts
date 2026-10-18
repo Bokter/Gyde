@@ -1,6 +1,7 @@
 import type { Report } from '@gyde/contracts';
 
-import type { Principal, RequestContext } from './principal';
+import type { Principal } from '../domain/principal';
+import type { RequestContext } from './request-context';
 import type { ReportsClient } from './ports/reports-client';
 
 /** `GET /v1/analyses/:id` and `/markdown`. A missing analysis is Reports' 404, passed along. */

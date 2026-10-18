@@ -1,10 +1,11 @@
-import { VerifyApiKeyRequest } from '@gyde/contracts';
 import { HttpError } from '@gyde/service-kit';
 
 import type { AuthCache } from './ports/auth-cache';
 import type { ApiKeyVerifier } from './ports/api-key-verifier';
 import type { KeyHasher } from './ports/key-hasher';
-import type { Principal, RequestContext } from './principal';
+import { isWellFormedApiKey } from '../domain/api-key-format';
+import type { Principal } from '../domain/principal';
+import type { RequestContext } from './request-context';
 
 export interface AuthenticateApiKeyDeps {
   verifier: ApiKeyVerifier;
@@ -24,14 +25,13 @@ export class AuthenticateApiKey {
 
   async execute(apiKey: string | undefined, context: RequestContext): Promise<Principal> {
     // Web would answer 400 to a key outside the contract bounds: refuse it here, without a call.
-    const parsed = VerifyApiKeyRequest.safeParse({ apiKey });
-    if (!parsed.success) throw unauthorized();
+    if (!isWellFormedApiKey(apiKey)) throw unauthorized();
 
-    const keyHash = this.deps.hasher.hash(parsed.data.apiKey);
+    const keyHash = this.deps.hasher.hash(apiKey);
     const cached = this.deps.cache.get(keyHash);
     if (cached) return cached;
 
-    const result = await this.deps.verifier.verify(parsed.data.apiKey, context);
+    const result = await this.deps.verifier.verify(apiKey, context);
     if (!result.valid) throw unauthorized();
 
     const principal: Principal = {

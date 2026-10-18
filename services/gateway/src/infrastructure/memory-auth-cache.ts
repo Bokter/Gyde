@@ -1,5 +1,5 @@
 import type { AuthCache } from '../application/ports/auth-cache';
-import type { Principal } from '../application/principal';
+import type { Principal } from '../domain/principal';
 
 interface Entry {
   principal: Principal;

@@ -1,4 +1,4 @@
-import type { Principal } from '../principal';
+import type { Principal } from '../../domain/principal';
 
 export const AUTH_CACHE = Symbol('AuthCache');
 

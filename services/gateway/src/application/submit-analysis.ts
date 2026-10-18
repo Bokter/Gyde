@@ -3,7 +3,9 @@ import { HttpError } from '@gyde/service-kit';
 
 import type { ReportsClient } from './ports/reports-client';
 import type { UsageCounter } from './ports/usage-counter';
-import type { Principal, RequestContext } from './principal';
+import type { Principal } from '../domain/principal';
+import { billingPeriodOf } from '../domain/usage-allowance';
+import type { RequestContext } from './request-context';
 
 export interface SubmitAnalysisDeps {
   reports: ReportsClient;
@@ -28,7 +30,7 @@ export class SubmitAnalysis {
     context: RequestContext,
   ): Promise<AnalysisAccepted> {
     const { plan, limits } = principal.entitlements;
-    const period = new Date(this.deps.now()).toISOString().slice(0, 7);
+    const period = billingPeriodOf(this.deps.now());
 
     if (!this.deps.usage.reserve(principal.tenantId, period, limits.analysesPerMonth)) {
       throw new HttpError(

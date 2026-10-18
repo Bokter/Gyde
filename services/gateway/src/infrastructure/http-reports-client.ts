@@ -9,7 +9,7 @@ import {
 import { HttpError, type ResilientHttpClient } from '@gyde/service-kit';
 
 import type { ReportsClient } from '../application/ports/reports-client';
-import type { RequestContext } from '../application/principal';
+import type { RequestContext } from '../application/request-context';
 import { toUpstreamUnavailable } from './upstream-errors';
 
 type Context = RequestContext & { tenantId: string };

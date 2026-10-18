@@ -19,7 +19,8 @@ import {
 } from '@nestjs/common';
 
 import { GetReport } from '../application/get-report';
-import type { Principal, RequestContext } from '../application/principal';
+import type { RequestContext } from '../application/request-context';
+import type { Principal } from '../domain/principal';
 import { SubmitAnalysis } from '../application/submit-analysis';
 import { ApiKeyGuard } from './api-key.guard';
 import { RateLimitGuard } from './rate-limit.guard';

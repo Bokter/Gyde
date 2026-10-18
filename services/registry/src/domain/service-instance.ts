@@ -1,15 +1,31 @@
-import type { InstanceInfo, ServiceName, ServiceRegistration } from '@gyde/contracts';
+/** Names the registry knows about: a local copy, the domain does not import the contracts. */
+export type ServiceName =
+  'gateway' | 'web' | 'normalization' | 'retrieval' | 'llm-analysis' | 'reports';
 
-export interface ServiceInstanceData {
+export interface InstanceRegistration {
   instanceId: string;
   serviceName: ServiceName;
   baseUrl: string;
   version: string;
   metadata?: Record<string, string>;
-  healthy?: boolean;
-  registeredAt?: string;
-  lastHeartbeatAt?: string;
-  failedProbes?: number;
+}
+
+/** Read-only view of an instance (what leaves the domain; `metadata` stays inside). */
+export interface InstanceSnapshot {
+  readonly instanceId: string;
+  readonly serviceName: ServiceName;
+  readonly baseUrl: string;
+  readonly version: string;
+  readonly healthy: boolean;
+  readonly registeredAt: string;
+  readonly lastHeartbeatAt: string;
+}
+
+export interface ServiceInstanceState extends InstanceRegistration {
+  healthy: boolean;
+  registeredAt: string;
+  lastHeartbeatAt: string;
+  failedProbes: number;
 }
 
 export class ServiceInstance {
@@ -17,37 +33,37 @@ export class ServiceInstance {
   readonly serviceName: ServiceName;
   readonly baseUrl: string;
   readonly version: string;
-  readonly metadata: Record<string, string>;
+  private readonly metadata: Record<string, string>;
   private _healthy: boolean;
-  private _registeredAt: string;
+  private readonly _registeredAt: string;
   private _lastHeartbeatAt: string;
   private _failedProbes: number;
 
-  constructor(data: ServiceInstanceData) {
-    this.instanceId = data.instanceId;
-    this.serviceName = data.serviceName;
-    this.baseUrl = data.baseUrl;
-    this.version = data.version;
-    this.metadata = data.metadata ?? {};
-    this._healthy = data.healthy ?? true;
-    this._registeredAt = data.registeredAt ?? new Date().toISOString();
-    this._lastHeartbeatAt = data.lastHeartbeatAt ?? new Date().toISOString();
-    this._failedProbes = data.failedProbes ?? 0;
+  private constructor(state: ServiceInstanceState) {
+    this.instanceId = state.instanceId;
+    this.serviceName = state.serviceName;
+    this.baseUrl = state.baseUrl;
+    this.version = state.version;
+    this.metadata = { ...state.metadata };
+    this._healthy = state.healthy;
+    this._registeredAt = state.registeredAt;
+    this._lastHeartbeatAt = state.lastHeartbeatAt;
+    this._failedProbes = state.failedProbes;
   }
 
-  static fromRegistration(reg: ServiceRegistration, now = new Date()): ServiceInstance {
+  static create(registration: InstanceRegistration, now: Date): ServiceInstance {
     const iso = now.toISOString();
     return new ServiceInstance({
-      instanceId: reg.instanceId,
-      serviceName: reg.serviceName,
-      baseUrl: reg.baseUrl,
-      version: reg.version,
-      metadata: reg.metadata,
+      ...registration,
       healthy: true,
       registeredAt: iso,
       lastHeartbeatAt: iso,
       failedProbes: 0,
     });
+  }
+
+  static rehydrate(state: ServiceInstanceState): ServiceInstance {
+    return new ServiceInstance(state);
   }
 
   get healthy(): boolean {
@@ -66,7 +82,7 @@ export class ServiceInstance {
     return this._failedProbes;
   }
 
-  touchHeartbeat(now = new Date()): void {
+  touchHeartbeat(now: Date): void {
     this._lastHeartbeatAt = now.toISOString();
     this._healthy = true;
     this._failedProbes = 0;
@@ -82,12 +98,12 @@ export class ServiceInstance {
     this._healthy = false;
   }
 
-  isExpired(ttlMs: number, now = Date.now()): boolean {
+  isExpired(ttlMs: number, now: number): boolean {
     const last = new Date(this._lastHeartbeatAt).getTime();
     return now - last >= ttlMs;
   }
 
-  toContract(): InstanceInfo {
+  snapshot(): InstanceSnapshot {
     return {
       instanceId: this.instanceId,
       serviceName: this.serviceName,

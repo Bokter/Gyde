@@ -1,4 +1,5 @@
 import { Logger, Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { APP_CONFIG } from '@gyde/service-kit';
 
 import { DEREGISTER_INSTANCE, DeregisterInstance } from './application/deregister-instance';
@@ -13,6 +14,7 @@ import {
   ResolveServiceInstances,
 } from './application/resolve-service-instances';
 import type { Config } from './config';
+import { ApplicationErrorInterceptor } from './http/application-error.interceptor';
 import { RegistryController } from './http/registry.controller';
 import { HEALTH_CHECKER, HealthChecker } from './infrastructure/health-checker';
 import { InMemoryRegistryRepository } from './infrastructure/in-memory-registry-repository';
@@ -35,6 +37,7 @@ export class AppModule {
     return {
       module: AppModule,
       providers: [
+        { provide: APP_INTERCEPTOR, useClass: ApplicationErrorInterceptor },
         {
           provide: REGISTRY_REPOSITORY,
           useValue: overrides.repository ?? new InMemoryRegistryRepository(),

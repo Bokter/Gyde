@@ -1,8 +1,7 @@
-import type { ServiceName } from '@gyde/contracts';
 import { Injectable } from '@nestjs/common';
 
 import type { RegistryRepository } from '../application/ports/registry-repository';
-import type { ServiceInstance } from '../domain/service-instance';
+import type { ServiceInstance, ServiceName } from '../domain/service-instance';
 
 @Injectable()
 export class InMemoryRegistryRepository implements RegistryRepository {

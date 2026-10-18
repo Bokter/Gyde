@@ -1,7 +1,7 @@
 import {
+  type InstanceInfo,
   type ResolveResponse,
   ROUTES,
-  type ServiceName,
   ServiceRegistration,
 } from '@gyde/contracts';
 import { ZodValidationPipe } from '@gyde/service-kit';
@@ -14,6 +14,12 @@ import {
   RESOLVE_SERVICE_INSTANCES,
   type ResolveServiceInstances,
 } from '../application/resolve-service-instances';
+import {
+  toInstanceContract,
+  toRegisterDto,
+  toResolveContract,
+  toResolveDto,
+} from './mappers/registry.mapper';
 
 /**
  * HTTP surface of the registry. Lives on the internal network only: every `/v1/*` call must
@@ -31,23 +37,24 @@ export class RegistryController {
 
   @Post(ROUTES.registry.instances)
   @HttpCode(201)
-  register(@Body(new ZodValidationPipe(ServiceRegistration)) body: ServiceRegistration) {
-    return this.registerInstance.execute(body);
+  async register(
+    @Body(new ZodValidationPipe(ServiceRegistration)) body: ServiceRegistration,
+  ): Promise<InstanceInfo> {
+    return toInstanceContract(await this.registerInstance.execute(toRegisterDto(body)));
   }
 
   @Put(ROUTES.registry.heartbeat)
-  heartbeat(@Param('instanceId') instanceId: string) {
-    return this.heartbeatInstance.execute(instanceId);
+  async heartbeat(@Param('instanceId') instanceId: string): Promise<InstanceInfo> {
+    return toInstanceContract(await this.heartbeatInstance.execute(instanceId));
   }
 
   @Delete(ROUTES.registry.instance)
-  async deregister(@Param('instanceId') instanceId: string) {
-    await this.deregisterInstance.execute(instanceId);
-    return { ok: true };
+  deregister(@Param('instanceId') instanceId: string) {
+    return this.deregisterInstance.execute(instanceId);
   }
 
   @Get(ROUTES.registry.resolve)
-  resolve(@Param('serviceName') serviceName: string): Promise<ResolveResponse> {
-    return this.resolveServiceInstances.execute(serviceName as ServiceName);
+  async resolve(@Param('serviceName') serviceName: string): Promise<ResolveResponse> {
+    return toResolveContract(await this.resolveServiceInstances.execute(toResolveDto(serviceName)));
   }
 }

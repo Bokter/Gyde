@@ -1,8 +1,8 @@
 import { ROUTES } from '@gyde/contracts';
 import type { ResilientHttpClient } from '@gyde/service-kit';
 
-import type { RetrieveRequestDto } from '../application/dto/analysis.dto';
-import type { RetrievalClient } from '../application/ports/retrieval-client';
+import type { RetrieveRequestDto } from '../../application/dto/analysis.dto';
+import type { RetrievalClient } from '../../application/ports/retrieval-client';
 
 /**
  * HTTP adapter of the `RetrievalClient` port. The call goes through `ResilientHttpClient`: the

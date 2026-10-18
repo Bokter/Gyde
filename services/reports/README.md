@@ -81,8 +81,8 @@ src/application/         use-cases/ (CreateAnalysisUseCase, RecordDeterministicR
                          SweepStaleAnalysesUseCase; un archivo *.use-case.ts cada uno), analysis-watchdog.ts
                          (los dos temporizadores), errors.ts (AnalysisNotFoundError, sin HTTP), dto/ (tipos
                          planos) y ports/ (RetrievalClient)
-src/infrastructure/      repositories/ (PostgresReportRepository e InMemoryReportRepository), mappers/analysis.mapper.ts
-                         (fila <-> entidad), HttpRetrievalClient (con breaker), reports-startup.ts y db/ (esquema
+src/infrastructure/      adapters/ (http-retrieval-client.adapter.ts), repositories/ (PostgresReportRepository e InMemoryReportRepository), mappers/analysis.mapper.ts
+                         (fila <-> entidad), HttpRetrievalClient con breaker, reports-startup.ts y db/ (esquema
                          Drizzle, pool, migraciones)
 src/http/                controlador delgado, mappers/ (contrato <-> DTO) y application-error.interceptor.ts
 src/app.module.ts        composition root: enlaza puertos con adaptadores y registra el interceptor (ADR 0011)

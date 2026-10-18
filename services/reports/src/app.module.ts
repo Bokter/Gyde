@@ -40,8 +40,8 @@ import {
 import type { Config } from './config';
 import { ApplicationErrorInterceptor } from './http/application-error.interceptor';
 import { ReportsController } from './http/reports.controller';
+import { HttpRetrievalClient } from './infrastructure/adapters/http-retrieval-client.adapter';
 import { DATABASE, type DatabaseHandle } from './infrastructure/db/database';
-import { HttpRetrievalClient } from './infrastructure/http-retrieval-client';
 import { InMemoryReportRepository } from './infrastructure/repositories/in-memory-report.repository';
 import { PostgresReportRepository } from './infrastructure/repositories/postgres-report.repository';
 import { ReportsStartup } from './infrastructure/reports-startup';

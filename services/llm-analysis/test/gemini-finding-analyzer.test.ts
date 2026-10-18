@@ -1,7 +1,7 @@
 import type { InternalLlmConfig } from '@gyde/contracts';
 import { describe, expect, it } from 'vitest';
 
-import { GeminiFindingAnalyzer } from '../src/infrastructure/providers/gemini-finding-analyzer';
+import { GeminiFindingAnalyzer } from '../src/infrastructure/adapters/gemini-finding-analyzer.adapter';
 import { analysisPayload } from './support/fake-services';
 
 const API_KEY = 'AIza-test-key-0123456789abcdefghijklmnop';

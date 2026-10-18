@@ -3,7 +3,7 @@ import type { TenantLlmConfig } from '../../application/dto/llm-analysis.dto';
 import type { AiAnalysis, AnalysisInput } from '../../domain/analysis';
 import { MODEL_SYSTEM_PROMPT, applyModelPayload, buildUserPrompt } from '../../domain/prompt';
 import { parseAiResult } from '../mappers/ai-result.mapper';
-import { parseModelOutput } from './model-output.parser';
+import { parseModelOutput } from '../model-output.parser';
 
 export const ANTHROPIC_BASE_URL = 'https://api.anthropic.com';
 const ANTHROPIC_VERSION = '2023-06-01';

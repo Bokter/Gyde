@@ -8,9 +8,9 @@ import {
   createBreakerFromEnv,
 } from '@gyde/resilience';
 
-import type { AnalyzeFindingsDto } from '../application/dto/llm-analysis.dto';
-import type { ModelCallOutcome, ModelCallPolicy } from '../application/ports/model-call-policy';
-import type { AiAnalysis } from '../domain/analysis';
+import type { AnalyzeFindingsDto } from '../../application/dto/llm-analysis.dto';
+import type { ModelCallOutcome, ModelCallPolicy } from '../../application/ports/model-call-policy';
+import type { AiAnalysis } from '../../domain/analysis';
 
 export interface ResilientModelCallPolicyOptions {
   /** Overrides the `CB_*` defaults of the per tenant + provider breakers. */

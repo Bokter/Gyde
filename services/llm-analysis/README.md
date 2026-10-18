@@ -22,9 +22,9 @@ Cuando no puede (sin llave, proveedor caído o error) publica un `AnalysisFailur
 
 Proveedores soportados hoy: **Anthropic** y **Google Gemini**. Un tenant con otro proveedor (`openai`) recibe `AnalysisFailure` `llm-error` (`LLM provider "openai" is not supported yet`) y no sale ninguna petición: la llave solo se entrega al proveedor al que pertenece.
 
-- **Mock determinístico** (`src/infrastructure/providers/mock-finding-analyzer.ts`): responde **solo** con `LLM_MOCK_ENABLED=true` y **sin llave**; el mismo entrada produce siempre la misma salida.
-- **Google Gemini** (`gemini-finding-analyzer.ts`): `POST /v1beta/models/{modelo}:generateContent` con la llave del tenant en la cabecera `x-goog-api-key` (**nunca en la URL**), salida en JSON (`responseMimeType`) y la misma validación estricta de lo que responde el modelo; el nombre del modelo se valida antes de ir a la ruta. Un bloqueo de seguridad del proveedor (`promptFeedback.blockReason`) es `llm-error`.
-- **Anthropic** (`anthropic-finding-analyzer.ts`): `POST /v1/messages` con la llave del tenant (`x-api-key`), timeout configurable (`LLM_PROVIDER_TIMEOUT_MS`, 30 s por defecto) y respuesta interpretada como JSON estricto.
+- **Mock determinístico** (`src/infrastructure/adapters/mock-finding-analyzer.adapter.ts`): responde **solo** con `LLM_MOCK_ENABLED=true` y **sin llave**; el mismo entrada produce siempre la misma salida.
+- **Google Gemini** (`gemini-finding-analyzer.adapter.ts`): `POST /v1beta/models/{modelo}:generateContent` con la llave del tenant en la cabecera `x-goog-api-key` (**nunca en la URL**), salida en JSON (`responseMimeType`) y la misma validación estricta de lo que responde el modelo; el nombre del modelo se valida antes de ir a la ruta. Un bloqueo de seguridad del proveedor (`promptFeedback.blockReason`) es `llm-error`.
+- **Anthropic** (`anthropic-finding-analyzer.adapter.ts`): `POST /v1/messages` con la llave del tenant (`x-api-key`), timeout configurable (`LLM_PROVIDER_TIMEOUT_MS`, 30 s por defecto) y respuesta interpretada como JSON estricto.
 - El breaker (puerto `ModelCallPolicy`, implementado por `ResilientModelCallPolicy`, un singleton del servicio) es **por tenant + proveedor**: la llave inválida o el rate limit de un estudio no abre el circuito de los demás. Con el circuito abierto se sirve la **última clasificación cacheada** cuando los hallazgos son idénticos (mismo tenant, proveedor y huella); si no la hay, `llm-unavailable`.
 
 ## Seguridad (BYOK)
@@ -40,18 +40,21 @@ src/domain/               reglas puras, solo imports relativos:
                           analysis.ts (tipos planos: AnalysisInput, ModelOutput, AiAnalysis, Finding...),
                           prompt.ts (prompt del sistema, buildUserPrompt, extractJsonText, fusión
                           applyModelPayload) y redact.ts (redactSecrets, truncateMessage)
-src/application/          AnalyzeFindings (caso de uso) y BackgroundJobs
+src/application/          BackgroundJobs y:
+  use-cases/              analyze-findings.use-case.ts (AnalyzeFindingsUseCase)
   dto/                    AnalyzeFindingsDto, AiResultDto, AnalysisFailureDto, TenantLlmConfig,
                           FailureReason (tipos planos, sin Zod)
   ports/                  TenantLlmConfigProvider, FindingAnalyzer, ReportsClient y ModelCallPolicy
 src/infrastructure/       ResilientHttpClient (discovery + *_URL) y sus adaptadores:
-  resilient-model-call-policy.ts   ModelCallPolicy: un CircuitBreaker por tenant + proveedor y la
-                          caché de respaldo (@gyde/resilience, huella con node:crypto)
   mappers/                ai-result.mapper.ts (valida con AiResult), analysis-failure.mapper.ts,
                           tenant-llm-config.mapper.ts (InternalLlmConfig -> TenantLlmConfig)
-  providers/              HttpTenantLlmConfigProvider, MockFindingAnalyzer, AnthropicFindingAnalyzer,
-                          GeminiFindingAnalyzer, HttpReportsClient y model-output.parser.ts
-                          (esquema Zod estricto de lo que responde el modelo)
+  adapters/               adaptadores de los puertos (sufijo .adapter.ts):
+                          http-tenant-llm-config, mock-finding-analyzer, anthropic-finding-analyzer,
+                          gemini-finding-analyzer, http-reports-client y resilient-model-call-policy
+                          (ModelCallPolicy: un CircuitBreaker por tenant + proveedor y la caché de
+                          respaldo; @gyde/resilience, huella con node:crypto)
+  model-output.parser.ts  esquema Zod estricto de lo que responde el modelo (no implementa un puerto)
+  service-resolver.ts     resolución de Web y Reports (discovery con respaldo en *_URL)
 src/http/                 controlador NestJS (202 en vivo) y mappers/ (contrato <-> DTO)
 src/app.module.ts         composition root: enlaza puertos con adaptadores (ADR 0011)
 ```
@@ -66,7 +69,7 @@ Ninguna: `application/` no importa `@gyde/contracts`. Los puertos hablan en DTO 
 
 ### Desviaciones respecto al plan del refactor (WP-2D)
 
-- **Validación `AiResult` en el analizador, no en el cliente de Reports.** El paso 3 del plan la movía al mapper de `http-reports-client.ts`. Se mantiene dentro de `analyze` de cada proveedor y del mock (`infrastructure/mappers/ai-result.mapper.ts`, `parseAiResult`): así un resultado inválido sigue siendo una llamada fallida dentro del breaker y nunca llega a la caché de respaldo. `toAiResultContract` (en el cliente de Reports) solo tipa el cuerpo publicado.
+- **Validación `AiResult` en el analizador, no en el cliente de Reports.** El paso 3 del plan la movía al mapper de `http-reports-client.adapter.ts`. Se mantiene dentro de `analyze` de cada proveedor y del mock (`infrastructure/mappers/ai-result.mapper.ts`, `parseAiResult`): así un resultado inválido sigue siendo una llamada fallida dentro del breaker y nunca llega a la caché de respaldo. `toAiResultContract` (en el cliente de Reports) solo tipa el cuerpo publicado.
 - **Sin clases de error de aplicación.** El paso 6 pedía `application/errors.ts`. Los fallos del proveedor se publican con `describe(error)` = `"<name>: <message>"`; envolverlos en clases propias cambiaría el `name` y por tanto el `message` que recibe Reports. Los motivos se tipan con `FailureReason`.
 - **Mappers de identidad.** `toAnalyzeFindingsDto` y `toAiResultContract` devuelven el mismo objeto (los tipos son estructuralmente iguales a los del contrato) para no alterar el orden de claves, que forma parte del prompt y de la huella de la caché de respaldo.
 

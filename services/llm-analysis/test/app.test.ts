@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BackgroundJobs } from '../src/application/background-jobs';
 import type { FindingAnalyzer } from '../src/application/ports/finding-analyzer';
 import { breakerCallTimeoutMs, type AppModuleOverrides } from '../src/app.module';
-import { MockFindingAnalyzer } from '../src/infrastructure/providers/mock-finding-analyzer';
+import { MockFindingAnalyzer } from '../src/infrastructure/adapters/mock-finding-analyzer.adapter';
 import { configSchema } from '../src/config';
 import { createApp } from '../src/http/app';
 import { FakeServices, HOSTS, analysisPayload } from './support/fake-services';

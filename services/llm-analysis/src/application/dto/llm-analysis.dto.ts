@@ -6,7 +6,7 @@ export type FailureReason = 'llm-unavailable' | 'llm-not-configured' | 'llm-erro
 /** LLM providers a tenant can bring a key for; same literals as the contract. */
 export type LlmProviderName = 'anthropic' | 'gemini' | 'openai';
 
-/** Input of the `AnalyzeFindings` use case: the evidence of one analysis and whose key to use. */
+/** Input of `AnalyzeFindingsUseCase`: the evidence of one analysis and whose key to use. */
 export type AnalyzeFindingsDto = AnalysisInput & {
   tenantId: string;
 };

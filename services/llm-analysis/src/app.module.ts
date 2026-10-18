@@ -2,7 +2,7 @@ import type { CircuitBreakerOptions } from '@gyde/resilience';
 import { APP_CONFIG, ResilientHttpClient } from '@gyde/service-kit';
 import { type DynamicModule, Logger, Module } from '@nestjs/common';
 
-import { AnalyzeFindings } from './application/analyze-findings';
+import { AnalyzeFindingsUseCase } from './application/use-cases/analyze-findings.use-case';
 import { BackgroundJobs } from './application/background-jobs';
 import { FINDING_ANALYZER, type FindingAnalyzer } from './application/ports/finding-analyzer';
 import { MODEL_CALL_POLICY, type ModelCallPolicy } from './application/ports/model-call-policy';
@@ -13,12 +13,12 @@ import {
 } from './application/ports/tenant-llm-config';
 import type { Config } from './config';
 import { LlmAnalysisController } from './http/llm-analysis.controller';
-import { AnthropicFindingAnalyzer } from './infrastructure/providers/anthropic-finding-analyzer';
-import { GeminiFindingAnalyzer } from './infrastructure/providers/gemini-finding-analyzer';
-import { HttpReportsClient } from './infrastructure/providers/http-reports-client';
-import { HttpTenantLlmConfigProvider } from './infrastructure/providers/http-tenant-llm-config.provider';
-import { MockFindingAnalyzer } from './infrastructure/providers/mock-finding-analyzer';
-import { ResilientModelCallPolicy } from './infrastructure/resilient-model-call-policy';
+import { AnthropicFindingAnalyzer } from './infrastructure/adapters/anthropic-finding-analyzer.adapter';
+import { GeminiFindingAnalyzer } from './infrastructure/adapters/gemini-finding-analyzer.adapter';
+import { HttpReportsClient } from './infrastructure/adapters/http-reports-client.adapter';
+import { HttpTenantLlmConfigProvider } from './infrastructure/adapters/http-tenant-llm-config.adapter';
+import { MockFindingAnalyzer } from './infrastructure/adapters/mock-finding-analyzer.adapter';
+import { ResilientModelCallPolicy } from './infrastructure/adapters/resilient-model-call-policy.adapter';
 import { createServiceResolver } from './infrastructure/service-resolver';
 
 const INTERNAL_HTTP = Symbol('ResilientHttpClient');
@@ -132,7 +132,7 @@ export class AppModule {
           inject: [APP_CONFIG],
         },
         {
-          provide: AnalyzeFindings,
+          provide: AnalyzeFindingsUseCase,
           useFactory: (
             tenantConfig: TenantLlmConfigProvider,
             analyzer: FindingAnalyzer,
@@ -142,7 +142,7 @@ export class AppModule {
             modelCalls: ModelCallPolicy,
             config: Config,
           ) =>
-            new AnalyzeFindings({
+            new AnalyzeFindingsUseCase({
               tenantConfig,
               // The providers this service supports, by the tenant's `LlmProvider`. FINDING_ANALYZER
               // is the Anthropic adapter; a new provider adds its entry here, nowhere else.

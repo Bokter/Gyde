@@ -11,18 +11,27 @@ import { ZodValidationPipe } from '@gyde/service-kit';
 import { Body, Controller, Get, Headers, HttpCode, Inject, Param, Post, Res } from '@nestjs/common';
 import type { FastifyReply } from 'fastify';
 
-import { CREATE_ANALYSIS, type CreateAnalysis } from '../application/create-analysis';
-import { GET_REPORT, type GetReport } from '../application/get-report';
-import { GET_REPORT_MARKDOWN, type GetReportMarkdown } from '../application/get-report-markdown';
-import { RECORD_AI_RESULT, type RecordAiResult } from '../application/record-ai-result';
+import {
+  CREATE_ANALYSIS,
+  type CreateAnalysisUseCase,
+} from '../application/use-cases/create-analysis.use-case';
+import { GET_REPORT, type GetReportUseCase } from '../application/use-cases/get-report.use-case';
+import {
+  GET_REPORT_MARKDOWN,
+  type GetReportMarkdownUseCase,
+} from '../application/use-cases/get-report-markdown.use-case';
+import {
+  RECORD_AI_RESULT,
+  type RecordAiResultUseCase,
+} from '../application/use-cases/record-ai-result.use-case';
 import {
   RECORD_ANALYSIS_FAILURE,
-  type RecordAnalysisFailure,
-} from '../application/record-analysis-failure';
+  type RecordAnalysisFailureUseCase,
+} from '../application/use-cases/record-analysis-failure.use-case';
 import {
   RECORD_DETERMINISTIC_RESULT,
-  type RecordDeterministicResult,
-} from '../application/record-deterministic-result';
+  type RecordDeterministicResultUseCase,
+} from '../application/use-cases/record-deterministic-result.use-case';
 import {
   toAcceptedContract,
   toAiResultDto,
@@ -41,13 +50,14 @@ import {
 @Controller()
 export class ReportsController {
   constructor(
-    @Inject(CREATE_ANALYSIS) private readonly createAnalysis: CreateAnalysis,
-    @Inject(GET_REPORT) private readonly getReport: GetReport,
-    @Inject(GET_REPORT_MARKDOWN) private readonly getReportMarkdown: GetReportMarkdown,
+    @Inject(CREATE_ANALYSIS) private readonly createAnalysis: CreateAnalysisUseCase,
+    @Inject(GET_REPORT) private readonly getReport: GetReportUseCase,
+    @Inject(GET_REPORT_MARKDOWN) private readonly getReportMarkdown: GetReportMarkdownUseCase,
     @Inject(RECORD_DETERMINISTIC_RESULT)
-    private readonly recordDeterministicResult: RecordDeterministicResult,
-    @Inject(RECORD_AI_RESULT) private readonly recordAiResult: RecordAiResult,
-    @Inject(RECORD_ANALYSIS_FAILURE) private readonly recordAnalysisFailure: RecordAnalysisFailure,
+    private readonly recordDeterministicResult: RecordDeterministicResultUseCase,
+    @Inject(RECORD_AI_RESULT) private readonly recordAiResult: RecordAiResultUseCase,
+    @Inject(RECORD_ANALYSIS_FAILURE)
+    private readonly recordAnalysisFailure: RecordAnalysisFailureUseCase,
   ) {}
 
   @Post(ROUTES.reports.createAnalysis)

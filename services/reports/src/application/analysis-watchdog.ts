@@ -35,7 +35,7 @@ export interface AnalysisWatchdogOptions {
  *
  * A timer whose analysis already left the state it watches does nothing. Errors are caught and
  * sent to the logger so a broken repository cannot crash the process. The timers live in memory
- * and do not survive a restart: `SweepStaleAnalyses` covers what was in progress at that point.
+ * and do not survive a restart: `SweepStaleAnalysesUseCase` covers what was in progress at that point.
  */
 export class AnalysisWatchdog {
   constructor(

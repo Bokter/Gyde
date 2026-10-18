@@ -8,7 +8,7 @@ export interface ReportRepository {
   update(analysis: Analysis): Promise<void>;
   /**
    * Analyses in `status` whose last write is older than `cutoff`: the input of the startup sweep
-   * (`SweepStaleAnalyses`). The in-memory adapter returns `[]`, since a restart empties it anyway.
+   * (`SweepStaleAnalysesUseCase`). The in-memory adapter returns `[]`, since a restart empties it anyway.
    */
   findStale(status: AnalysisStatus, cutoff: Date): Promise<Analysis[]>;
 }

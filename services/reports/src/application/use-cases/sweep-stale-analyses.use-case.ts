@@ -1,7 +1,7 @@
-import type { SweepResultDto } from './dto/analysis.dto';
-import type { ReportRepository } from './ports/report-repository';
+import type { SweepResultDto } from '../dto/analysis.dto';
+import type { ReportRepository } from '../ports/report-repository';
 
-export const SWEEP_STALE_ANALYSES = Symbol('SweepStaleAnalyses');
+export const SWEEP_STALE_ANALYSES = Symbol('SweepStaleAnalysesUseCase');
 
 export interface SweepStaleAnalysesOptions {
   aiTimeoutMs: number;
@@ -17,7 +17,7 @@ export interface SweepStaleAnalysesOptions {
  * Returns how many of each it closed so the caller can log them. With the in-memory repository the
  * store starts empty, so it reports zeroes and changes nothing.
  */
-export class SweepStaleAnalyses {
+export class SweepStaleAnalysesUseCase {
   constructor(
     private readonly repository: ReportRepository,
     private readonly options: SweepStaleAnalysesOptions,

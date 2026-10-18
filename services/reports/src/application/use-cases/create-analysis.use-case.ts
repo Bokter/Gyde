@@ -1,10 +1,10 @@
-import { Analysis } from '../domain/entities/analysis.entity';
-import type { AnalysisWatchdog } from './analysis-watchdog';
-import type { AnalysisAcceptedDto, CreateAnalysisDto } from './dto/analysis.dto';
-import type { ReportRepository } from './ports/report-repository';
-import type { RetrievalClient } from './ports/retrieval-client';
+import { Analysis } from '../../domain/entities/analysis.entity';
+import type { AnalysisWatchdog } from '../analysis-watchdog';
+import type { AnalysisAcceptedDto, CreateAnalysisDto } from '../dto/analysis.dto';
+import type { ReportRepository } from '../ports/report-repository';
+import type { RetrievalClient } from '../ports/retrieval-client';
 
-export const CREATE_ANALYSIS = Symbol('CreateAnalysis');
+export const CREATE_ANALYSIS = Symbol('CreateAnalysisUseCase');
 
 export interface CreateAnalysisOptions {
   newId: () => string;
@@ -17,7 +17,7 @@ export interface CreateAnalysisOptions {
  * (`retrieval-error`) and the answer is still the accepted one; otherwise the retrieval watchdog
  * is armed so a Retrieval that never answers does not leave the job stuck.
  */
-export class CreateAnalysis {
+export class CreateAnalysisUseCase {
   constructor(
     private readonly repository: ReportRepository,
     private readonly retrieval: RetrievalClient,

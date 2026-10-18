@@ -6,7 +6,10 @@ import {
   type OnModuleInit,
 } from '@nestjs/common';
 
-import { SWEEP_STALE_ANALYSES, type SweepStaleAnalyses } from '../application/sweep-stale-analyses';
+import {
+  SWEEP_STALE_ANALYSES,
+  type SweepStaleAnalysesUseCase,
+} from '../application/use-cases/sweep-stale-analyses.use-case';
 import { DATABASE, type DatabaseHandle } from './db/database';
 
 /**
@@ -23,7 +26,7 @@ export class ReportsStartup implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     @Inject(DATABASE) private readonly database: DatabaseHandle,
-    @Inject(SWEEP_STALE_ANALYSES) private readonly sweepStaleAnalyses: SweepStaleAnalyses,
+    @Inject(SWEEP_STALE_ANALYSES) private readonly sweepStaleAnalyses: SweepStaleAnalysesUseCase,
   ) {}
 
   async onModuleInit(): Promise<void> {

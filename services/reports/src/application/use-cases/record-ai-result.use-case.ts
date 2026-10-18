@@ -1,15 +1,15 @@
-import type { AiResultDto } from './dto/analysis.dto';
-import { AnalysisNotFoundError } from './errors';
-import type { ReportRepository } from './ports/report-repository';
+import type { AiResultDto } from '../dto/analysis.dto';
+import { AnalysisNotFoundError } from '../errors';
+import type { ReportRepository } from '../ports/report-repository';
 
-export const RECORD_AI_RESULT = Symbol('RecordAiResult');
+export const RECORD_AI_RESULT = Symbol('RecordAiResultUseCase');
 
 /**
  * Called by llm-analysis when the AI enrichment finishes. Late results (the job is already `ready`
  * or `failed`) are ignored; one that arrives before the deterministic result is kept until that
  * one completes the job.
  */
-export class RecordAiResult {
+export class RecordAiResultUseCase {
   constructor(
     private readonly repository: ReportRepository,
     private readonly options: { now?: () => Date } = {},

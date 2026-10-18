@@ -1,14 +1,14 @@
-import type { ReportsClient } from './ports/reports-client';
-import type { UsageCounter } from './ports/usage-counter';
+import type { ReportsClient } from '../ports/reports-client';
+import type { UsageCounter } from '../ports/usage-counter';
 import type {
   AnalysisAcceptedDto,
   AnalysisRequestDto,
   CreateAnalysisJobDto,
-} from './dto/gateway.dto';
-import type { Principal } from '../domain/principal';
-import { PlanLimitExceededError } from './errors';
-import { billingPeriodOf } from '../domain/usage-allowance';
-import type { RequestContext } from './request-context';
+} from '../dto/gateway.dto';
+import type { Principal } from '../../domain/principal';
+import { PlanLimitExceededError } from '../errors';
+import { billingPeriodOf } from '../../domain/usage-allowance';
+import type { RequestContext } from '../request-context';
 
 export interface SubmitAnalysisDeps {
   reports: ReportsClient;
@@ -24,7 +24,7 @@ export interface SubmitAnalysisDeps {
  * The allowance is taken before calling Reports, so simultaneous requests cannot overshoot it, and
  * given back if Reports does not accept the analysis: an outage must not cost the customer one.
  */
-export class SubmitAnalysis {
+export class SubmitAnalysisUseCase {
   constructor(private readonly deps: SubmitAnalysisDeps) {}
 
   async execute(

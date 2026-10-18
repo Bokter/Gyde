@@ -1,5 +1,5 @@
-import type { RateLimiter } from '../application/ports/rate-limiter';
-import { type RateLimitDecision, RateLimitWindow } from '../domain/rate-limit';
+import type { RateLimiter } from '../../application/ports/rate-limiter';
+import { type RateLimitDecision, RateLimitWindow } from '../../domain/rate-limit';
 
 export interface MemoryRateLimiterOptions {
   /** Requests allowed per key in each window. */

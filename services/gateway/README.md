@@ -22,7 +22,7 @@ El gateway **nunca** enruta `/internal/*`: esas rutas son solo entre servicios.
 
 ## Cómo funciona
 
-1. **Autenticación** (`ApiKeyGuard` → `AuthenticateApiKey`): toma `Authorization: Bearer <key>`, comprueba que la clave cumpla los límites de longitud 10..200 (regla de dominio `isWellFormedApiKey`, copia de los de `VerifyApiKeyRequest`; si no, `401` sin llamar a Web; un test compara ambas para longitudes 0..205) y pregunta a Web (`POST /internal/api-keys/verify`, con `ResilientHttpClient`). `401 unauthorized` con un mismo mensaje para clave ausente, mal formada, desconocida, revocada o vencida.
+1. **Autenticación** (`ApiKeyGuard` → `AuthenticateApiKeyUseCase`): toma `Authorization: Bearer <key>`, comprueba que la clave cumpla los límites de longitud 10..200 (regla de dominio `isWellFormedApiKey`, copia de los de `VerifyApiKeyRequest`; si no, `401` sin llamar a Web; un test compara ambas para longitudes 0..205) y pregunta a Web (`POST /internal/api-keys/verify`, con `ResilientHttpClient`). `401 unauthorized` con un mismo mensaje para clave ausente, mal formada, desconocida, revocada o vencida.
 2. **Caché de verificación** (~`API_KEY_CACHE_TTL_MS`, 60 s): solo guarda claves **válidas** y se indexa por el **SHA-256** de la clave, nunca por la clave. Una clave revocada puede seguir valiendo hasta que expire su entrada (aceptado); una clave recién creada funciona de inmediato porque los rechazos no se guardan.
 3. **`GET /v1/auth/verify`** devuelve `AuthVerifyResponse` con los `Entitlements` que devolvió Web; no se recalculan.
 4. **`POST /v1/analyses`** valida el cuerpo con `AnalysisRequest`, arma el `CreateAnalysisJob` (`tenantId` + `entitlements` + `request`) y lo envía a Reports (`POST /internal/analyses`); responde `202 AnalysisAccepted`.
@@ -39,12 +39,13 @@ El gateway **nunca** enruta `/internal/*`: esas rutas son solo entre servicios.
 src/domain/          Principal y Entitlements (tipos), RateLimitWindow y RateLimitDecision (ventana fija),
                      TenantUsage y billingPeriodOf (cupo mensual por tenant, mes UTC), isWellFormedApiKey
                      (límites de la clave); solo imports relativos, sin leer la hora
-src/application/     casos de uso (AuthenticateApiKey, EnforceRateLimit, SubmitAnalysis, GetReport),
-                     dto/ (tipos planos que reflejan el contrato), errors.ts (GatewayError, UnauthorizedError,
+src/application/     use-cases/ (AuthenticateApiKeyUseCase, EnforceRateLimitUseCase, SubmitAnalysisUseCase,
+                     GetReportUseCase), dto/ (tipos planos que reflejan el contrato), errors.ts (GatewayError, UnauthorizedError,
                      PlanLimitExceededError, sin HTTP), request-context.ts y ports/ con su token
-src/infrastructure/  adaptadores: WebApiKeyVerifier y HttpReportsClient (ResilientHttpClient), MemoryAuthCache,
-                     MemoryRateLimiter y MemoryUsageCounter (Maps, TTL y expulsión; las reglas están en domain/),
-                     Sha256KeyHasher, mappers/ (contrato -> DTO)
+src/infrastructure/  adapters/ (*.adapter.ts): WebApiKeyVerifier y HttpReportsClient (ResilientHttpClient),
+                     MemoryAuthCache, MemoryRateLimiter y MemoryUsageCounter (Maps, TTL y expulsión; las
+                     reglas están en domain/), Sha256KeyHasher; service-resolver.ts, upstream-errors.ts
+                     y mappers/ (contrato -> DTO)
 src/http/            controlador y guards delgados, mappers/ (contrato <-> DTO) y application-error.interceptor.ts
 src/app.module.ts    composition root: enlaza puertos con adaptadores y registra el interceptor (ADR 0011)
 ```
@@ -61,13 +62,13 @@ Los casos de uso lanzan errores de aplicación sin estado HTTP; se traducen al m
 | `PlanLimitExceededError` | `plan_limit_exceeded`, 402 | `The <plan> plan allows <n> analyses per month and this tenant has used them` |
 | otro `GatewayError` | `internal`, 500 | `Internal server error` |
 
-`ApplicationErrorInterceptor` (`APP_INTERCEPTOR`) traduce lo que lanzan los manejadores de ruta (`PlanLimitExceededError`). Los guards se ejecutan **antes** que los interceptores, así que `ApiKeyGuard` aplica la misma función (`translateApplicationError`) al `UnauthorizedError` de `AuthenticateApiKey`. El límite de tasa no lanza un error de aplicación: `EnforceRateLimit` devuelve una `RateLimitDecision` y `RateLimitGuard` la traduce a `Retry-After` y `429 rate_limited`. Los `HttpError` de los adaptadores (`upstream_unavailable`, `not_found` de Reports) pasan sin tocar. El sobre `ApiError` lo sigue produciendo el filtro global de `service-kit`.
+`ApplicationErrorInterceptor` (`APP_INTERCEPTOR`) traduce lo que lanzan los manejadores de ruta (`PlanLimitExceededError`). Los guards se ejecutan **antes** que los interceptores, así que `ApiKeyGuard` aplica la misma función (`translateApplicationError`) al `UnauthorizedError` de `AuthenticateApiKeyUseCase`. El límite de tasa no lanza un error de aplicación: `EnforceRateLimitUseCase` devuelve una `RateLimitDecision` y `RateLimitGuard` la traduce a `Retry-After` y `429 rate_limited`. Los `HttpError` de los adaptadores (`upstream_unavailable`, `not_found` de Reports) pasan sin tocar. El sobre `ApiError` lo sigue produciendo el filtro global de `service-kit`.
 
 ## Excepciones de contrato en application
 
 Solo estos dos archivos importan `@gyde/contracts` (`import type`), por ser pass-through del `Report`:
 
-- `get-report.ts`: `Report` (`GET /v1/analyses/:id` devuelve el reporte de Reports tal cual).
+- `use-cases/get-report.use-case.ts`: `Report` (`GET /v1/analyses/:id` devuelve el reporte de Reports tal cual).
 - `report-reader.ts` (`ports/`): `Report`, el puerto de lectura de ese caso de uso.
 
 El resto de `application/` habla en DTOs (`dto/gateway.dto.ts`) y en tipos de `domain/`. Los DTO son un espejo estructural del contrato y los mappers entregan el valor por referencia; `test/dto-contract.test.ts` falla al compilar si el contrato y el DTO dejan de ser asignables entre sí.

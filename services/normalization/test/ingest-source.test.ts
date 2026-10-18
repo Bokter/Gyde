@@ -2,11 +2,11 @@ import { KnowledgeObject, type SourceKind, type Trust } from '@gyde/contracts';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import {
-  IngestSource,
   IngestionFailedError,
   IngestionInProgressError,
   UnknownSourceError,
-} from '../src/application/ingest-source';
+} from '../src/application/errors';
+import { IngestSource } from '../src/application/ingest-source';
 import { ListSources } from '../src/application/list-sources';
 import type { RawRecord, SourceAdapter } from '../src/application/ports/source-adapter';
 import { InvalidRecordError } from '../src/domain/invalid-record-error';

@@ -1,6 +1,7 @@
 import { CircuitBreaker, createBreakerFromEnv } from '@gyde/resilience';
 import { APP_CONFIG } from '@gyde/service-kit';
 import { type DynamicModule, Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 
 import { IngestSource } from './application/ingest-source';
 import { ListSources } from './application/list-sources';
@@ -11,6 +12,7 @@ import {
 } from './application/ports/knowledge-repository';
 import { SOURCE_ADAPTERS, type SourceAdapter } from './application/ports/source-adapter';
 import type { Config } from './config';
+import { ApplicationErrorInterceptor } from './http/application-error.interceptor';
 import { NormalizationController } from './http/normalization.controller';
 import { DATABASE, type DatabaseHandle } from './infrastructure/db/database';
 import { DatabaseLifecycle } from './infrastructure/db/database-lifecycle';
@@ -20,6 +22,8 @@ import { OsvAdapter } from './infrastructure/sources/structured/osv.adapter';
 export interface AppModuleOptions {
   /** The PostgreSQL connection (`main.ts` opens it; tests pass an in-memory database). */
   database: DatabaseHandle;
+  /** Test seam: replaces the source adapters. `main.ts` never passes it. */
+  adapters?: SourceAdapter[];
 }
 
 /**
@@ -29,11 +33,12 @@ export interface AppModuleOptions {
  */
 @Module({})
 export class AppModule {
-  static register({ database }: AppModuleOptions): DynamicModule {
+  static register({ database, adapters }: AppModuleOptions): DynamicModule {
     return {
       module: AppModule,
       controllers: [NormalizationController],
       providers: [
+        { provide: APP_INTERCEPTOR, useClass: ApplicationErrorInterceptor },
         { provide: DATABASE, useValue: database },
         DatabaseLifecycle,
         { provide: KNOWLEDGE_REPOSITORY, useClass: PostgresKnowledgeRepository },
@@ -41,15 +46,16 @@ export class AppModule {
           // One adapter per source; each owns its own circuit breaker (a source that is down
           // must not stop the others).
           provide: SOURCE_ADAPTERS,
-          useFactory: (config: Config): SourceAdapter[] => [
-            new OsvAdapter({
-              useFixtures: config.INGEST_USE_FIXTURES,
-              fixturesDir: config.INGEST_FIXTURES_DIR,
-              apiUrl: config.OSV_API_URL,
-              bucketUrl: config.OSV_BUCKET_URL,
-              breaker: new CircuitBreaker(createBreakerFromEnv('normalization->osv')),
-            }),
-          ],
+          useFactory: (config: Config): SourceAdapter[] =>
+            adapters ?? [
+              new OsvAdapter({
+                useFixtures: config.INGEST_USE_FIXTURES,
+                fixturesDir: config.INGEST_FIXTURES_DIR,
+                apiUrl: config.OSV_API_URL,
+                bucketUrl: config.OSV_BUCKET_URL,
+                breaker: new CircuitBreaker(createBreakerFromEnv('normalization->osv')),
+              }),
+            ],
           inject: [APP_CONFIG],
         },
         {

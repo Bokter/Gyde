@@ -1,4 +1,5 @@
-import type { KnowledgeObject, KnowledgeQuery } from '@gyde/contracts';
+import type { KnowledgeObject } from '../../domain/knowledge-object';
+import type { KnowledgeQueryDto } from '../dto/knowledge.dto';
 
 /** Outcome of one ingestion attempt of a source. */
 export interface IngestionRun {
@@ -20,7 +21,7 @@ export interface KnowledgeRepository {
    * Objects that mention any of the requested packages (same ecosystem and name). Deliberately NOT
    * filtered by version: the deterministic dependency/version matching belongs to Retrieval.
    */
-  query(query: KnowledgeQuery): Promise<KnowledgeObject[]>;
+  query(query: KnowledgeQueryDto): Promise<KnowledgeObject[]>;
 
   /** Records the outcome of an ingestion attempt (successful or not). */
   recordRun(run: IngestionRun): Promise<void>;

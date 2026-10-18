@@ -1,5 +1,4 @@
-import type { SourceStatus, SourcesStatus } from '@gyde/contracts';
-
+import type { SourceStatusDto, SourcesStatusDto } from './dto/knowledge.dto';
 import type { KnowledgeRepository } from './ports/knowledge-repository';
 import type { SourceAdapter } from './ports/source-adapter';
 
@@ -12,7 +11,7 @@ export interface ListSourcesDeps {
 export class ListSources {
   constructor(private readonly deps: ListSourcesDeps) {}
 
-  async execute(): Promise<SourcesStatus> {
+  async execute(): Promise<SourcesStatusDto> {
     const sources = await Promise.all(
       [...this.deps.adapters]
         .sort((a, b) => a.name.localeCompare(b.name, 'en'))
@@ -21,7 +20,7 @@ export class ListSources {
     return { sources };
   }
 
-  private async statusOf(adapter: SourceAdapter): Promise<SourceStatus> {
+  private async statusOf(adapter: SourceAdapter): Promise<SourceStatusDto> {
     const [lastIngestedAt, lastRun] = await Promise.all([
       this.deps.repository.lastIngestedAt(adapter.name),
       this.deps.repository.lastRun(adapter.name),

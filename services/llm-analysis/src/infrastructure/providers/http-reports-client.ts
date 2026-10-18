@@ -1,7 +1,10 @@
-import { type AiResult, type AnalysisFailure, ROUTES, buildPath } from '@gyde/contracts';
+import { ROUTES, buildPath } from '@gyde/contracts';
 import { type ResilientHttpClient } from '@gyde/service-kit';
 
+import type { AiResultDto, AnalysisFailureDto } from '../../application/dto/llm-analysis.dto';
 import type { ReportsClient } from '../../application/ports/reports-client';
+import { toAiResultContract } from '../mappers/ai-result.mapper';
+import { toAnalysisFailureContract } from '../mappers/analysis-failure.mapper';
 
 /**
  * HTTP adapter of the `ReportsClient` port: where the AI result (or the reason it could not run)
@@ -10,13 +13,13 @@ import type { ReportsClient } from '../../application/ports/reports-client';
 export class HttpReportsClient implements ReportsClient {
   constructor(private readonly http: ResilientHttpClient) {}
 
-  async publishAiResult(result: AiResult): Promise<void> {
+  async publishAiResult(result: AiResultDto): Promise<void> {
     const path = buildPath(ROUTES.reports.aiResult, { analysisId: result.analysisId });
-    await this.http.postJson('reports', path, result);
+    await this.http.postJson('reports', path, toAiResultContract(result));
   }
 
-  async publishFailure(failure: AnalysisFailure): Promise<void> {
+  async publishFailure(failure: AnalysisFailureDto): Promise<void> {
     const path = buildPath(ROUTES.reports.failure, { analysisId: failure.analysisId });
-    await this.http.postJson('reports', path, failure);
+    await this.http.postJson('reports', path, toAnalysisFailureContract(failure));
   }
 }

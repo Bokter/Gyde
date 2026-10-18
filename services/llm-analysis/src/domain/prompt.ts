@@ -1,5 +1,4 @@
-import { AiResult, type Finding, Id, type LlmAnalysisRequest } from '@gyde/contracts';
-import { z } from 'zod';
+import type { AiAnalysis, AnalysisInput, Finding, ModelOutput } from './analysis';
 
 /**
  * Everything that builds the model prompt and interprets its answer. The model is an untrusted
@@ -21,22 +20,10 @@ export const MODEL_SYSTEM_PROMPT = [
 ].join(' ');
 
 /**
- * What we accept from the model. Strict on purpose: free text or an unknown field makes the call
- * fail as `llm-error` instead of leaking into the report.
- */
-export const ModelPayload = z.strictObject({
-  summary: z.string().max(4000).optional(),
-  explanations: z
-    .array(z.strictObject({ id: Id, aiExplanation: z.string().min(1).max(4000) }))
-    .max(500),
-});
-export type ModelPayload = z.infer<typeof ModelPayload>;
-
-/**
  * The user message, as JSON of the data the model is allowed to see: names, versions, licenses,
  * severities and evidence. Same privacy invariant as the rest of the platform.
  */
-export function buildUserPrompt(request: LlmAnalysisRequest): string {
+export function buildUserPrompt(request: AnalysisInput): string {
   return JSON.stringify({
     analysisId: request.analysisId,
     project: request.project,
@@ -55,10 +42,10 @@ export function extractJsonText(text: string): string {
 
 /**
  * Merges the model answer into the deterministic findings: the model decides the ORDER (its
- * priority) and adds `aiExplanation`; it never changes a fact. The result is validated with the
- * `AiResult` contract before anything is published.
+ * priority) and adds `aiExplanation`; it never changes a fact. The caller validates the result
+ * with the `AiResult` contract (infrastructure) before anything is published.
  */
-export function applyModelPayload(request: LlmAnalysisRequest, payload: ModelPayload): AiResult {
+export function applyModelPayload(request: AnalysisInput, payload: ModelOutput): AiAnalysis {
   const byId = new Map<string, Finding>(request.findings.map((finding) => [finding.id, finding]));
   const explained = new Set<string>();
   const ordered: Finding[] = [];
@@ -75,9 +62,9 @@ export function applyModelPayload(request: LlmAnalysisRequest, payload: ModelPay
   // Findings the model did not explain keep their place, after the explained ones.
   ordered.push(...request.findings.filter((finding) => !explained.has(finding.id)));
 
-  return AiResult.parse({
+  return {
     analysisId: request.analysisId,
     findings: ordered,
     summary: payload.summary,
-  });
+  };
 }

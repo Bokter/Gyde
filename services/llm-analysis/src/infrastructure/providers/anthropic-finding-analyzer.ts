@@ -1,13 +1,9 @@
-import type { AiResult, InternalLlmConfig, LlmAnalysisRequest } from '@gyde/contracts';
-
 import type { FindingAnalyzer } from '../../application/ports/finding-analyzer';
-import {
-  MODEL_SYSTEM_PROMPT,
-  ModelPayload,
-  applyModelPayload,
-  buildUserPrompt,
-  extractJsonText,
-} from '../../domain/prompt';
+import type { TenantLlmConfig } from '../../application/dto/llm-analysis.dto';
+import type { AiAnalysis, AnalysisInput } from '../../domain/analysis';
+import { MODEL_SYSTEM_PROMPT, applyModelPayload, buildUserPrompt } from '../../domain/prompt';
+import { parseAiResult } from '../mappers/ai-result.mapper';
+import { parseModelOutput } from './model-output.parser';
 
 export const ANTHROPIC_BASE_URL = 'https://api.anthropic.com';
 const ANTHROPIC_VERSION = '2023-06-01';
@@ -42,7 +38,7 @@ export class AnthropicFindingAnalyzer implements FindingAnalyzer {
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   }
 
-  async analyze(request: LlmAnalysisRequest, credentials: InternalLlmConfig): Promise<AiResult> {
+  async analyze(request: AnalysisInput, credentials: TenantLlmConfig): Promise<AiAnalysis> {
     const response = await this.fetchFn(`${this.baseUrl}/v1/messages`, {
       method: 'POST',
       headers: {
@@ -69,7 +65,6 @@ export class AnthropicFindingAnalyzer implements FindingAnalyzer {
       .join('');
     if (!text.trim()) throw new Error('Anthropic answered without text content');
 
-    const payload = ModelPayload.parse(JSON.parse(extractJsonText(text)));
-    return applyModelPayload(request, payload);
+    return parseAiResult(applyModelPayload(request, parseModelOutput(text)));
   }
 }

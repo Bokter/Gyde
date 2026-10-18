@@ -1,4 +1,4 @@
-import type { InternalLlmConfig } from '@gyde/contracts';
+import type { TenantLlmConfig } from '../dto/llm-analysis.dto';
 
 /**
  * Port to the tenant's LLM configuration (BYOK). The adapter calls the Servicio Web internal
@@ -10,7 +10,7 @@ import type { InternalLlmConfig } from '@gyde/contracts';
  */
 export interface TenantLlmConfigProvider {
   /** `undefined` when the tenant has not configured a key yet. */
-  getConfig(tenantId: string): Promise<InternalLlmConfig | undefined>;
+  getConfig(tenantId: string): Promise<TenantLlmConfig | undefined>;
 }
 
 /** DI token of the `TenantLlmConfigProvider` port: `app.module.ts` binds it to an adapter (see ADR 0011). */

@@ -4,6 +4,7 @@ import { Body, Controller, HttpCode, Inject, Logger, Post } from '@nestjs/common
 
 import { AnalyzeFindings } from '../application/analyze-findings';
 import { BackgroundJobs } from '../application/background-jobs';
+import { toAnalysisAcceptedContract, toAnalyzeFindingsDto } from './mappers/llm-analysis.mapper';
 
 /**
  * HTTP surface of llm-analysis: internal only. Retrieval is its only caller.
@@ -25,14 +26,15 @@ export class LlmAnalysisController {
   analyze(
     @Body(new ZodValidationPipe(LlmAnalysisRequest)) body: LlmAnalysisRequest,
   ): AnalysisAccepted {
+    const dto = toAnalyzeFindingsDto(body);
     this.jobs.run(
-      () => this.analyzeFindings.execute(body),
+      () => this.analyzeFindings.execute(dto),
       // `execute` handles its own failures; this only catches a bug in it.
       (error) =>
         this.logger.error(
-          `Unexpected error analyzing ${body.analysisId}: ${error instanceof Error ? error.message : 'unknown'}`,
+          `Unexpected error analyzing ${dto.analysisId}: ${error instanceof Error ? error.message : 'unknown'}`,
         ),
     );
-    return { analysisId: body.analysisId, status: 'analyzing' };
+    return toAnalysisAcceptedContract(dto.analysisId);
   }
 }

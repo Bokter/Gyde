@@ -1,7 +1,9 @@
 import { InternalLlmConfig, ROUTES, buildPath } from '@gyde/contracts';
 import { type ResilientHttpClient } from '@gyde/service-kit';
 
+import type { TenantLlmConfig } from '../../application/dto/llm-analysis.dto';
 import type { TenantLlmConfigProvider } from '../../application/ports/tenant-llm-config';
+import { toTenantLlmConfig } from '../mappers/tenant-llm-config.mapper';
 
 /** How long one tenant's key may stay in memory. Nothing is ever written to disk. */
 const CACHE_TTL_MS = 60_000;
@@ -17,7 +19,7 @@ const CACHE_TTL_MS = 60_000;
 export class HttpTenantLlmConfigProvider implements TenantLlmConfigProvider {
   private readonly cache = new Map<
     string,
-    { value: InternalLlmConfig | undefined; expiresAt: number }
+    { value: TenantLlmConfig | undefined; expiresAt: number }
   >();
 
   constructor(
@@ -25,7 +27,7 @@ export class HttpTenantLlmConfigProvider implements TenantLlmConfigProvider {
     private readonly now: () => number = Date.now,
   ) {}
 
-  async getConfig(tenantId: string): Promise<InternalLlmConfig | undefined> {
+  async getConfig(tenantId: string): Promise<TenantLlmConfig | undefined> {
     const hit = this.cache.get(tenantId);
     if (hit && this.now() < hit.expiresAt) return hit.value;
 
@@ -35,7 +37,7 @@ export class HttpTenantLlmConfigProvider implements TenantLlmConfigProvider {
     return value;
   }
 
-  private async fetchConfig(tenantId: string): Promise<InternalLlmConfig | undefined> {
+  private async fetchConfig(tenantId: string): Promise<TenantLlmConfig | undefined> {
     const path = buildPath(ROUTES.web.tenantLlmConfig, { tenantId });
     const response = await this.http.fetch('web', path, { method: 'GET' });
 
@@ -44,7 +46,7 @@ export class HttpTenantLlmConfigProvider implements TenantLlmConfigProvider {
     if (!response.ok) throw new Error(`Web answered ${response.status} for ${path}`);
 
     try {
-      return InternalLlmConfig.parse(await response.json());
+      return toTenantLlmConfig(InternalLlmConfig.parse(await response.json()));
     } catch {
       // Never propagate the parsed body: it may contain a malformed key.
       throw new Error(`Web answered an invalid LLM configuration for ${path}`);

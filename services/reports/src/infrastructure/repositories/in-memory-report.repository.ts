@@ -1,6 +1,6 @@
-import type { ReportRepository } from '../domain/repositories/report.repository';
-import { Analysis } from '../domain/entities/analysis.entity';
-import type { AnalysisSnapshot, AnalysisStatus } from '../domain/entities/analysis-types';
+import type { ReportRepository } from '../../domain/repositories/report.repository';
+import { Analysis } from '../../domain/entities/analysis.entity';
+import type { AnalysisSnapshot, AnalysisStatus } from '../../domain/entities/analysis-types';
 
 /**
  * In-memory adapter of the `ReportRepository` port. Used when `REPORTS_DATABASE_URL` is not set:

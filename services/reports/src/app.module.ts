@@ -42,8 +42,8 @@ import { ApplicationErrorInterceptor } from './http/application-error.intercepto
 import { ReportsController } from './http/reports.controller';
 import { DATABASE, type DatabaseHandle } from './infrastructure/db/database';
 import { HttpRetrievalClient } from './infrastructure/http-retrieval-client';
-import { InMemoryReportRepository } from './infrastructure/in-memory-report-repository';
-import { PostgresReportRepository } from './infrastructure/postgres-report.repository';
+import { InMemoryReportRepository } from './infrastructure/repositories/in-memory-report.repository';
+import { PostgresReportRepository } from './infrastructure/repositories/postgres-report.repository';
 import { ReportsStartup } from './infrastructure/reports-startup';
 import { createServiceResolver, staticUrls } from './infrastructure/service-resolver';
 

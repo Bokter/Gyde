@@ -16,7 +16,7 @@ import type { AnalysisSnapshot } from '../src/domain/entities/analysis-types';
 import type { TimerName } from '../src/application/analysis-watchdog';
 import { configSchema } from '../src/config';
 import type { DatabaseHandle } from '../src/infrastructure/db/database';
-import { PostgresReportRepository } from '../src/infrastructure/postgres-report.repository';
+import { PostgresReportRepository } from '../src/infrastructure/repositories/postgres-report.repository';
 import { createApp } from '../src/http/app';
 import { FakeRepository, FakeRetrieval } from './support/fakes';
 import { createPgliteDatabase } from './support/pglite';

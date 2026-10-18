@@ -1,8 +1,10 @@
-import { type LlmAnalysisRequest, ROUTES } from '@gyde/contracts';
+import { ROUTES } from '@gyde/contracts';
 import type { ResilientHttpClient } from '@gyde/service-kit';
 
+import type { LlmAnalysisRequestDto } from '../application/dto/retrieval.dto';
 import { LlmUnavailableError } from '../application/errors';
 import type { LlmClient } from '../application/ports/downstream';
+import { toLlmAnalysisRequestContract } from './mappers/pipeline.mapper';
 import { ServiceUnavailableError, toUnavailable } from './unavailable';
 
 /**
@@ -14,7 +16,8 @@ import { ServiceUnavailableError, toUnavailable } from './unavailable';
 export class HttpLlmClient implements LlmClient {
   constructor(private readonly http: ResilientHttpClient) {}
 
-  async dispatch(request: LlmAnalysisRequest): Promise<void> {
+  async dispatch(dto: LlmAnalysisRequestDto): Promise<void> {
+    const request = toLlmAnalysisRequestContract(dto);
     try {
       await this.http.postJson('llm-analysis', ROUTES.llmAnalysis.analyze, request);
     } catch (error) {

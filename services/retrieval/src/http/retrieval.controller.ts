@@ -5,6 +5,8 @@ import { Body, Controller, HttpCode, Inject, Logger, Post } from '@nestjs/common
 import { BackgroundJobs } from '../application/background-jobs';
 import { RetrieveEvidence } from '../application/retrieve-evidence';
 
+import { toRetrieveEvidenceDto } from './mappers/retrieval.mapper';
+
 /**
  * HTTP surface of Retrieval: internal only. Reports is its only caller.
  *
@@ -23,12 +25,13 @@ export class RetrievalController {
   @Post(ROUTES.retrieval.retrieve)
   @HttpCode(202)
   retrieve(@Body(new ZodValidationPipe(RetrieveRequest)) body: RetrieveRequest): void {
+    const job = toRetrieveEvidenceDto(body);
     this.jobs.run(
-      () => this.retrieveEvidence.execute(body),
+      () => this.retrieveEvidence.execute(job),
       // `execute` handles its own failures; this only catches a bug in it.
       (error) =>
         this.logger.error(
-          `Unexpected error retrieving ${body.analysisId}: ${error instanceof Error ? error.message : 'unknown'}`,
+          `Unexpected error retrieving ${job.analysisId}: ${error instanceof Error ? error.message : 'unknown'}`,
         ),
     );
   }

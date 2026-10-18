@@ -1,12 +1,15 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import type { KnowledgeObject, SourceKind, Trust } from '@gyde/contracts';
+import { KnowledgeObject as KnowledgeObjectContract } from '@gyde/contracts';
 import type { CircuitBreaker } from '@gyde/resilience';
+import { z } from 'zod';
 
 import type { RawRecord, SourceAdapter } from '../../../application/ports/source-adapter';
 import { InvalidRecordError } from '../../../domain/invalid-record-error';
+import type { KnowledgeObject, SourceKind, Trust } from '../../../domain/knowledge-object';
 import { normalizeOsvRecord } from '../../../domain/osv-normalizer';
+import { parseOsvRecord } from './osv-record.schema';
 
 export interface OsvAdapterOptions {
   /** With fixtures the adapter reads `<fixturesDir>/osv/*.json` and never touches the network. */
@@ -53,7 +56,20 @@ export class OsvAdapter implements SourceAdapter {
   }
 
   normalize(record: RawRecord): KnowledgeObject[] {
-    return normalizeOsvRecord(record.payload, this.now().toISOString());
+    const input = parseOsvRecord(record.payload);
+    const candidates = normalizeOsvRecord(input, this.now().toISOString(), isUrl);
+    // The common schema has the last word (dates, lengths, shape): what it refuses is a bad record.
+    return candidates.map((candidate) => {
+      const object = KnowledgeObjectContract.safeParse(candidate);
+      if (!object.success) {
+        throw new InvalidRecordError(
+          'osv',
+          input.id,
+          object.error.issues[0]?.message ?? 'bad shape',
+        );
+      }
+      return object.data;
+    });
   }
 
   private async *fromFixtures(since?: Date): AsyncGenerator<RawRecord> {
@@ -96,6 +112,8 @@ export class OsvAdapter implements SourceAdapter {
     });
   }
 }
+
+const isUrl = (value: string): boolean => z.url().safeParse(value).success;
 
 /** `modified_id.csv` lines are `<ISO modified>,<id>`; keeps the ids modified after `threshold`. */
 function changedSince(csv: string, threshold: Date): string[] {

@@ -5,7 +5,6 @@ import { CircuitBreaker, CircuitOpenError } from '@gyde/resilience';
 import { describe, expect, it, vi } from 'vitest';
 
 import { InvalidRecordError } from '../src/domain/invalid-record-error';
-import { normalizeOsvRecord } from '../src/domain/osv-normalizer';
 import {
   OsvAdapter,
   type OsvAdapterOptions,
@@ -138,7 +137,7 @@ describe('OSV fixtures', () => {
 });
 
 describe('normalizeOsvRecord', () => {
-  const normalize = (payload: unknown) => normalizeOsvRecord(payload, INGESTED_AT);
+  const normalize = (payload: unknown) => adapter().normalize({ sourceId: 'test', payload });
 
   it('is pure: the same record gives the same object', () => {
     expect(normalize(advisory())).toEqual(normalize(advisory()));
@@ -358,7 +357,7 @@ describe('OSV over the network', () => {
 });
 
 describe('normalizeOsvRecord: tolerance, defaults and error messages (pinned before the refactor)', () => {
-  const normalize = (payload: unknown) => normalizeOsvRecord(payload, INGESTED_AT);
+  const normalize = (payload: unknown) => adapter().normalize({ sourceId: 'test', payload });
   const thrown = (payload: unknown): InvalidRecordError => {
     try {
       normalize(payload);

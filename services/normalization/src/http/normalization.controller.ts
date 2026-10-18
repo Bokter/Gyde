@@ -16,6 +16,12 @@ import {
 } from '../application/ingest-source';
 import { ListSources } from '../application/list-sources';
 import { QueryKnowledge } from '../application/query-knowledge';
+import {
+  toIngestResultContract,
+  toKnowledgeQueryDto,
+  toKnowledgeQueryResultContract,
+  toSourcesStatusContract,
+} from './mappers/normalization.mapper';
 
 /**
  * HTTP surface of the normalization service: internal only (every route is under /internal and
@@ -31,15 +37,17 @@ export class NormalizationController {
 
   @Post(ROUTES.normalization.query)
   @HttpCode(200)
-  query(
+  async query(
     @Body(new ZodValidationPipe(KnowledgeQuery)) body: KnowledgeQuery,
   ): Promise<KnowledgeQueryResult> {
-    return this.queryKnowledge.execute(body);
+    return toKnowledgeQueryResultContract(
+      await this.queryKnowledge.execute(toKnowledgeQueryDto(body)),
+    );
   }
 
   @Get(ROUTES.normalization.sources)
-  sources(): Promise<SourcesStatus> {
-    return this.listSources.execute();
+  async sources(): Promise<SourcesStatus> {
+    return toSourcesStatusContract(await this.listSources.execute());
   }
 
   /** Manual ingestion: answers when the run finished (a failed run is recorded and answers 503). */
@@ -47,7 +55,7 @@ export class NormalizationController {
   @HttpCode(200)
   async ingest(@Param('source') source: string): Promise<IngestResult> {
     try {
-      return await this.ingestSource.execute(source);
+      return toIngestResultContract(await this.ingestSource.execute(source));
     } catch (error) {
       if (error instanceof UnknownSourceError) {
         throw new HttpError('not_found', `Unknown source "${source}"`);

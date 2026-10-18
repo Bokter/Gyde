@@ -1,4 +1,4 @@
-import type { KnowledgeObject, SourceKind, Trust } from '@gyde/contracts';
+import type { KnowledgeObject, SourceKind, Trust } from '../../domain/knowledge-object';
 
 /** One record exactly as an external source delivers it, before normalization. */
 export interface RawRecord {

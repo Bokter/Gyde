@@ -1,5 +1,4 @@
-import type { KnowledgeQuery, KnowledgeQueryResult } from '@gyde/contracts';
-
+import type { KnowledgeQueryDto, KnowledgeQueryResultDto } from './dto/knowledge.dto';
 import type { KnowledgeRepository } from './ports/knowledge-repository';
 
 /**
@@ -9,7 +8,7 @@ import type { KnowledgeRepository } from './ports/knowledge-repository';
 export class QueryKnowledge {
   constructor(private readonly repository: KnowledgeRepository) {}
 
-  async execute(query: KnowledgeQuery): Promise<KnowledgeQueryResult> {
+  async execute(query: KnowledgeQueryDto): Promise<KnowledgeQueryResultDto> {
     return { objects: await this.repository.query(query) };
   }
 }

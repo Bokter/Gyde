@@ -1,6 +1,6 @@
-import type { IngestResult, KnowledgeObject } from '@gyde/contracts';
-
 import { InvalidRecordError } from '../domain/invalid-record-error';
+import type { KnowledgeObject } from '../domain/knowledge-object';
+import type { IngestResultDto } from './dto/knowledge.dto';
 import type { KnowledgeRepository } from './ports/knowledge-repository';
 import type { SourceAdapter } from './ports/source-adapter';
 
@@ -56,7 +56,7 @@ export class IngestSource {
     this.now = deps.now ?? (() => new Date());
   }
 
-  async execute(sourceName: string): Promise<IngestResult> {
+  async execute(sourceName: string): Promise<IngestResultDto> {
     const adapter = this.deps.adapters.find((candidate) => candidate.name === sourceName);
     if (!adapter) throw new UnknownSourceError(sourceName);
     if (this.running.has(sourceName)) throw new IngestionInProgressError(sourceName);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { InstanceNotFoundError, RegistryError } from '../src/application/errors';
-import { ServiceInstance } from '../src/domain/service-instance';
+import { ServiceInstance } from '../src/domain/entities/service-instance.entity';
 
 const t0 = new Date('2026-01-01T00:00:00.000Z');
 const registration = {

@@ -25,10 +25,12 @@ Mantiene la lista actualizada de **instancias activas y saludables** de cada ser
 ## Estructura
 
 ```
-src/domain/          ServiceInstance (entidad: heartbeat, sondas, expiración) y tipos propios; solo imports relativos
-src/application/     casos de uso (register, heartbeat, deregister, resolve), dto/ (tipos planos),
-                     errors.ts (InstanceNotFoundError, sin HTTP) y ports/ (RegistryRepository)
-src/infrastructure/  InMemoryRegistryRepository y HealthChecker (bucle de sondas /healthz)
+src/domain/          entities/service-instance.entity.ts (ServiceInstance: heartbeat, sondas, expiración) y
+                     repositories/registry.repository.ts (contrato RegistryRepository); solo imports relativos
+src/application/     use-cases/*.use-case.ts (register, heartbeat, deregister, resolve), dto/ (tipos planos)
+                     y errors.ts (InstanceNotFoundError, sin HTTP)
+src/infrastructure/  repositories/in-memory-registry.repository.ts (InMemoryRegistryRepository) y
+                     health-checker.ts (HealthChecker, bucle de sondas /healthz)
 src/http/            controlador delgado, mappers/ (contrato <-> DTO) y application-error.interceptor.ts
 src/app.module.ts    composition root: enlaza puertos con adaptadores y registra el interceptor (ADR 0011)
 ```

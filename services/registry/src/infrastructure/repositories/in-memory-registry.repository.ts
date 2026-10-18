@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
-import type { RegistryRepository } from '../application/ports/registry-repository';
-import type { ServiceInstance, ServiceName } from '../domain/service-instance';
+import type { RegistryRepository } from '../../domain/repositories/registry.repository';
+import type { ServiceInstance, ServiceName } from '../../domain/entities/service-instance.entity';
 
 @Injectable()
 export class InMemoryRegistryRepository implements RegistryRepository {

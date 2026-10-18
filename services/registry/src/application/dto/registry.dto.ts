@@ -1,4 +1,4 @@
-import type { ServiceName } from '../../domain/service-instance';
+import type { ServiceName } from '../../domain/entities/service-instance.entity';
 
 export type RegisterInstanceDto = {
   readonly instanceId: string;

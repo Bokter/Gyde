@@ -1,9 +1,9 @@
-import type { DeregisterResultDto } from './dto/registry.dto';
-import type { RegistryRepository } from './ports/registry-repository';
+import type { DeregisterResultDto } from '../dto/registry.dto';
+import type { RegistryRepository } from '../../domain/repositories/registry.repository';
 
-export const DEREGISTER_INSTANCE = Symbol('DeregisterInstance');
+export const DEREGISTER_INSTANCE = Symbol('DeregisterInstanceUseCase');
 
-export class DeregisterInstance {
+export class DeregisterInstanceUseCase {
   constructor(private readonly repository: RegistryRepository) {}
 
   async execute(instanceId: string): Promise<DeregisterResultDto> {

@@ -1,9 +1,9 @@
-import type { ResolveResultDto, ResolveServiceDto } from './dto/registry.dto';
-import type { RegistryRepository } from './ports/registry-repository';
+import type { ResolveResultDto, ResolveServiceDto } from '../dto/registry.dto';
+import type { RegistryRepository } from '../../domain/repositories/registry.repository';
 
-export const RESOLVE_SERVICE_INSTANCES = Symbol('ResolveServiceInstances');
+export const RESOLVE_SERVICE_INSTANCES = Symbol('ResolveServiceInstancesUseCase');
 
-export class ResolveServiceInstances {
+export class ResolveServiceInstancesUseCase {
   constructor(
     private readonly repository: RegistryRepository,
     private readonly options: { instanceTtlMs: number; now?: () => number },

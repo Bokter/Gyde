@@ -1,10 +1,10 @@
-import { ServiceInstance } from '../domain/service-instance';
-import type { InstanceDto, RegisterInstanceDto } from './dto/registry.dto';
-import type { RegistryRepository } from './ports/registry-repository';
+import { ServiceInstance } from '../../domain/entities/service-instance.entity';
+import type { InstanceDto, RegisterInstanceDto } from '../dto/registry.dto';
+import type { RegistryRepository } from '../../domain/repositories/registry.repository';
 
-export const REGISTER_INSTANCE = Symbol('RegisterInstance');
+export const REGISTER_INSTANCE = Symbol('RegisterInstanceUseCase');
 
-export class RegisterInstance {
+export class RegisterInstanceUseCase {
   constructor(
     private readonly repository: RegistryRepository,
     private readonly options: { now?: () => number } = {},

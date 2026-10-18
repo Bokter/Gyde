@@ -1,12 +1,5 @@
 import { createHash } from 'node:crypto';
 
-import type {
-  AiResult,
-  DegradedReason,
-  InternalLlmConfig,
-  LlmAnalysisRequest,
-  LlmProvider,
-} from '@gyde/contracts';
 import {
   CircuitBreaker,
   type CircuitBreakerOptions,
@@ -15,7 +8,14 @@ import {
   createBreakerFromEnv,
 } from '@gyde/resilience';
 
+import type { AiAnalysis } from '../domain/analysis';
 import { redactSecrets, truncateMessage } from '../domain/redact';
+import type {
+  AnalyzeFindingsDto,
+  FailureReason,
+  LlmProviderName,
+  TenantLlmConfig,
+} from './dto/llm-analysis.dto';
 import type { FindingAnalyzer } from './ports/finding-analyzer';
 import type { ReportsClient } from './ports/reports-client';
 import type { TenantLlmConfigProvider } from './ports/tenant-llm-config';
@@ -24,17 +24,17 @@ import type { TenantLlmConfigProvider } from './ports/tenant-llm-config';
  * Synthetic config handed to the mock analyzer so `FindingAnalyzer` keeps a single signature.
  * The mock never reads any of it; the key below is not a secret.
  */
-function mockConfig(tenantId: string): InternalLlmConfig {
+function mockConfig(tenantId: string): TenantLlmConfig {
   return { tenantId, provider: 'anthropic', model: 'gyde-mock', apiKey: 'mock-key' };
 }
 
 export interface AnalyzeFindingsDeps {
   tenantConfig: TenantLlmConfigProvider;
   /**
-   * The real providers this service can talk to, by `LlmProvider` (Anthropic today), used when
+   * The real providers this service can talk to, by `LlmProviderName` (Anthropic today), used when
    * the tenant has a key. A provider missing here is not supported: its key is never sent anywhere.
    */
-  analyzers: Partial<Record<LlmProvider, FindingAnalyzer>>;
+  analyzers: Partial<Record<LlmProviderName, FindingAnalyzer>>;
   /** Development only: answers instead of the real provider when the tenant has no key. */
   mockAnalyzer?: FindingAnalyzer;
   mockEnabled: boolean;
@@ -57,7 +57,8 @@ export interface AnalyzeFindingsDeps {
  *     `llm-error` and nothing is sent out. Call it behind a Circuit Breaker scoped per
  *     TENANT + PROVIDER, so one studio's invalid key or rate limit never opens the circuit for
  *     the others.
- *  3. Validate the model output with the `AiResult` schema and publish it to Reports.
+ *  3. Publish the validated model output to Reports (the adapters validate it with the
+ *     `AiResult` contract).
  *  4. Provider down / circuit open -> `llm-unavailable` (serve the last cached classification
  *     when the same findings already produced one); provider error -> `llm-error`.
  *     Never throws into the caller.
@@ -68,17 +69,17 @@ export interface AnalyzeFindingsDeps {
 export class AnalyzeFindings {
   private readonly breakers = new Map<string, CircuitBreaker>();
   /** Last AI result per tenant + provider + fingerprint of the findings it explained. */
-  private readonly fallbackCache: FallbackCache<AiResult>;
+  private readonly fallbackCache: FallbackCache<AiAnalysis>;
 
   constructor(private readonly deps: AnalyzeFindingsDeps) {
-    this.fallbackCache = new MemoryFallbackCache<AiResult>({
+    this.fallbackCache = new MemoryFallbackCache<AiAnalysis>({
       maxEntries: 100,
       ttlMs: 300_000,
       ...(deps.now && { now: deps.now }),
     });
   }
 
-  async execute(request: LlmAnalysisRequest): Promise<void> {
+  async execute(request: AnalyzeFindingsDto): Promise<void> {
     try {
       await this.run(request);
     } catch (error) {
@@ -87,8 +88,8 @@ export class AnalyzeFindings {
     }
   }
 
-  private async run(request: LlmAnalysisRequest): Promise<void> {
-    let llmConfig: InternalLlmConfig | undefined;
+  private async run(request: AnalyzeFindingsDto): Promise<void> {
+    let llmConfig: TenantLlmConfig | undefined;
     try {
       llmConfig = await this.deps.tenantConfig.getConfig(request.tenantId);
     } catch (error) {
@@ -142,10 +143,10 @@ export class AnalyzeFindings {
   }
 
   private async callProvider(
-    request: LlmAnalysisRequest,
+    request: AnalyzeFindingsDto,
     breakerKey: string,
     analyzer: FindingAnalyzer,
-    config: InternalLlmConfig,
+    config: TenantLlmConfig,
   ): Promise<void> {
     const breaker = this.getBreaker(breakerKey);
 
@@ -174,14 +175,14 @@ export class AnalyzeFindings {
       await this.deps.reports.publishAiResult(aiResult);
     } catch (error) {
       // A failure that just opened the breaker is an outage of the provider, not a bad answer.
-      const reason: DegradedReason = this.isOpen(breaker) ? 'llm-unavailable' : 'llm-error';
+      const reason: FailureReason = this.isOpen(breaker) ? 'llm-unavailable' : 'llm-error';
       await this.publishFailure(request.analysisId, reason, describe(error), config.apiKey);
     }
   }
 
   private async publishFailure(
     analysisId: string,
-    reason: DegradedReason,
+    reason: FailureReason,
     message: string,
     secret?: string,
   ): Promise<void> {
@@ -218,7 +219,7 @@ export class AnalyzeFindings {
    * The cached classification is keyed by what it explains, never by `analysisId` (a new analysis
    * gets a new id): the same tenant, provider and findings can reuse the last answer.
    */
-  private cacheKey(request: LlmAnalysisRequest, breakerKey: string): string {
+  private cacheKey(request: AnalyzeFindingsDto, breakerKey: string): string {
     const fingerprint = createHash('sha256')
       .update(JSON.stringify({ findings: request.findings, evidence: request.evidence }))
       .digest('hex')

@@ -1,7 +1,6 @@
-import type { AiResult, InternalLlmConfig } from '@gyde/contracts';
-
 import type { FindingAnalyzer } from '../../application/ports/finding-analyzer';
-import type { AnalysisInput } from '../../domain/analysis';
+import type { TenantLlmConfig } from '../../application/dto/llm-analysis.dto';
+import type { AiAnalysis, AnalysisInput } from '../../domain/analysis';
 import { MODEL_SYSTEM_PROMPT, applyModelPayload, buildUserPrompt } from '../../domain/prompt';
 import { parseAiResult } from '../mappers/ai-result.mapper';
 import { parseModelOutput } from './model-output.parser';
@@ -39,7 +38,7 @@ export class AnthropicFindingAnalyzer implements FindingAnalyzer {
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   }
 
-  async analyze(request: AnalysisInput, credentials: InternalLlmConfig): Promise<AiResult> {
+  async analyze(request: AnalysisInput, credentials: TenantLlmConfig): Promise<AiAnalysis> {
     const response = await this.fetchFn(`${this.baseUrl}/v1/messages`, {
       method: 'POST',
       headers: {

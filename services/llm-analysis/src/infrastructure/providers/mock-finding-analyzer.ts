@@ -1,7 +1,6 @@
-import type { AiResult, InternalLlmConfig } from '@gyde/contracts';
-
 import type { FindingAnalyzer } from '../../application/ports/finding-analyzer';
-import type { AnalysisInput } from '../../domain/analysis';
+import type { TenantLlmConfig } from '../../application/dto/llm-analysis.dto';
+import type { AiAnalysis, AnalysisInput } from '../../domain/analysis';
 import { parseAiResult } from '../mappers/ai-result.mapper';
 
 /**
@@ -10,7 +9,7 @@ import { parseAiResult } from '../mappers/ai-result.mapper';
  * always produce the same output (same explanations, same order, same summary).
  */
 export class MockFindingAnalyzer implements FindingAnalyzer {
-  analyze(request: AnalysisInput, _credentials: InternalLlmConfig): Promise<AiResult> {
+  analyze(request: AnalysisInput, _credentials: TenantLlmConfig): Promise<AiAnalysis> {
     const findings = request.findings.map((finding, index) => ({
       ...finding,
       aiExplanation: `Mock explanation ${index + 1} for "${finding.title}" (${finding.severity}): the deterministic engine already matched it, and this text stands in for the model's reasoning.`,

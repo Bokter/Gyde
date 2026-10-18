@@ -1,10 +1,9 @@
-import { HttpError } from '@gyde/service-kit';
-
 import type { AuthCache } from './ports/auth-cache';
 import type { ApiKeyVerifier } from './ports/api-key-verifier';
 import type { KeyHasher } from './ports/key-hasher';
 import { isWellFormedApiKey } from '../domain/api-key-format';
 import type { Principal } from '../domain/principal';
+import { UnauthorizedError } from './errors';
 import type { RequestContext } from './request-context';
 
 export interface AuthenticateApiKeyDeps {
@@ -44,7 +43,7 @@ export class AuthenticateApiKey {
   }
 }
 
-function unauthorized(): HttpError {
+function unauthorized(): UnauthorizedError {
   // One message for every reason (unknown, revoked, expired, malformed): nothing to enumerate.
-  return new HttpError('unauthorized', 'Missing or invalid API key');
+  return new UnauthorizedError();
 }

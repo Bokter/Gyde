@@ -1,6 +1,7 @@
 import type { ServiceResolver } from '@gyde/discovery';
 import { APP_CONFIG, type Logger, ResilientHttpClient } from '@gyde/service-kit';
 import { type DynamicModule, Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 
 import { AuthenticateApiKey } from './application/authenticate-api-key';
 import { EnforceRateLimit } from './application/enforce-rate-limit';
@@ -14,6 +15,7 @@ import { USAGE_COUNTER, type UsageCounter } from './application/ports/usage-coun
 import { SubmitAnalysis } from './application/submit-analysis';
 import type { Config } from './config';
 import { ApiKeyGuard } from './http/api-key.guard';
+import { ApplicationErrorInterceptor } from './http/application-error.interceptor';
 import { GatewayController } from './http/gateway.controller';
 import { RateLimitGuard } from './http/rate-limit.guard';
 import { HttpReportsClient } from './infrastructure/http-reports-client';
@@ -48,6 +50,7 @@ export class AppModule {
       module: AppModule,
       controllers: [GatewayController],
       providers: [
+        { provide: APP_INTERCEPTOR, useClass: ApplicationErrorInterceptor },
         ApiKeyGuard,
         RateLimitGuard,
         {

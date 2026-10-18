@@ -35,13 +35,42 @@ Viven como **módulos de este servicio** (no como tres microservicios), comparti
 ## Estructura
 
 ```
-src/domain/analyzers/    BaseAnalyzer (hecho) · vulnerabilities/ (hecho) · licenses/ (hecho) · compatibility/
-src/domain/versions/     comparación de versiones por ecosistema y rangos afectados (puro)
-src/application/         RetrieveEvidence, BackgroundJobs y puertos: KnowledgeSource, ReportsClient, LlmClient
-src/infrastructure/      adaptadores HTTP hacia normalization, reports y llm-analysis sobre `ResilientHttpClient` (discovery + `*_URL`, breaker por dependencia)
-src/http/                controlador NestJS de `POST /internal/retrieve`
-src/app.module.ts        composition root: enlaza puertos con adaptadores (ADR 0011)
+src/domain/              solo imports relativos (sin contratos, Zod, node:* ni librerías)
+  model.ts               value objects de solo lectura: Dependency, AffectedRange, KnowledgeEntry, Evidence, Finding, Severity y SEVERITY_ORDER (copia local)
+  ports.ts               puertos del dominio: LicenseExpressionParser (SPDX) y DigestHex (sha256 hex)
+  analyzers/             BaseAnalyzer (Template Method, hecho) · vulnerabilities/ (hecho) · licenses/ (hecho) · compatibility/ (esqueleto)
+  versions/              comparación de versiones por ecosistema y rangos afectados (puro)
+src/application/         RetrieveEvidence, BackgroundJobs, errors.ts (RetrievalError con `code` y subclases, sin HTTP)
+  dto/                   tipos planos de entrada/salida del caso de uso (retrieval.dto.ts)
+  ports/                 KnowledgeSource, ReportsClient, LlmClient (hablan en DTO y tipos de dominio)
+src/infrastructure/      adaptadores HTTP hacia normalization, reports y llm-analysis sobre `ResilientHttpClient` (discovery + `*_URL`, breaker por dependencia),
+                         SpdxLicenseExpressionParser (spdx-expression-parse), sha256Hex (node:crypto) y mappers/ (contrato <-> DTO/dominio)
+src/http/                controlador NestJS de `POST /internal/retrieve` y mappers/ (RetrieveRequest -> DTO)
+src/app.module.ts        composition root: enlaza puertos con adaptadores y construye los analizadores con el parser y el digest (ADR 0011)
 ```
+
+Los analizadores y los tipos de `domain/model.ts` son *value objects* y servicios de dominio (tipos planos de solo lectura con funciones puras), no entidades con ciclo de vida: Retrieval no guarda estado. Las reglas de capas se comprueban con `pnpm exec eslint --config tooling/eslint/purity.config.mjs services/retrieval/src` (ADR 0012).
+
+### Errores y por qué no hay interceptor
+
+`application/errors.ts` define `RetrievalError` (con `code`) y sus subclases `KnowledgeUnavailableError` y `LlmUnavailableError`. A diferencia de registry, **no hay `application-error.interceptor.ts`**: el controlador responde `202` y ningún error de aplicación llega a HTTP. `RetrieveEvidence.execute` los consume y los convierte en un `AnalysisFailure` publicado a Reports (o en una llamada a `onError`). El `400`/`401` los producen el pipe Zod y el guard de `service-kit`, que no cambian.
+
+## Excepciones de contrato en application
+
+Ninguna: ningún archivo de `application/` importa `@gyde/contracts`. Los puertos y el caso de uso hablan en DTOs (`application/dto/`) y en tipos de `domain/model.ts`; los mappers de `http/mappers/` e `infrastructure/mappers/` convierten desde y hacia los contratos.
+
+## Comportamientos conocidos
+
+Se describen tal como son hoy; el refactor no los cambió.
+
+- `CompatibilityAnalyzer` es un esqueleto: sus pasos lanzan `TODO(area-3)` y no se instancia en `app.module.ts`. Por eso `coverage.compatibility` es `false` siempre, aunque el plan tenga `compatibilityAnalysis`.
+- La clave del caché de respaldo de normalization es el sha256 de `JSON.stringify` de la consulta: depende del orden de claves (`packages`, `gameEngine`, `limit`) y del orden de los paquetes (el de primera aparición en la solicitud).
+- Los ids de hallazgo son deterministas y legibles (`license:<eco>:<nombre>@<versión>`, `vuln:<alias>:<eco>:<nombre>@<versión>`). Si superan 100 caracteres se reemplazan por `<prefijo>:` + los 40 primeros caracteres hex del sha256 de la forma legible. El de licencia no incluye la licencia ni el alias, y el de vulnerabilidad hasheado pierde el alias.
+- Los analizadores no deduplican dependencias: una dependencia repetida en la solicitud produce hallazgos con el mismo id (solo la consulta a normalization deduplica).
+- La consulta a normalization usa siempre `limit: 5000` y no envía `kinds`.
+- El orden de los hallazgos usa `localeCompare(..., 'en')` (título e id), así que depende de ICU de Node.
+- La razón `llm-not-configured` existe en el contrato pero Retrieval nunca la publica.
+- `rxjs`, `@nestjs/core`, `@nestjs/platform-fastify`, `pino` y `reflect-metadata` figuran en `package.json` pero `src/` no los importa directamente.
 
 Los criterios de aceptación pendientes (`CompatibilityAnalyzer`) están como `it.todo` en `test/base-analyzer.test.ts`.
 

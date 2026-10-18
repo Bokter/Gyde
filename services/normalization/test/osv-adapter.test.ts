@@ -356,3 +356,127 @@ describe('OSV over the network', () => {
     expect(calls).toHaveLength(callsBefore);
   });
 });
+
+describe('normalizeOsvRecord: tolerance, defaults and error messages (pinned before the refactor)', () => {
+  const normalize = (payload: unknown) => normalizeOsvRecord(payload, INGESTED_AT);
+  const thrown = (payload: unknown): InvalidRecordError => {
+    try {
+      normalize(payload);
+    } catch (error) {
+      return error as InvalidRecordError;
+    }
+    throw new Error('expected InvalidRecordError');
+  };
+  const range = { type: 'ECOSYSTEM', events: [{ introduced: '0' }] };
+  const affected = (name = 'P') => [{ package: pkg(name), ranges: [range] }];
+
+  it('accepts unknown fields at every level', () => {
+    const [object] = normalize({
+      id: 'X-1',
+      extra: 1,
+      severity: [{ type: 'CVSS_V3', score: V3_CRITICAL, more: true }],
+      references: [{ type: 'ADVISORY', url: 'https://example.com/a', more: 1 }],
+      database_specific: { severity: 'HIGH', other: 1 },
+      affected: [
+        {
+          extra: 1,
+          package: { ecosystem: 'NuGet', name: 'P', purl: 'x' },
+          ranges: [{ type: 'ECOSYSTEM', extra: 1, events: [{ introduced: '0', extra: 1 }] }],
+        },
+      ],
+    });
+    expect(object).toMatchObject({ id: 'osv:X-1', severity: 'high', cvss: 9.8 });
+    expect(Object.keys(object ?? {})).not.toContain('extra');
+  });
+
+  it('treats omitted arrays as empty', () => {
+    expect(normalize({ id: 'X-1' })).toEqual([]); // no affected
+    const [object] = normalize({
+      id: 'X-1',
+      affected: [{ package: pkg('P'), versions: ['1.0.0'] }],
+    });
+    expect(object).toMatchObject({
+      aliases: ['X-1'],
+      affected: [{ ecosystem: 'nuget', name: 'P', versions: ['1.0.0'] }],
+    });
+    expect(
+      normalize({ id: 'X-1', affected: [{ package: pkg('P'), ranges: [{ type: 'ECOSYSTEM' }] }] }),
+    ).toEqual([]);
+  });
+
+  it('ignores an affected entry without a package', () => {
+    expect(normalize({ id: 'X-1', affected: [{ ranges: [range] }] })).toEqual([]);
+  });
+
+  it.each([
+    ['no id', {}, 'unknown', 'Invalid input: expected string, received undefined'],
+    ['a non-string id', { id: 5 }, 'unknown', 'Invalid input: expected string, received number'],
+    ['not an object', 'text', 'unknown', 'Invalid input: expected object, received string'],
+    ['an empty id', { id: '' }, '', 'Too small: expected string to have >=1 characters'],
+    [
+      'null in an array field',
+      { id: 'A', aliases: null },
+      'A',
+      'Invalid input: expected array, received null',
+    ],
+    [
+      'an empty package name',
+      { id: 'A', affected: [{ package: pkg('') }] },
+      'A',
+      'Too small: expected string to have >=1 characters',
+    ],
+  ])('rejects %s with the exact message', (_label, payload, sourceId, detail) => {
+    const error = thrown(payload);
+    expect(error).toBeInstanceOf(InvalidRecordError);
+    expect(error.source).toBe('osv');
+    expect(error.sourceId).toBe(sourceId);
+    expect(error.message).toBe(`Invalid osv record "${sourceId}": ${detail}`);
+  });
+
+  it('rejects an id longer than 90 characters', () => {
+    expect(thrown({ id: 'x'.repeat(91) }).message).toContain(
+      'Too big: expected string to have <=90 characters',
+    );
+  });
+
+  it('the contract still rejects what the record schema lets through, with the bare advisory id', () => {
+    const badDate = thrown(advisory({ id: 'A', published: 'yesterday' }));
+    expect(badDate.message).toBe('Invalid osv record "A": Invalid ISO datetime');
+    const longName = thrown({ id: 'A', affected: affected('P'.repeat(201)) });
+    expect(longName.message).toBe(
+      'Invalid osv record "A": Too big: expected string to have <=200 characters',
+    );
+  });
+
+  describe('reference url', () => {
+    const urlOf = (references: unknown[]) =>
+      (normalize({ id: 'X-1', affected: affected(), references })[0] as { url?: string }).url;
+
+    it('prefers the ADVISORY reference over the first one', () => {
+      expect(
+        urlOf([
+          { type: 'WEB', url: 'https://example.com/web' },
+          { type: 'ADVISORY', url: 'https://example.com/advisory' },
+        ]),
+      ).toBe('https://example.com/advisory');
+    });
+
+    it('uses the first reference when none is an ADVISORY', () => {
+      expect(
+        urlOf([
+          { type: 'WEB', url: 'https://example.com/one' },
+          { url: 'https://example.com/two' },
+        ]),
+      ).toBe('https://example.com/one');
+    });
+
+    it('drops an invalid chosen url without falling through to the next reference', () => {
+      expect(
+        urlOf([
+          { type: 'ADVISORY', url: 'not a url' },
+          { type: 'WEB', url: 'https://example.com/ok' },
+        ]),
+      ).toBeUndefined();
+    });
+  });
+});

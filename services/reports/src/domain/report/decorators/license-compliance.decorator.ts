@@ -1,7 +1,6 @@
-import type { Finding } from '@gyde/contracts';
-
 import type { ReportContent } from '../report-component';
 import { ReportDecorator } from '../report-decorator';
+import type { Finding } from '../report-types';
 
 /**
  * ConcreteDecorator: license compliance and conflicts.

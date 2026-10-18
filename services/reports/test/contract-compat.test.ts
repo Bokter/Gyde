@@ -1,14 +1,22 @@
 import type {
   AiResult as ContractAiResult,
+  AnalysisAccepted as ContractAnalysisAccepted,
   AnalysisFailure as ContractAnalysisFailure,
   DeterministicResult as ContractDeterministicResult,
   Entitlements as ContractEntitlements,
+  CreateAnalysisJob as ContractCreateAnalysisJob,
   Finding as ContractFinding,
   Report as ContractReport,
+  RetrieveRequest as ContractRetrieveRequest,
   ReportStatus as ContractReportStatus,
 } from '@gyde/contracts';
 import { describe, expect, it } from 'vitest';
 
+import type {
+  AnalysisAcceptedDto,
+  CreateAnalysisDto,
+  RetrieveRequestDto,
+} from '../src/application/dto/analysis.dto';
 import type {
   AiResult,
   AnalysisFailure,
@@ -30,6 +38,13 @@ describe('domain types stay equivalent to the contract (no casts at the borders)
     assertAssignableBothWays<Mutual<ContractAiResult, AiResult>>();
     assertAssignableBothWays<Mutual<ContractAnalysisFailure, AnalysisFailure>>();
     assertAssignableBothWays<Mutual<ContractReportStatus, AnalysisStatus>>();
+    expect(true).toBe(true);
+  });
+
+  it('the DTOs of the use cases', () => {
+    assertAssignableBothWays<Mutual<ContractCreateAnalysisJob, CreateAnalysisDto>>();
+    assertAssignableBothWays<Mutual<ContractRetrieveRequest, RetrieveRequestDto>>();
+    assertAssignableBothWays<Mutual<ContractAnalysisAccepted, AnalysisAcceptedDto>>();
     expect(true).toBe(true);
   });
 

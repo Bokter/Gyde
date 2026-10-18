@@ -6,7 +6,7 @@ import {
   type OnModuleInit,
 } from '@nestjs/common';
 
-import { ANALYSIS_LIFECYCLE, type AnalysisLifecycle } from '../application/analysis-lifecycle';
+import { SWEEP_STALE_ANALYSES, type SweepStaleAnalyses } from '../application/sweep-stale-analyses';
 import { DATABASE, type DatabaseHandle } from './db/database';
 
 /**
@@ -23,7 +23,7 @@ export class ReportsStartup implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     @Inject(DATABASE) private readonly database: DatabaseHandle,
-    @Inject(ANALYSIS_LIFECYCLE) private readonly lifecycle: AnalysisLifecycle,
+    @Inject(SWEEP_STALE_ANALYSES) private readonly sweepStaleAnalyses: SweepStaleAnalyses,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -31,7 +31,7 @@ export class ReportsStartup implements OnModuleInit, OnModuleDestroy {
     this.logger.log('database migrations applied');
 
     // A failure here is a broken schema or an unreachable database: fail fast, do not listen.
-    const swept = await this.lifecycle.sweepStaleAnalyses();
+    const swept = await this.sweepStaleAnalyses.execute();
     if (swept.analyzing > 0 || swept.retrieving > 0) {
       this.logger.log(
         `startup sweep closed ${swept.analyzing} stale analyzing and ${swept.retrieving} stale retrieving analyses`,

@@ -1,7 +1,7 @@
 import { PLAN_CATALOG, type ReportStatus } from '@gyde/contracts';
 import { describe, expect, it } from 'vitest';
 
-import type { StoredAnalysis } from '../src/application/ports/report-repository';
+import type { AnalysisSnapshot } from '../src/domain/analysis/analysis-types';
 import { InMemoryReportRepository } from '../src/infrastructure/in-memory-report-repository';
 import { PostgresReportRepository } from '../src/infrastructure/postgres-report.repository';
 import { createPgliteDatabase } from './support/pglite';
@@ -10,7 +10,7 @@ function analysis(
   id: string,
   status: ReportStatus,
   createdAt = new Date().toISOString(),
-): StoredAnalysis {
+): AnalysisSnapshot {
   return {
     id,
     tenantId: 'tenant-1',

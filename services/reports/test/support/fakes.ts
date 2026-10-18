@@ -1,7 +1,7 @@
 import type { ReportRepository } from '../../src/application/ports/report-repository';
 import type { RetrievalClient } from '../../src/application/ports/retrieval-client';
-import { Analysis } from '../../src/domain/analysis/analysis';
-import type { AnalysisSnapshot, AnalysisStatus } from '../../src/domain/analysis/analysis-types';
+import { Analysis } from '../../src/domain/entities/analysis.entity';
+import type { AnalysisSnapshot, AnalysisStatus } from '../../src/domain/entities/analysis-types';
 
 /** Fake repository: records every call so the tests can assert on it. */
 export class FakeRepository implements ReportRepository {

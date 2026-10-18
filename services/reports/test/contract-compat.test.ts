@@ -23,7 +23,7 @@ import type {
   AnalysisStatus,
   DeterministicResult,
   Entitlements,
-} from '../src/domain/analysis/analysis-types';
+} from '../src/domain/entities/analysis-types';
 import type { Finding, ReportView } from '../src/domain/report/report-types';
 
 /** Compiles only when A and B are assignable to each other (checked by `pnpm typecheck`). */

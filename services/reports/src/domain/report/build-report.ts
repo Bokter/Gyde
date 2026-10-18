@@ -1,4 +1,4 @@
-import type { AnalysisSnapshot } from '../analysis/analysis-types';
+import type { AnalysisSnapshot } from '../entities/analysis-types';
 import { composeReport } from './compose-report';
 import type {
   DegradedReason,

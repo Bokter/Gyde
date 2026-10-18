@@ -1,4 +1,4 @@
-import { Analysis } from '../domain/analysis/analysis';
+import { Analysis } from '../domain/entities/analysis.entity';
 import type { AnalysisWatchdog } from './analysis-watchdog';
 import type { AnalysisAcceptedDto, CreateAnalysisDto } from './dto/analysis.dto';
 import type { ReportRepository } from './ports/report-repository';

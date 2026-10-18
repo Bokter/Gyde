@@ -1,5 +1,5 @@
-import type { Analysis } from '../../domain/analysis/analysis';
-import type { AnalysisStatus } from '../../domain/analysis/analysis-types';
+import type { Analysis } from '../../domain/entities/analysis.entity';
+import type { AnalysisStatus } from '../../domain/entities/analysis-types';
 
 /** Port to persistence (PostgreSQL schema `reports`): it stores and returns the `Analysis` entity. */
 export interface ReportRepository {

@@ -1,4 +1,4 @@
-import type { AiResult } from '../../analysis/analysis-types';
+import type { AiResult } from '../../entities/analysis-types';
 import type { ReportComponent, ReportContent } from '../report-component';
 import { ReportDecorator } from '../report-decorator';
 import type { Finding } from '../report-types';

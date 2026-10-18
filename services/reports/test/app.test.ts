@@ -12,7 +12,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { NestFastifyApplication } from '@gyde/service-kit';
 
 import type { AppModuleOverrides } from '../src/app.module';
-import type { AnalysisSnapshot } from '../src/domain/analysis/analysis-types';
+import type { AnalysisSnapshot } from '../src/domain/entities/analysis-types';
 import type { TimerName } from '../src/application/analysis-watchdog';
 import { configSchema } from '../src/config';
 import type { DatabaseHandle } from '../src/infrastructure/db/database';

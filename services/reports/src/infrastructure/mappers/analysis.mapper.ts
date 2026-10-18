@@ -1,4 +1,4 @@
-import { Analysis } from '../../domain/analysis/analysis';
+import { Analysis } from '../../domain/entities/analysis.entity';
 import type { analyses } from '../db/schema';
 
 export type AnalysisRow = typeof analyses.$inferSelect;

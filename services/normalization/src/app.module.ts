@@ -1,6 +1,7 @@
 import { CircuitBreaker, createBreakerFromEnv } from '@gyde/resilience';
 import { APP_CONFIG } from '@gyde/service-kit';
 import { type DynamicModule, Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 
 import { IngestSource } from './application/ingest-source';
 import { ListSources } from './application/list-sources';
@@ -11,6 +12,7 @@ import {
 } from './application/ports/knowledge-repository';
 import { SOURCE_ADAPTERS, type SourceAdapter } from './application/ports/source-adapter';
 import type { Config } from './config';
+import { ApplicationErrorInterceptor } from './http/application-error.interceptor';
 import { NormalizationController } from './http/normalization.controller';
 import { DATABASE, type DatabaseHandle } from './infrastructure/db/database';
 import { DatabaseLifecycle } from './infrastructure/db/database-lifecycle';
@@ -36,6 +38,7 @@ export class AppModule {
       module: AppModule,
       controllers: [NormalizationController],
       providers: [
+        { provide: APP_INTERCEPTOR, useClass: ApplicationErrorInterceptor },
         { provide: DATABASE, useValue: database },
         DatabaseLifecycle,
         { provide: KNOWLEDGE_REPOSITORY, useClass: PostgresKnowledgeRepository },

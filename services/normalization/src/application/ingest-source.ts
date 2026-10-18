@@ -1,33 +1,9 @@
 import { InvalidRecordError } from '../domain/invalid-record-error';
 import type { KnowledgeObject } from '../domain/knowledge-object';
 import type { IngestResultDto } from './dto/knowledge.dto';
+import { IngestionFailedError, IngestionInProgressError, UnknownSourceError } from './errors';
 import type { KnowledgeRepository } from './ports/knowledge-repository';
 import type { SourceAdapter } from './ports/source-adapter';
-
-export class UnknownSourceError extends Error {
-  constructor(readonly source: string) {
-    super(`Unknown source "${source}"`);
-    this.name = 'UnknownSourceError';
-  }
-}
-
-export class IngestionInProgressError extends Error {
-  constructor(readonly source: string) {
-    super(`Source "${source}" is already being ingested`);
-    this.name = 'IngestionInProgressError';
-  }
-}
-
-/** The source could not be read or stored. The attempt is recorded; stored knowledge is untouched. */
-export class IngestionFailedError extends Error {
-  constructor(
-    readonly source: string,
-    reason: string,
-  ) {
-    super(`Ingestion of "${source}" failed: ${reason}`);
-    this.name = 'IngestionFailedError';
-  }
-}
 
 export interface IngestSourceDeps {
   adapters: readonly SourceAdapter[];

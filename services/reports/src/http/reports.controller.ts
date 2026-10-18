@@ -23,12 +23,20 @@ import {
   RECORD_DETERMINISTIC_RESULT,
   type RecordDeterministicResult,
 } from '../application/record-deterministic-result';
+import {
+  toAcceptedContract,
+  toAiResultDto,
+  toAnalysisFailureDto,
+  toCreateAnalysisDto,
+  toDeterministicResultDto,
+  toGetReportDto,
+  toReportContract,
+} from './mappers/reports.mapper';
 
 /**
  * HTTP surface of Reports: internal only. The gateway creates and reads analyses; Retrieval and
- * llm-analysis push their results here.
- *
- * `create` and `get` are live. Record endpoints and markdown are now live too.
+ * llm-analysis push their results here. Each handler validates, maps to a DTO, runs one use case
+ * and maps the answer back to the contract.
  */
 @Controller()
 export class ReportsController {
@@ -44,18 +52,18 @@ export class ReportsController {
 
   @Post(ROUTES.reports.createAnalysis)
   @HttpCode(202)
-  create(
+  async create(
     @Body(new ZodValidationPipe(CreateAnalysisJob)) body: CreateAnalysisJob,
   ): Promise<AnalysisAccepted> {
-    return this.createAnalysis.execute(body);
+    return toAcceptedContract(await this.createAnalysis.execute(toCreateAnalysisDto(body)));
   }
 
   @Get(ROUTES.reports.getAnalysis)
-  get(
+  async get(
     @Param('analysisId') analysisId: string,
     @Headers(HEADERS.tenantId) tenantId: string | undefined,
   ): Promise<Report> {
-    return this.getReport.execute({ analysisId, tenantId });
+    return toReportContract(await this.getReport.execute(toGetReportDto(analysisId, tenantId)));
   }
 
   /**
@@ -68,48 +76,38 @@ export class ReportsController {
     @Headers(HEADERS.tenantId) tenantId: string | undefined,
     @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<string> {
-    const markdown = await this.getReportMarkdown.execute({ analysisId, tenantId });
+    const markdown = await this.getReportMarkdown.execute(toGetReportDto(analysisId, tenantId));
     reply.header('content-type', 'text/markdown; charset=utf-8');
     return markdown;
   }
 
-  /**
-   * Called by Retrieval to deliver the deterministic result.
-   * The `:analysisId` path parameter is the authoritative id; it overwrites what the body carries
-   * so the use case never has to trust the body alone.
-   */
+  /** Called by Retrieval to deliver the deterministic result. */
   @Post(ROUTES.reports.deterministicResult)
   @HttpCode(204)
   recordDeterministic(
     @Param('analysisId') analysisId: string,
     @Body(new ZodValidationPipe(DeterministicResult)) body: DeterministicResult,
   ): Promise<void> {
-    return this.recordDeterministicResult.execute({ ...body, analysisId });
+    return this.recordDeterministicResult.execute(toDeterministicResultDto(analysisId, body));
   }
 
-  /**
-   * Called by llm-analysis to deliver the AI result.
-   * Same convention: path analysisId is authoritative.
-   */
+  /** Called by llm-analysis to deliver the AI result. */
   @Post(ROUTES.reports.aiResult)
   @HttpCode(204)
   recordAi(
     @Param('analysisId') analysisId: string,
     @Body(new ZodValidationPipe(AiResult)) body: AiResult,
   ): Promise<void> {
-    return this.recordAiResult.execute({ ...body, analysisId });
+    return this.recordAiResult.execute(toAiResultDto(analysisId, body));
   }
 
-  /**
-   * Called by Retrieval or llm-analysis when a stage fails.
-   * Same convention: path analysisId is authoritative.
-   */
+  /** Called by Retrieval or llm-analysis when a stage fails. */
   @Post(ROUTES.reports.failure)
   @HttpCode(204)
   recordFailure(
     @Param('analysisId') analysisId: string,
     @Body(new ZodValidationPipe(AnalysisFailure)) body: AnalysisFailure,
   ): Promise<void> {
-    return this.recordAnalysisFailure.execute({ ...body, analysisId });
+    return this.recordAnalysisFailure.execute(toAnalysisFailureDto(analysisId, body));
   }
 }

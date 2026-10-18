@@ -24,6 +24,11 @@ import type { Principal } from '../domain/principal';
 import { SubmitAnalysis } from '../application/submit-analysis';
 import { ApiKeyGuard } from './api-key.guard';
 import { RateLimitGuard } from './rate-limit.guard';
+import {
+  toAnalysisAcceptedContract,
+  toAnalysisRequestDto,
+  toAuthVerifyResponse,
+} from './mappers/gateway.mapper';
 import { CurrentContext, CurrentPrincipal } from './request-principal';
 
 interface MarkdownReply {
@@ -42,20 +47,24 @@ export class GatewayController {
     @Inject(GetReport) private readonly getReport: GetReport,
   ) {}
 
-  /** The entitlements are the ones Web returned for the key: they are not recomputed. */
   @Get(ROUTES.gateway.verify)
   verify(@CurrentPrincipal() principal: Principal): AuthVerifyResponse {
-    return { plan: principal.entitlements.plan, entitlements: principal.entitlements };
+    return toAuthVerifyResponse(principal);
   }
 
   @Post(ROUTES.gateway.analyses)
   @HttpCode(202)
-  createAnalysis(
+  async createAnalysis(
     @CurrentPrincipal() principal: Principal,
     @CurrentContext() context: RequestContext,
     @Body(new ZodValidationPipe(AnalysisRequest)) body: AnalysisRequest,
   ): Promise<AnalysisAccepted> {
-    return this.submitAnalysis.execute(principal, body, context);
+    const accepted = await this.submitAnalysis.execute(
+      principal,
+      toAnalysisRequestDto(body),
+      context,
+    );
+    return toAnalysisAcceptedContract(accepted);
   }
 
   @Get(ROUTES.gateway.analysis)

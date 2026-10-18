@@ -96,12 +96,6 @@ describe('use cases raise application errors, not HTTP ones', () => {
           reportsCalls += 1;
           return { analysisId: 'a', status: 'pending' };
         },
-        getReport: async () => {
-          throw new Error('unused');
-        },
-        getMarkdown: async () => {
-          throw new Error('unused');
-        },
       },
       usage: new MemoryUsageCounter(),
       now: () => Date.parse('2026-10-18T00:00:00Z'),

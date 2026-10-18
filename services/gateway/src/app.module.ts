@@ -10,6 +10,7 @@ import { API_KEY_VERIFIER, type ApiKeyVerifier } from './application/ports/api-k
 import { AUTH_CACHE, type AuthCache } from './application/ports/auth-cache';
 import { KEY_HASHER, type KeyHasher } from './application/ports/key-hasher';
 import { RATE_LIMITER, type RateLimiter } from './application/ports/rate-limiter';
+import { REPORT_READER, type ReportReader } from './application/ports/report-reader';
 import { REPORTS_CLIENT, type ReportsClient } from './application/ports/reports-client';
 import { USAGE_COUNTER, type UsageCounter } from './application/ports/usage-counter';
 import { SubmitAnalysis } from './application/submit-analysis';
@@ -37,6 +38,7 @@ export interface AppModuleOptions {
 }
 
 const INTERNAL_CLIENT = Symbol('ResilientHttpClient');
+const HTTP_REPORTS_CLIENT = Symbol('HttpReportsClient');
 
 /**
  * Composition root of the service: the only place that knows concrete implementations.
@@ -86,9 +88,20 @@ export class AppModule {
           inject: [APP_CONFIG],
         },
         {
-          provide: REPORTS_CLIENT,
-          useFactory: (client: ResilientHttpClient): ReportsClient => new HttpReportsClient(client),
+          // One adapter, two ports: starting an analysis and reading one.
+          provide: HTTP_REPORTS_CLIENT,
+          useFactory: (client: ResilientHttpClient) => new HttpReportsClient(client),
           inject: [INTERNAL_CLIENT],
+        },
+        {
+          provide: REPORTS_CLIENT,
+          useFactory: (adapter: HttpReportsClient): ReportsClient => adapter,
+          inject: [HTTP_REPORTS_CLIENT],
+        },
+        {
+          provide: REPORT_READER,
+          useFactory: (adapter: HttpReportsClient): ReportReader => adapter,
+          inject: [HTTP_REPORTS_CLIENT],
         },
         {
           provide: AuthenticateApiKey,
@@ -119,8 +132,8 @@ export class AppModule {
         },
         {
           provide: GetReport,
-          useFactory: (reports: ReportsClient) => new GetReport(reports),
-          inject: [REPORTS_CLIENT],
+          useFactory: (reader: ReportReader) => new GetReport(reader),
+          inject: [REPORT_READER],
         },
       ],
     };

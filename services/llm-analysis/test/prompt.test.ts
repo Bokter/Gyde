@@ -9,7 +9,7 @@ import {
   extractJsonText,
 } from '../src/domain/prompt';
 import { redactSecrets, truncateMessage } from '../src/domain/redact';
-import { parseModelOutput } from '../src/infrastructure/providers/model-output.parser';
+import { parseModelOutput } from '../src/infrastructure/model-output.parser';
 import { analysisPayload } from './support/fake-services';
 
 describe('buildUserPrompt', () => {

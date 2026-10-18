@@ -8,7 +8,7 @@ import {
 } from '../src/application/ports/model-call-policy';
 import { configSchema } from '../src/config';
 import { createApp } from '../src/http/app';
-import { ResilientModelCallPolicy } from '../src/infrastructure/resilient-model-call-policy';
+import { ResilientModelCallPolicy } from '../src/infrastructure/adapters/resilient-model-call-policy.adapter';
 import { analysisPayload } from './support/fake-services';
 import type { AiAnalysis } from '../src/domain/analysis';
 

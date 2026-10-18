@@ -1,14 +1,14 @@
-import { redactSecrets, truncateMessage } from '../domain/redact';
+import { redactSecrets, truncateMessage } from '../../domain/redact';
 import type {
   AnalyzeFindingsDto,
   FailureReason,
   LlmProviderName,
   TenantLlmConfig,
-} from './dto/llm-analysis.dto';
-import type { FindingAnalyzer } from './ports/finding-analyzer';
-import type { ModelCallPolicy } from './ports/model-call-policy';
-import type { ReportsClient } from './ports/reports-client';
-import type { TenantLlmConfigProvider } from './ports/tenant-llm-config';
+} from '../dto/llm-analysis.dto';
+import type { FindingAnalyzer } from '../ports/finding-analyzer';
+import type { ModelCallPolicy } from '../ports/model-call-policy';
+import type { ReportsClient } from '../ports/reports-client';
+import type { TenantLlmConfigProvider } from '../ports/tenant-llm-config';
 
 /**
  * Synthetic config handed to the mock analyzer so `FindingAnalyzer` keeps a single signature.
@@ -54,7 +54,7 @@ export interface AnalyzeFindingsDeps {
  * The API key never appears in logs, errors or the published messages: it is used for one call
  * and every message that leaves here goes through `redactSecrets`.
  */
-export class AnalyzeFindings {
+export class AnalyzeFindingsUseCase {
   constructor(private readonly deps: AnalyzeFindingsDeps) {}
 
   async execute(request: AnalyzeFindingsDto): Promise<void> {

@@ -3,7 +3,7 @@ import type { TenantLlmConfig } from '../../application/dto/llm-analysis.dto';
 import type { AiAnalysis, AnalysisInput } from '../../domain/analysis';
 import { MODEL_SYSTEM_PROMPT, applyModelPayload, buildUserPrompt } from '../../domain/prompt';
 import { parseAiResult } from '../mappers/ai-result.mapper';
-import { parseModelOutput } from './model-output.parser';
+import { parseModelOutput } from '../model-output.parser';
 
 export const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com';
 const DEFAULT_TIMEOUT_MS = 30_000;

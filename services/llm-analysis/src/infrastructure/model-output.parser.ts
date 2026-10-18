@@ -1,8 +1,8 @@
 import { Id } from '@gyde/contracts';
 import { z } from 'zod';
 
-import type { ModelOutput } from '../../domain/analysis';
-import { extractJsonText } from '../../domain/prompt';
+import type { ModelOutput } from '../domain/analysis';
+import { extractJsonText } from '../domain/prompt';
 
 /**
  * What we accept from the model. Strict on purpose: free text or an unknown field makes the call

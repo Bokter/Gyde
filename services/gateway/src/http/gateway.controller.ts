@@ -18,10 +18,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
-import { GetReport } from '../application/get-report';
+import { GetReportUseCase } from '../application/use-cases/get-report.use-case';
 import type { RequestContext } from '../application/request-context';
 import type { Principal } from '../domain/principal';
-import { SubmitAnalysis } from '../application/submit-analysis';
+import { SubmitAnalysisUseCase } from '../application/use-cases/submit-analysis.use-case';
 import { ApiKeyGuard } from './api-key.guard';
 import { RateLimitGuard } from './rate-limit.guard';
 import {
@@ -43,8 +43,8 @@ interface MarkdownReply {
 @UseGuards(ApiKeyGuard, RateLimitGuard)
 export class GatewayController {
   constructor(
-    @Inject(SubmitAnalysis) private readonly submitAnalysis: SubmitAnalysis,
-    @Inject(GetReport) private readonly getReport: GetReport,
+    @Inject(SubmitAnalysisUseCase) private readonly submitAnalysis: SubmitAnalysisUseCase,
+    @Inject(GetReportUseCase) private readonly getReport: GetReportUseCase,
   ) {}
 
   @Get(ROUTES.gateway.verify)

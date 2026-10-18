@@ -1,10 +1,10 @@
-import type { AuthCache } from './ports/auth-cache';
-import type { ApiKeyVerifier } from './ports/api-key-verifier';
-import type { KeyHasher } from './ports/key-hasher';
-import { isWellFormedApiKey } from '../domain/api-key-format';
-import type { Principal } from '../domain/principal';
-import { UnauthorizedError } from './errors';
-import type { RequestContext } from './request-context';
+import type { AuthCache } from '../ports/auth-cache';
+import type { ApiKeyVerifier } from '../ports/api-key-verifier';
+import type { KeyHasher } from '../ports/key-hasher';
+import { isWellFormedApiKey } from '../../domain/api-key-format';
+import type { Principal } from '../../domain/principal';
+import { UnauthorizedError } from '../errors';
+import type { RequestContext } from '../request-context';
 
 export interface AuthenticateApiKeyDeps {
   verifier: ApiKeyVerifier;
@@ -19,7 +19,7 @@ export interface AuthenticateApiKeyDeps {
  * key, so a key revoked in Web may keep working until its entry expires: that is accepted.
  * Rejections are not cached, so a key created a moment ago works at once.
  */
-export class AuthenticateApiKey {
+export class AuthenticateApiKeyUseCase {
   constructor(private readonly deps: AuthenticateApiKeyDeps) {}
 
   async execute(apiKey: string | undefined, context: RequestContext): Promise<Principal> {

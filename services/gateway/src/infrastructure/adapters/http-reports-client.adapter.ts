@@ -1,12 +1,12 @@
 import { AnalysisAccepted, buildPath, HEADERS, Report, ROUTES } from '@gyde/contracts';
 import { HttpError, type ResilientHttpClient } from '@gyde/service-kit';
 
-import type { AnalysisAcceptedDto, CreateAnalysisJobDto } from '../application/dto/gateway.dto';
-import type { ReportReader } from '../application/ports/report-reader';
-import type { ReportsClient } from '../application/ports/reports-client';
-import type { RequestContext } from '../application/request-context';
-import { toAnalysisAcceptedDto, toCreateAnalysisJobContract } from './mappers/gateway.mapper';
-import { toUpstreamUnavailable } from './upstream-errors';
+import type { AnalysisAcceptedDto, CreateAnalysisJobDto } from '../../application/dto/gateway.dto';
+import type { ReportReader } from '../../application/ports/report-reader';
+import type { ReportsClient } from '../../application/ports/reports-client';
+import type { RequestContext } from '../../application/request-context';
+import { toAnalysisAcceptedDto, toCreateAnalysisJobContract } from '../mappers/gateway.mapper';
+import { toUpstreamUnavailable } from '../upstream-errors';
 
 type Context = RequestContext & { tenantId: string };
 

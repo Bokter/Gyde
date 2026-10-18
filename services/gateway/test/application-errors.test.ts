@@ -2,12 +2,12 @@ import { HttpError } from '@gyde/service-kit';
 import { describe, expect, it } from 'vitest';
 
 import { GatewayError, PlanLimitExceededError, UnauthorizedError } from '../src/application/errors';
-import { AuthenticateApiKey } from '../src/application/authenticate-api-key';
-import { SubmitAnalysis } from '../src/application/submit-analysis';
+import { AuthenticateApiKeyUseCase } from '../src/application/use-cases/authenticate-api-key.use-case';
+import { SubmitAnalysisUseCase } from '../src/application/use-cases/submit-analysis.use-case';
 import { translateApplicationError } from '../src/http/application-error.interceptor';
-import { MemoryAuthCache } from '../src/infrastructure/memory-auth-cache';
-import { MemoryUsageCounter } from '../src/infrastructure/memory-usage-counter';
-import { Sha256KeyHasher } from '../src/infrastructure/sha256-key-hasher';
+import { MemoryAuthCache } from '../src/infrastructure/adapters/memory-auth-cache.adapter';
+import { MemoryUsageCounter } from '../src/infrastructure/adapters/memory-usage-counter.adapter';
+import { Sha256KeyHasher } from '../src/infrastructure/adapters/sha256-key-hasher.adapter';
 import { VALID_KEY, validVerification } from './helpers';
 
 describe('application errors', () => {
@@ -64,7 +64,7 @@ describe('translateApplicationError', () => {
 describe('use cases raise application errors, not HTTP ones', () => {
   it('AuthenticateApiKey refuses a malformed, missing or rejected key', async () => {
     let verifyCalls = 0;
-    const authenticate = new AuthenticateApiKey({
+    const authenticate = new AuthenticateApiKeyUseCase({
       verifier: {
         verify: async () => {
           verifyCalls += 1;
@@ -90,7 +90,7 @@ describe('use cases raise application errors, not HTTP ones', () => {
 
   it('SubmitAnalysis raises PlanLimitExceededError before calling Reports', async () => {
     let reportsCalls = 0;
-    const submit = new SubmitAnalysis({
+    const submit = new SubmitAnalysisUseCase({
       reports: {
         createAnalysis: async () => {
           reportsCalls += 1;

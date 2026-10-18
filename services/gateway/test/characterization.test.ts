@@ -4,7 +4,7 @@ import { HttpError } from '@gyde/service-kit';
 import type { ExecutionContext } from '@nestjs/common';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { EnforceRateLimit } from '../src/application/enforce-rate-limit';
+import { EnforceRateLimitUseCase } from '../src/application/use-cases/enforce-rate-limit.use-case';
 import { RateLimitGuard } from '../src/http/rate-limit.guard';
 import {
   REVOKED_KEY,
@@ -297,7 +297,7 @@ describe('429 rate_limited (characterization)', () => {
 
   it('refuses a request without principal with the 401 envelope (defensive guard branch)', () => {
     const guard = new RateLimitGuard(
-      new EnforceRateLimit({ consume: () => ({ allowed: true, retryAfterSeconds: 0 }) }),
+      new EnforceRateLimitUseCase({ consume: () => ({ allowed: true, retryAfterSeconds: 0 }) }),
     );
     const context = {
       switchToHttp: () => ({ getRequest: () => ({}), getResponse: () => ({}) }),

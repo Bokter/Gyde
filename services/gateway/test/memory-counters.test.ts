@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { MemoryRateLimiter } from '../src/infrastructure/memory-rate-limiter';
-import { MemoryUsageCounter } from '../src/infrastructure/memory-usage-counter';
+import { MemoryRateLimiter } from '../src/infrastructure/adapters/memory-rate-limiter.adapter';
+import { MemoryUsageCounter } from '../src/infrastructure/adapters/memory-usage-counter.adapter';
 
 describe('MemoryRateLimiter', () => {
   it('keeps one window per key and opens a new one after the window length', () => {

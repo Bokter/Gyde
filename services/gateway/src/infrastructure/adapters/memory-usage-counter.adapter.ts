@@ -1,5 +1,5 @@
-import type { UsageCounter } from '../application/ports/usage-counter';
-import { TenantUsage } from '../domain/usage-allowance';
+import type { UsageCounter } from '../../application/ports/usage-counter';
+import { TenantUsage } from '../../domain/usage-allowance';
 
 /**
  * In-memory `UsageCounter`: one entry per tenant, holding the current period only, so memory grows

@@ -1,5 +1,5 @@
-import type { Analysis } from '../../domain/analysis/analysis';
-import type { AnalysisStatus } from '../../domain/analysis/analysis-types';
+import type { Analysis } from '../entities/analysis.entity';
+import type { AnalysisStatus } from '../entities/analysis-types';
 
 /** Port to persistence (PostgreSQL schema `reports`): it stores and returns the `Analysis` entity. */
 export interface ReportRepository {
@@ -8,7 +8,7 @@ export interface ReportRepository {
   update(analysis: Analysis): Promise<void>;
   /**
    * Analyses in `status` whose last write is older than `cutoff`: the input of the startup sweep
-   * (`SweepStaleAnalyses`). The in-memory adapter returns `[]`, since a restart empties it anyway.
+   * (`SweepStaleAnalysesUseCase`). The in-memory adapter returns `[]`, since a restart empties it anyway.
    */
   findStale(status: AnalysisStatus, cutoff: Date): Promise<Analysis[]>;
 }

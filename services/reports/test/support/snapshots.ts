@@ -1,6 +1,6 @@
-import type { ReportRepository } from '../../src/application/ports/report-repository';
-import { Analysis } from '../../src/domain/analysis/analysis';
-import type { AnalysisSnapshot, AnalysisStatus } from '../../src/domain/analysis/analysis-types';
+import type { ReportRepository } from '../../src/domain/repositories/report.repository';
+import { Analysis } from '../../src/domain/entities/analysis.entity';
+import type { AnalysisSnapshot, AnalysisStatus } from '../../src/domain/entities/analysis-types';
 
 /**
  * A view of a repository that speaks plain snapshots, so a test can write and read the state of an

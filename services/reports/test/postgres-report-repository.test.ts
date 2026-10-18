@@ -1,9 +1,9 @@
 import { PLAN_CATALOG, type ReportStatus } from '@gyde/contracts';
 import { describe, expect, it } from 'vitest';
 
-import type { AnalysisSnapshot } from '../src/domain/analysis/analysis-types';
-import { InMemoryReportRepository } from '../src/infrastructure/in-memory-report-repository';
-import { PostgresReportRepository } from '../src/infrastructure/postgres-report.repository';
+import type { AnalysisSnapshot } from '../src/domain/entities/analysis-types';
+import { InMemoryReportRepository } from '../src/infrastructure/repositories/in-memory-report.repository';
+import { PostgresReportRepository } from '../src/infrastructure/repositories/postgres-report.repository';
 import { createPgliteDatabase } from './support/pglite';
 import { viaSnapshots } from './support/snapshots';
 

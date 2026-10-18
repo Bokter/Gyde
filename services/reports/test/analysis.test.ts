@@ -2,12 +2,12 @@ import { PLAN_CATALOG } from '@gyde/contracts';
 import { sampleLicenseFinding, sampleVulnerabilityFinding } from '@gyde/contracts/samples';
 import { describe, expect, it } from 'vitest';
 
-import { Analysis, type NewAnalysis } from '../src/domain/analysis/analysis';
+import { Analysis, type NewAnalysis } from '../src/domain/entities/analysis.entity';
 import type {
   AiResult,
   AnalysisFailure,
   DeterministicResult,
-} from '../src/domain/analysis/analysis-types';
+} from '../src/domain/entities/analysis-types';
 import { buildReport } from '../src/domain/report/build-report';
 
 const T0 = new Date('2026-10-18T12:00:00.000Z');

@@ -1,16 +1,16 @@
-import type { AnalysisWatchdog } from './analysis-watchdog';
-import type { DeterministicResultDto } from './dto/analysis.dto';
-import { AnalysisNotFoundError } from './errors';
-import type { ReportRepository } from './ports/report-repository';
+import type { AnalysisWatchdog } from '../analysis-watchdog';
+import type { DeterministicResultDto } from '../dto/analysis.dto';
+import { AnalysisNotFoundError } from '../errors';
+import type { ReportRepository } from '../../domain/repositories/report.repository';
 
-export const RECORD_DETERMINISTIC_RESULT = Symbol('RecordDeterministicResult');
+export const RECORD_DETERMINISTIC_RESULT = Symbol('RecordDeterministicResultUseCase');
 
 /**
  * Called by Retrieval when the deterministic pass finishes. With AI expected the job moves to
  * `analyzing` and the AI watchdog is armed (unless the AI result already arrived); otherwise it is
  * `ready`. A delivery to a job that is no longer `retrieving` is a duplicate and is ignored.
  */
-export class RecordDeterministicResult {
+export class RecordDeterministicResultUseCase {
   constructor(
     private readonly repository: ReportRepository,
     private readonly watchdog: AnalysisWatchdog,

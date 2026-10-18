@@ -10,28 +10,40 @@ import {
   type TimerName,
   type WatchdogLogger,
 } from './application/analysis-watchdog';
-import { CREATE_ANALYSIS, CreateAnalysis } from './application/create-analysis';
-import { GET_REPORT, GetReport } from './application/get-report';
-import { GET_REPORT_MARKDOWN, GetReportMarkdown } from './application/get-report-markdown';
-import { REPORT_REPOSITORY, type ReportRepository } from './application/ports/report-repository';
+import {
+  CREATE_ANALYSIS,
+  CreateAnalysisUseCase,
+} from './application/use-cases/create-analysis.use-case';
+import { GET_REPORT, GetReportUseCase } from './application/use-cases/get-report.use-case';
+import {
+  GET_REPORT_MARKDOWN,
+  GetReportMarkdownUseCase,
+} from './application/use-cases/get-report-markdown.use-case';
+import { REPORT_REPOSITORY, type ReportRepository } from './domain/repositories/report.repository';
 import { RETRIEVAL_CLIENT, type RetrievalClient } from './application/ports/retrieval-client';
-import { RECORD_AI_RESULT, RecordAiResult } from './application/record-ai-result';
+import {
+  RECORD_AI_RESULT,
+  RecordAiResultUseCase,
+} from './application/use-cases/record-ai-result.use-case';
 import {
   RECORD_ANALYSIS_FAILURE,
-  RecordAnalysisFailure,
-} from './application/record-analysis-failure';
+  RecordAnalysisFailureUseCase,
+} from './application/use-cases/record-analysis-failure.use-case';
 import {
   RECORD_DETERMINISTIC_RESULT,
-  RecordDeterministicResult,
-} from './application/record-deterministic-result';
-import { SWEEP_STALE_ANALYSES, SweepStaleAnalyses } from './application/sweep-stale-analyses';
+  RecordDeterministicResultUseCase,
+} from './application/use-cases/record-deterministic-result.use-case';
+import {
+  SWEEP_STALE_ANALYSES,
+  SweepStaleAnalysesUseCase,
+} from './application/use-cases/sweep-stale-analyses.use-case';
 import type { Config } from './config';
 import { ApplicationErrorInterceptor } from './http/application-error.interceptor';
 import { ReportsController } from './http/reports.controller';
 import { DATABASE, type DatabaseHandle } from './infrastructure/db/database';
 import { HttpRetrievalClient } from './infrastructure/http-retrieval-client';
-import { InMemoryReportRepository } from './infrastructure/in-memory-report-repository';
-import { PostgresReportRepository } from './infrastructure/postgres-report.repository';
+import { InMemoryReportRepository } from './infrastructure/repositories/in-memory-report.repository';
+import { PostgresReportRepository } from './infrastructure/repositories/postgres-report.repository';
 import { ReportsStartup } from './infrastructure/reports-startup';
 import { createServiceResolver, staticUrls } from './infrastructure/service-resolver';
 
@@ -112,7 +124,7 @@ export class AppModule {
             retrieval: RetrievalClient,
             watchdog: AnalysisWatchdog,
           ) =>
-            new CreateAnalysis(repository, retrieval, watchdog, {
+            new CreateAnalysisUseCase(repository, retrieval, watchdog, {
               newId: overrides.newId ?? (() => randomUUID()),
               now: overrides.now,
             }),
@@ -121,35 +133,35 @@ export class AppModule {
         {
           provide: RECORD_DETERMINISTIC_RESULT,
           useFactory: (repository: ReportRepository, watchdog: AnalysisWatchdog) =>
-            new RecordDeterministicResult(repository, watchdog, { now: overrides.now }),
+            new RecordDeterministicResultUseCase(repository, watchdog, { now: overrides.now }),
           inject: [REPORT_REPOSITORY, ANALYSIS_WATCHDOG],
         },
         {
           provide: RECORD_AI_RESULT,
           useFactory: (repository: ReportRepository) =>
-            new RecordAiResult(repository, { now: overrides.now }),
+            new RecordAiResultUseCase(repository, { now: overrides.now }),
           inject: [REPORT_REPOSITORY],
         },
         {
           provide: RECORD_ANALYSIS_FAILURE,
           useFactory: (repository: ReportRepository) =>
-            new RecordAnalysisFailure(repository, { now: overrides.now }),
+            new RecordAnalysisFailureUseCase(repository, { now: overrides.now }),
           inject: [REPORT_REPOSITORY],
         },
         {
           provide: GET_REPORT,
-          useFactory: (repository: ReportRepository) => new GetReport(repository),
+          useFactory: (repository: ReportRepository) => new GetReportUseCase(repository),
           inject: [REPORT_REPOSITORY],
         },
         {
           provide: GET_REPORT_MARKDOWN,
-          useFactory: (getReport: GetReport) => new GetReportMarkdown(getReport),
+          useFactory: (getReport: GetReportUseCase) => new GetReportMarkdownUseCase(getReport),
           inject: [GET_REPORT],
         },
         {
           provide: SWEEP_STALE_ANALYSES,
           useFactory: (repository: ReportRepository, config: Config) =>
-            new SweepStaleAnalyses(repository, {
+            new SweepStaleAnalysesUseCase(repository, {
               aiTimeoutMs: config.REPORTS_AI_TIMEOUT_MS,
               retrievalTimeoutMs: config.REPORTS_RETRIEVAL_TIMEOUT_MS,
               now: overrides.now,

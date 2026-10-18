@@ -1,4 +1,4 @@
-import type { ReportRepository } from './ports/report-repository';
+import type { ReportRepository } from '../domain/repositories/report.repository';
 
 /** Which watchdog is being scheduled, so a test double can react only to the one it cares about. */
 export type TimerName = 'ai' | 'retrieval';
@@ -35,7 +35,7 @@ export interface AnalysisWatchdogOptions {
  *
  * A timer whose analysis already left the state it watches does nothing. Errors are caught and
  * sent to the logger so a broken repository cannot crash the process. The timers live in memory
- * and do not survive a restart: `SweepStaleAnalyses` covers what was in progress at that point.
+ * and do not survive a restart: `SweepStaleAnalysesUseCase` covers what was in progress at that point.
  */
 export class AnalysisWatchdog {
   constructor(

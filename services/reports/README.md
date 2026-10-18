@@ -24,7 +24,7 @@ Las capas se combinan **en tiempo de ejecución según los permisos del plan** (
 
 ## Ciclo de vida (entidad `Analysis`)
 
-La máquina de estados vive en la entidad `Analysis` (`src/domain/analysis/analysis.ts`); los casos de uso la cargan, le aplican una transición y la guardan.
+La máquina de estados vive en la entidad `Analysis` (`src/domain/entities/analysis.entity.ts`); los casos de uso la cargan, le aplican una transición y la guardan.
 
 ```
 create ──▶ retrieving ──▶ analyzing ──▶ ready
@@ -40,7 +40,7 @@ retrieving ──(sin respuesta de Retrieval en REPORTS_RETRIEVAL_TIMEOUT_MS)─
 - Un reporte es **degradado** solo si se esperaba IA y no pudo correr (`llm-unavailable`, `llm-not-configured`, `llm-error`). Si el plan o el cliente no pidieron IA, **no** es degradado.
 - Nunca se queda colgado: si el resultado de IA no llega en `REPORTS_AI_TIMEOUT_MS`, pasa a `ready` y degradado (`llm-unavailable`).
 - Tampoco se queda en `retrieving`: si Retrieval aceptó el trabajo (202) pero no entrega ni el resultado ni un `AnalysisFailure` en `REPORTS_RETRIEVAL_TIMEOUT_MS`, el análisis pasa a `failed` con `retrieval-error`. El temporizador solo se arma si la llamada a Retrieval tuvo éxito y no hace nada si el análisis ya salió de `retrieving`.
-- Los dos temporizadores viven en memoria y **no sobreviven a un reinicio**: al arrancar, `ReportsStartup` ejecuta el **barrido de recuperación** (`SweepStaleAnalyses`) sobre lo que quedó a medias en la ejecución anterior, con los mismos umbrales:
+- Los dos temporizadores viven en memoria y **no sobreviven a un reinicio**: al arrancar, `ReportsStartup` ejecuta el **barrido de recuperación** (`SweepStaleAnalysesUseCase`) sobre lo que quedó a medias en la ejecución anterior, con los mismos umbrales:
   - `analyzing` más antiguo que `REPORTS_AI_TIMEOUT_MS` → `ready` + degradado (`llm-unavailable`).
   - `retrieving` más antiguo que `REPORTS_RETRIEVAL_TIMEOUT_MS` → `failed` (`retrieval-error`).
   <br>Con el repositorio en memoria no hay nada que barrer (el arranque empieza vacío), así que el barrido solo corre con base de datos.
@@ -71,16 +71,19 @@ retrieving ──(sin respuesta de Retrieval en REPORTS_RETRIEVAL_TIMEOUT_MS)─
 ## Estructura
 
 ```
-src/domain/analysis/     Analysis (entidad: transiciones, time-outs, pertenencia al tenant) y los tipos del pipeline
+src/domain/entities/     Analysis (analysis.entity.ts: transiciones, time-outs, pertenencia al tenant) y los tipos
+                         del pipeline (analysis-types.ts)
+src/domain/repositories/ report.repository.ts: ReportRepository (interfaz y token) que guarda y devuelve Analysis
 src/domain/report/       Decorator (base, decoradores concretos, composeReport), buildReport (Report a partir de
                          un Analysis), renderMarkdown y report-types.ts; solo imports relativos
-src/application/         casos de uso (create-analysis, record-deterministic-result, record-ai-result,
-                         record-analysis-failure, get-report, get-report-markdown, sweep-stale-analyses),
-                         analysis-watchdog.ts (los dos temporizadores), errors.ts (AnalysisNotFoundError, sin HTTP),
-                         dto/ (tipos planos) y ports/ (ReportRepository, RetrievalClient)
-src/infrastructure/      PostgresReportRepository e InMemoryReportRepository (guardan y devuelven Analysis),
-                         mappers/analysis.mapper.ts (fila <-> entidad), HttpRetrievalClient (con breaker),
-                         reports-startup.ts y db/ (esquema Drizzle, pool, migraciones)
+src/application/         use-cases/ (CreateAnalysisUseCase, RecordDeterministicResultUseCase, RecordAiResultUseCase,
+                         RecordAnalysisFailureUseCase, GetReportUseCase, GetReportMarkdownUseCase,
+                         SweepStaleAnalysesUseCase; un archivo *.use-case.ts cada uno), analysis-watchdog.ts
+                         (los dos temporizadores), errors.ts (AnalysisNotFoundError, sin HTTP), dto/ (tipos
+                         planos) y ports/ (RetrievalClient)
+src/infrastructure/      repositories/ (PostgresReportRepository e InMemoryReportRepository), mappers/analysis.mapper.ts
+                         (fila <-> entidad), HttpRetrievalClient (con breaker), reports-startup.ts y db/ (esquema
+                         Drizzle, pool, migraciones)
 src/http/                controlador delgado, mappers/ (contrato <-> DTO) y application-error.interceptor.ts
 src/app.module.ts        composition root: enlaza puertos con adaptadores y registra el interceptor (ADR 0011)
 drizzle/                 migraciones SQL generadas con `pnpm --filter @gyde/reports db:generate`
@@ -100,12 +103,12 @@ Descripción factual de lo que el servicio hace hoy. El refactor no los cambia y
 
 | # | Qué ocurre | Dónde | Prueba |
 |---|---|---|---|
-| R1 | Si la llamada a Retrieval lanza al crear, el análisis queda `failed` pero la respuesta `202` sigue diciendo `status: "retrieving"`; el cliente lo ve en el `GET`. | `application/create-analysis.ts` | `characterization.test.ts`: "keeps answering 202 "retrieving" when Retrieval throws, while the job is failed (the Error message is kept)" |
-| R2 | `degradedReason` es el `reason` del fallo tal cual, sin comprobar que sea uno de los tres motivos de degradación: un fallo `stage: "llm"` con `reason: "retrieval-error"` sale así en el JSON y el banner del Markdown imprime `undefined`. La entidad tampoco comprueba que `reason` corresponda a `stage`. | `domain/report/build-report.ts`, `domain/analysis/analysis.ts` | "R2: a degradedReason is cast from failure.reason…"; `analysis.test.ts`: "does not check that the reason fits the stage" |
-| R3 | Un fallo `llm` mientras el análisis sigue en `retrieving` (con IA esperada) lo cierra como `ready`, degradado y sin hallazgos; el resultado determinístico posterior se ignora. | `domain/analysis/analysis.ts` (`recordFailure`) | "R3: an llm failure while still retrieving…"; `analysis.test.ts`: "llm failure with AI expected: ready, from retrieving too…" |
-| R4 | Un resultado de IA se guarda aunque no se esperara IA (`aiExpected = false`); al leer, la capa de IA se aplica según los `entitlements` del plan, no según `aiExpected`. | `domain/analysis/analysis.ts` (`recordAi`), `domain/report/compose-report.ts` | "R4: an AI result is stored even when AI was not expected…" |
-| R5 | El temporizador de IA solo se arma cuando el resultado determinístico deja el análisis en `analyzing`; no se arma si no se esperaba IA ni si el resultado de IA llegó primero. | `application/record-deterministic-result.ts` | "R5: the AI watchdog is armed only when the deterministic result leaves the job analyzing" |
-| R6 | `update` reescribe la fila completa (upsert) tras leer y modificar, sin bloqueo ni versión: una escritura construida con una lectura vieja pisa datos más nuevos. Además `updated_at` se toma del reloj real (`new Date()`), no del `now` inyectado. | `infrastructure/postgres-report.repository.ts` | "R6: update rewrites the whole row with no locking…" |
+| R1 | Si la llamada a Retrieval lanza al crear, el análisis queda `failed` pero la respuesta `202` sigue diciendo `status: "retrieving"`; el cliente lo ve en el `GET`. | `application/use-cases/create-analysis.use-case.ts` | `characterization.test.ts`: "keeps answering 202 "retrieving" when Retrieval throws, while the job is failed (the Error message is kept)" |
+| R2 | `degradedReason` es el `reason` del fallo tal cual, sin comprobar que sea uno de los tres motivos de degradación: un fallo `stage: "llm"` con `reason: "retrieval-error"` sale así en el JSON y el banner del Markdown imprime `undefined`. La entidad tampoco comprueba que `reason` corresponda a `stage`. | `domain/report/build-report.ts`, `domain/entities/analysis.entity.ts` | "R2: a degradedReason is cast from failure.reason…"; `analysis.test.ts`: "does not check that the reason fits the stage" |
+| R3 | Un fallo `llm` mientras el análisis sigue en `retrieving` (con IA esperada) lo cierra como `ready`, degradado y sin hallazgos; el resultado determinístico posterior se ignora. | `domain/entities/analysis.entity.ts` (`recordFailure`) | "R3: an llm failure while still retrieving…"; `analysis.test.ts`: "llm failure with AI expected: ready, from retrieving too…" |
+| R4 | Un resultado de IA se guarda aunque no se esperara IA (`aiExpected = false`); al leer, la capa de IA se aplica según los `entitlements` del plan, no según `aiExpected`. | `domain/entities/analysis.entity.ts` (`recordAi`), `domain/report/compose-report.ts` | "R4: an AI result is stored even when AI was not expected…" |
+| R5 | El temporizador de IA solo se arma cuando el resultado determinístico deja el análisis en `analyzing`; no se arma si no se esperaba IA ni si el resultado de IA llegó primero. | `application/use-cases/record-deterministic-result.use-case.ts` | "R5: the AI watchdog is armed only when the deterministic result leaves the job analyzing" |
+| R6 | `update` reescribe la fila completa (upsert) tras leer y modificar, sin bloqueo ni versión: una escritura construida con una lectura vieja pisa datos más nuevos. Además `updated_at` se toma del reloj real (`new Date()`), no del `now` inyectado. | `infrastructure/repositories/postgres-report.repository.ts` | "R6: update rewrites the whole row with no locking…" |
 | R7 | Los temporizadores no se cancelan al cerrar la app ni se les hace `unref`. No hay prueba que lo fije. | `application/analysis-watchdog.ts`, `app.module.ts` | (ninguna) |
 
 ## Persistencia (schema `reports`)

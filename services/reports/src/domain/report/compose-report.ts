@@ -1,4 +1,4 @@
-import type { AiResult, DeterministicResult, Entitlements } from '../analysis/analysis-types';
+import type { AiResult, DeterministicResult, Entitlements } from '../entities/analysis-types';
 import { BasicAnalysisReport } from './basic-analysis-report';
 import { AiEnrichmentDecorator } from './decorators/ai-enrichment.decorator';
 import { LicenseComplianceDecorator } from './decorators/license-compliance.decorator';

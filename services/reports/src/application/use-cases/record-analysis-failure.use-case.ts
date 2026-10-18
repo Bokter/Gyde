@@ -1,14 +1,14 @@
-import type { AnalysisFailureDto } from './dto/analysis.dto';
-import { AnalysisNotFoundError } from './errors';
-import type { ReportRepository } from './ports/report-repository';
+import type { AnalysisFailureDto } from '../dto/analysis.dto';
+import { AnalysisNotFoundError } from '../errors';
+import type { ReportRepository } from '../../domain/repositories/report.repository';
 
-export const RECORD_ANALYSIS_FAILURE = Symbol('RecordAnalysisFailure');
+export const RECORD_ANALYSIS_FAILURE = Symbol('RecordAnalysisFailureUseCase');
 
 /**
  * Called by Retrieval or llm-analysis when a stage cannot complete: `llm` closes the job as ready
  * and degraded (only when AI was expected), `retrieval` as failed. Ignored once the job is done.
  */
-export class RecordAnalysisFailure {
+export class RecordAnalysisFailureUseCase {
   constructor(
     private readonly repository: ReportRepository,
     private readonly options: { now?: () => Date } = {},

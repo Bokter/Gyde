@@ -4,7 +4,7 @@ import type {
   AnalysisStatus,
   DeterministicResult,
   Entitlements,
-} from '../../domain/analysis/analysis-types';
+} from '../../domain/entities/analysis-types';
 import type { Ecosystem, ReportView } from '../../domain/report/report-types';
 
 /**

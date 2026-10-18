@@ -1,6 +1,6 @@
 import { KnowledgeObject as KnowledgeObjectContract } from '@gyde/contracts';
 
-import type { KnowledgeObject } from '../../domain/knowledge-object';
+import type { KnowledgeObject } from '../../domain/entities/knowledge-object.entity';
 import type { knowledgeObjects } from '../db/schema';
 
 export type ObjectRow = typeof knowledgeObjects.$inferSelect;

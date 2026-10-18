@@ -1,5 +1,21 @@
-import type { KnowledgeObject } from '../../domain/knowledge-object';
-import type { KnowledgeQueryDto } from '../dto/knowledge.dto';
+import type {
+  Ecosystem,
+  GameEngine,
+  KnowledgeKind,
+  KnowledgeObject,
+} from '../entities/knowledge-object.entity';
+
+/** Criteria of a knowledge lookup: the packages to match and how many objects to return. */
+export type KnowledgeCriteria = {
+  readonly packages: readonly {
+    readonly ecosystem: Ecosystem;
+    readonly name: string;
+    readonly version: string;
+  }[];
+  readonly kinds?: readonly KnowledgeKind[];
+  readonly gameEngine?: GameEngine;
+  readonly limit: number;
+};
 
 /** Outcome of one ingestion attempt of a source. */
 export interface IngestionRun {
@@ -12,7 +28,7 @@ export interface IngestionRun {
   error?: string;
 }
 
-/** Port to the "base de datos utilizable" of the Pipeline de Normalización. */
+/** Contract of the "base de datos utilizable" of the Pipeline de Normalización. */
 export interface KnowledgeRepository {
   /** Idempotent: objects are keyed by `id`, re-ingesting the same record updates it. */
   upsertMany(objects: readonly KnowledgeObject[]): Promise<void>;
@@ -21,7 +37,7 @@ export interface KnowledgeRepository {
    * Objects that mention any of the requested packages (same ecosystem and name). Deliberately NOT
    * filtered by version: the deterministic dependency/version matching belongs to Retrieval.
    */
-  query(query: KnowledgeQueryDto): Promise<KnowledgeObject[]>;
+  query(criteria: KnowledgeCriteria): Promise<KnowledgeObject[]>;
 
   /** Records the outcome of an ingestion attempt (successful or not). */
   recordRun(run: IngestionRun): Promise<void>;
@@ -33,5 +49,5 @@ export interface KnowledgeRepository {
   lastIngestedAt(source: string): Promise<Date | undefined>;
 }
 
-/** DI token of the `KnowledgeRepository` port: `app.module.ts` binds it to an adapter (see ADR 0011). */
+/** DI token of the `KnowledgeRepository` contract: `app.module.ts` binds it to an adapter (see ADR 0011). */
 export const KNOWLEDGE_REPOSITORY = Symbol('KnowledgeRepository');

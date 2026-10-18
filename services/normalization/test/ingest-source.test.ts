@@ -6,11 +6,11 @@ import {
   IngestionInProgressError,
   UnknownSourceError,
 } from '../src/application/errors';
-import { IngestSource } from '../src/application/ingest-source';
-import { ListSources } from '../src/application/list-sources';
+import { IngestSourceUseCase as IngestSource } from '../src/application/use-cases/ingest-source.use-case';
+import { ListSourcesUseCase as ListSources } from '../src/application/use-cases/list-sources.use-case';
 import type { RawRecord, SourceAdapter } from '../src/application/ports/source-adapter';
 import { InvalidRecordError } from '../src/domain/invalid-record-error';
-import { PostgresKnowledgeRepository } from '../src/infrastructure/postgres-knowledge.repository';
+import { PostgresKnowledgeRepository } from '../src/infrastructure/repositories/postgres-knowledge.repository';
 import { createPgliteDatabase } from './support/pglite';
 
 const database = createPgliteDatabase();

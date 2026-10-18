@@ -8,9 +8,9 @@ import {
 import { ZodValidationPipe } from '@gyde/service-kit';
 import { Body, Controller, Get, HttpCode, Inject, Param, Post } from '@nestjs/common';
 
-import { IngestSource } from '../application/ingest-source';
-import { ListSources } from '../application/list-sources';
-import { QueryKnowledge } from '../application/query-knowledge';
+import { IngestSourceUseCase } from '../application/use-cases/ingest-source.use-case';
+import { ListSourcesUseCase } from '../application/use-cases/list-sources.use-case';
+import { QueryKnowledgeUseCase } from '../application/use-cases/query-knowledge.use-case';
 import {
   toIngestResultContract,
   toKnowledgeQueryDto,
@@ -25,9 +25,9 @@ import {
 @Controller()
 export class NormalizationController {
   constructor(
-    @Inject(QueryKnowledge) private readonly queryKnowledge: QueryKnowledge,
-    @Inject(ListSources) private readonly listSources: ListSources,
-    @Inject(IngestSource) private readonly ingestSource: IngestSource,
+    @Inject(QueryKnowledgeUseCase) private readonly queryKnowledge: QueryKnowledgeUseCase,
+    @Inject(ListSourcesUseCase) private readonly listSources: ListSourcesUseCase,
+    @Inject(IngestSourceUseCase) private readonly ingestSource: IngestSourceUseCase,
   ) {}
 
   @Post(ROUTES.normalization.query)

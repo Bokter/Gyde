@@ -12,7 +12,7 @@ import type {
   KnowledgeQueryResultDto,
   SourcesStatusDto,
 } from '../../application/dto/knowledge.dto';
-import type { AffectedRange, KnowledgeObject } from '../../domain/knowledge-object';
+import type { AffectedRange, KnowledgeObject } from '../../domain/entities/knowledge-object.entity';
 
 export function toKnowledgeQueryDto(contract: KnowledgeQuery): KnowledgeQueryDto {
   return {

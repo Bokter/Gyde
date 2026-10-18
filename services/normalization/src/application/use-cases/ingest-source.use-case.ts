@@ -1,9 +1,9 @@
-import { InvalidRecordError } from '../domain/invalid-record-error';
-import type { KnowledgeObject } from '../domain/knowledge-object';
-import type { IngestResultDto } from './dto/knowledge.dto';
-import { IngestionFailedError, IngestionInProgressError, UnknownSourceError } from './errors';
-import type { KnowledgeRepository } from './ports/knowledge-repository';
-import type { SourceAdapter } from './ports/source-adapter';
+import { InvalidRecordError } from '../../domain/invalid-record-error';
+import type { KnowledgeObject } from '../../domain/entities/knowledge-object.entity';
+import type { IngestResultDto } from '../dto/knowledge.dto';
+import { IngestionFailedError, IngestionInProgressError, UnknownSourceError } from '../errors';
+import type { KnowledgeRepository } from '../../domain/repositories/knowledge.repository';
+import type { SourceAdapter } from '../ports/source-adapter';
 
 export interface IngestSourceDeps {
   adapters: readonly SourceAdapter[];
@@ -24,7 +24,7 @@ const BATCH_SIZE = 500;
  *   being served. The next run starts again from the last SUCCESSFUL one.
  * - One run per source at a time.
  */
-export class IngestSource {
+export class IngestSourceUseCase {
   private readonly running = new Set<string>();
   private readonly now: () => Date;
 

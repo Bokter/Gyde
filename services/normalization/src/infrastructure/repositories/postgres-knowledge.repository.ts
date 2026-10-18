@@ -1,12 +1,15 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, desc, eq, inArray, or, sql } from 'drizzle-orm';
 
-import type { KnowledgeQueryDto } from '../application/dto/knowledge.dto';
-import type { IngestionRun, KnowledgeRepository } from '../application/ports/knowledge-repository';
-import type { KnowledgeObject } from '../domain/knowledge-object';
-import { DATABASE, type Database, type DatabaseHandle } from './db/database';
-import { ingestionRuns, knowledgeObjects, knowledgePackages } from './db/schema';
-import { parseKnowledgeObject, toEntity, toRow } from './mappers/knowledge.mapper';
+import type { KnowledgeObject } from '../../domain/entities/knowledge-object.entity';
+import type {
+  IngestionRun,
+  KnowledgeCriteria,
+  KnowledgeRepository,
+} from '../../domain/repositories/knowledge.repository';
+import { DATABASE, type Database, type DatabaseHandle } from '../db/database';
+import { ingestionRuns, knowledgeObjects, knowledgePackages } from '../db/schema';
+import { parseKnowledgeObject, toEntity, toRow } from '../mappers/knowledge.mapper';
 
 interface PackageKey {
   ecosystem: string;
@@ -96,7 +99,7 @@ export class PostgresKnowledgeRepository implements KnowledgeRepository {
     });
   }
 
-  async query(query: KnowledgeQueryDto): Promise<KnowledgeObject[]> {
+  async query(query: KnowledgeCriteria): Promise<KnowledgeObject[]> {
     const keys = distinctKeys(query.packages);
 
     // One JSON parameter, however many packages: a bind parameter per package would hit limits.

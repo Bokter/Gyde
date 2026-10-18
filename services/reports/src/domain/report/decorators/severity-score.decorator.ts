@@ -1,7 +1,6 @@
-import type { Severity } from '@gyde/contracts';
-
 import type { ReportContent } from '../report-component';
 import { ReportDecorator } from '../report-decorator';
+import type { Severity } from '../report-types';
 
 const SEVERITY_WEIGHT: Record<Severity, number> = {
   critical: 10,

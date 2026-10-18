@@ -460,7 +460,11 @@ $ for f in $(grep -oE "services/reports/src/[A-Za-z0-9_./-]+" docs/evidence/clea
 
 Que estas pruebas existen y ejercitan el patrón no equivale a una prueba de mutación: no se comprobó que fallen si el patrón se rompe.
 
-## 7. Pruebas por servicio
+## 7. Humo del stack
+
+El humo completo (incluida la parte del gateway: clave válida y errónea, `/internal/*` no enrutado, `POST` y `GET /v1/analyses`, Markdown y `503` con Reports detenido) pasó con el stack reconstruido desde `origin/dev`. Salida íntegra en `humo-2026-10-18.txt`. Se usó una clave de prueba nueva para el tenant local de desarrollo `gyde-dev-seed`, con el mock de IA.
+
+## 8. Pruebas por servicio
 
 Resultados medidos sobre `origin/dev` @ `f783c16` al cerrar el refactor de estructura (comando: `pnpm --filter @gyde/<svc> test`):
 
@@ -473,9 +477,8 @@ Resultados medidos sobre `origin/dev` @ `f783c16` al cerrar el refactor de estru
 | retrieval | 157 (+3 `it.todo`) |
 | reports | 165 |
 
-## 8. No verificado
+## 9. No verificado
 
-- El humo con la clave del gateway (ver `humo-2026-10-18.txt`): la parte del gateway no se ejecutó con clave.
 - `pnpm test` ni `pnpm build` de la raíz con `--force`, ni `pnpm docker:check`.
 - Que cada prueba de patrón falle al romper el patrón (mutación).
 - El razonamiento de que los guards corren antes que los interceptores (sin prueba negativa).

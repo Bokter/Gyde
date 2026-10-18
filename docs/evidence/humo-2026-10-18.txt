@@ -6,82 +6,22 @@ Rama/commit:  origin/dev @ f783c16 (worktree detached, sin cambios locales)
 Entorno:      Docker version 29.9.0, build f415da838b; Docker Compose, proyecto "gyde", 7 servicios + PostgreSQL,
               POSTGRES_PORT=15432 WEB_PORT=13000 (puertos 4000-4500 por defecto);
               LLM_MOCK_ENABLED=true (llm-analysis sobre el mock); volumen gyde_pgdata conservado
-Comando:      KEEP_STACK=1 COMPOSE_PROJECT_NAME=gyde POSTGRES_PORT=15432 WEB_PORT=13000 bash infra/scripts/smoke-retrieval.sh
-Resultado:    SMOKE TEST PASSED (gateway part skipped: SMOKE_API_KEY is not set)
-AVISO:        la parte del gateway (clave valida, POST/GET /v1/analyses, markdown, 503) NO SE
-              EJECUTO: el tenant gyde-dev-seed ya existia y su clave no se puede reimprimir
-              (solo se guarda el hash). Esa parte queda NO VERIFICADA. Solo se comprobaron
-              a mano 401 sin clave y 401 con clave falsa en /v1/auth/verify.
+Comandos:     1) KEEP_STACK=1 COMPOSE_PROJECT_NAME=gyde POSTGRES_PORT=15432 WEB_PORT=13000 bash infra/scripts/smoke-retrieval.sh
+                 (sin SMOKE_API_KEY: casos de normalization, retrieval, reports y llm-analysis)
+              2) SMOKE_API_KEY=<clave de prueba, no se imprime> KEEP_STACK=1 COMPOSE_PROJECT_NAME=gyde POSTGRES_PORT=15432 WEB_PORT=13000 bash infra/scripts/smoke-retrieval.sh
+                 (completo: añade la parte del gateway)
+Clave:        una clave "gyde_test_" nueva para el tenant local gyde-dev-seed (una fila nueva en api_keys,
+              solo se guarda su hash); datos de prueba locales. La clave no aparece en esta evidencia.
+Resultado:    1) SMOKE TEST PASSED (gateway part skipped: SMOKE_API_KEY is not set)
+              2) SMOKE TEST PASSED (gateway part ran: key, wrong key, /internal not routed, analysis, markdown and 503)
+Nota:         el caso 3 detiene llm-analysis y el caso final detiene reports; ambos se levantaron de nuevo con
+              docker compose up -d (estado final abajo).
 
 
-1. SALIDA COMPLETA DEL SCRIPT
------------------------------
+1. SALIDA DEL HUMO SIN CLAVE (comando 1)
+-----------------------------------------
 
 == Starting postgres, registry, normalization, retrieval, reports, llm-analysis, web and the gateway
- Image gyde-dev Building 
- Image gyde-dev Building 
- Image gyde-dev Building 
- Image gyde-dev Building 
- Image gyde-dev Building 
- Image gyde-dev Building 
- Image gyde-dev Building 
- Image gyde-dev Built 
- Image gyde-dev Built 
- Image gyde-dev Built 
- Image gyde-dev Built 
- Image gyde-dev Built 
- Image gyde-dev Built 
- Image gyde-dev Built 
- Container gyde-postgres-1 Recreate 
- Container gyde-registry-1 Recreate 
- Container gyde-postgres-1 Recreated 
- Container gyde-web-1 Recreate 
- Container gyde-registry-1 Recreated 
- Container gyde-reports-1 Recreate 
- Container gyde-normalization-1 Recreate 
- Container gyde-retrieval-1 Recreate 
- Container gyde-gateway-1 Recreate 
- Container gyde-web-1 Recreated 
- Container gyde-llm-analysis-1 Recreate 
- Container gyde-reports-1 Recreated 
- Container gyde-llm-analysis-1 Recreated 
- Container gyde-retrieval-1 Recreated 
- Container gyde-normalization-1 Recreated 
- Container gyde-gateway-1 Recreated 
- Container gyde-registry-1 Starting 
- Container gyde-postgres-1 Starting 
- Container gyde-registry-1 Started 
- Container gyde-registry-1 Waiting 
- Container gyde-registry-1 Waiting 
- Container gyde-postgres-1 Started 
- Container gyde-postgres-1 Waiting 
- Container gyde-postgres-1 Waiting 
- Container gyde-postgres-1 Waiting 
- Container gyde-registry-1 Waiting 
- Container gyde-registry-1 Waiting 
- Container gyde-registry-1 Healthy 
- Container gyde-gateway-1 Starting 
- Container gyde-registry-1 Healthy 
- Container gyde-retrieval-1 Starting 
- Container gyde-postgres-1 Healthy 
- Container gyde-postgres-1 Healthy 
- Container gyde-web-1 Starting 
- Container gyde-postgres-1 Healthy 
- Container gyde-registry-1 Healthy 
- Container gyde-normalization-1 Starting 
- Container gyde-registry-1 Healthy 
- Container gyde-reports-1 Starting 
- Container gyde-gateway-1 Started 
- Container gyde-retrieval-1 Started 
- Container gyde-web-1 Started 
- Container gyde-registry-1 Waiting 
- Container gyde-web-1 Waiting 
- Container gyde-normalization-1 Started 
- Container gyde-registry-1 Healthy 
- Container gyde-reports-1 Started 
- Container gyde-web-1 Healthy 
- Container gyde-llm-analysis-1 Starting 
- Container gyde-llm-analysis-1 Started 
 
 == Ingesting the OSV fixtures (twice: the second run must change nothing)
 first : {"source":"osv","recordsProcessed":0,"recordsSkipped":0,"startedAt":"2026-10-18T22:20:36.368Z","finishedAt":"2026-10-18T22:20:36.381Z"}
@@ -106,8 +46,6 @@ pro+ai: status=ready degraded=false reason=-
   layers: basic, license-compliance, ai-enrichment, severity-score
 
 == Case 3: Pro plan, AI requested, llm-analysis stopped (ready, degraded: llm-unavailable)
- Container gyde-llm-analysis-1 Stopping 
- Container gyde-llm-analysis-1 Stopped 
 pro+ai, llm down: status=ready degraded=true reason=llm-unavailable
   - Acme.Serialization 1.4.0 is affected by SAMPLE-0001
   - Acme.GplToolkit is GPL-3.0-only: review compatibility with proprietary distribution
@@ -115,14 +53,67 @@ pro+ai, llm down: status=ready degraded=true reason=llm-unavailable
 
 SMOKE TEST PASSED (gateway part skipped: SMOKE_API_KEY is not set)
 
-2. CONTENEDORES AL FINAL (docker ps)
-------------------------------------
-NAMES                  STATUS                        PORTS
-gyde-llm-analysis-1    Up 38 seconds (healthy)       0.0.0.0:4400->4400/tcp, [::]:4400->4400/tcp
-gyde-reports-1         Up About a minute (healthy)   0.0.0.0:4500->4500/tcp, [::]:4500->4500/tcp
-gyde-gateway-1         Up About a minute (healthy)   0.0.0.0:4000->4000/tcp, [::]:4000->4000/tcp
-gyde-normalization-1   Up About a minute (healthy)   0.0.0.0:4200->4200/tcp, [::]:4200->4200/tcp
-gyde-retrieval-1       Up About a minute (healthy)   0.0.0.0:4300->4300/tcp, [::]:4300->4300/tcp
-gyde-web-1             Up About a minute (healthy)   0.0.0.0:13000->3000/tcp, [::]:13000->3000/tcp
-gyde-postgres-1        Up 2 minutes (healthy)        0.0.0.0:15432->5432/tcp, [::]:15432->5432/tcp
-gyde-registry-1        Up 2 minutes (healthy)        0.0.0.0:4100->4100/tcp, [::]:4100->4100/tcp
+
+2. SALIDA DEL HUMO COMPLETO CON CLAVE (comando 2)
+--------------------------------------------------
+
+== Starting postgres, registry, normalization, retrieval, reports, llm-analysis, web and the gateway
+
+== Ingesting the OSV fixtures (twice: the second run must change nothing)
+first : {"source":"osv","recordsProcessed":0,"recordsSkipped":0,"startedAt":"2026-10-18T22:34:12.817Z","finishedAt":"2026-10-18T22:34:12.852Z"}
+second: {"source":"osv","recordsProcessed":0,"recordsSkipped":0,"startedAt":"2026-10-18T22:34:12.904Z","finishedAt":"2026-10-18T22:34:12.909Z"}
+
+== Asking normalization for the sample packages
+candidates: osv:SAMPLE-0001, osv:SAMPLE-0003
+
+== Case 1: Free plan, no AI (ready, not degraded)
+free: status=ready degraded=false reason=-
+  - Acme.Serialization 1.4.0 is affected by SAMPLE-0001
+  - Acme.GplToolkit is GPL-3.0-only: review compatibility with proprietary distribution
+  layers: basic, license-compliance, severity-score
+
+== Case 1 again: the same request must give the same findings in the same order
+identical findings
+
+== Case 2: Pro plan, AI requested, llm-analysis on the mock (ready, not degraded, explained)
+pro+ai: status=ready degraded=false reason=-
+  - Acme.Serialization 1.4.0 is affected by SAMPLE-0001
+  - Acme.GplToolkit is GPL-3.0-only: review compatibility with proprietary distribution
+  layers: basic, license-compliance, ai-enrichment, severity-score
+
+== Case 3: Pro plan, AI requested, llm-analysis stopped (ready, degraded: llm-unavailable)
+pro+ai, llm down: status=ready degraded=true reason=llm-unavailable
+  - Acme.Serialization 1.4.0 is affected by SAMPLE-0001
+  - Acme.GplToolkit is GPL-3.0-only: review compatibility with proprietary distribution
+  layers: basic, license-compliance, severity-score
+
+== Gateway: GET /v1/auth/verify (valid key, wrong key, no key)
+200 / 401 / 401
+
+== Gateway: /internal/* is never routed
+answered 404 (not served)
+
+== Gateway: POST /v1/analyses, then GET until ready, then the Markdown
+gateway: status=ready degraded=false reason=-
+  - Acme.Serialization 1.4.0 is affected by SAMPLE-0001
+  - Acme.GplToolkit is GPL-3.0-only: review compatibility with proprietary distribution
+  layers: basic, license-compliance, severity-score
+markdown lists SAMPLE-0001
+
+== Gateway: with Reports stopped it answers 503 upstream_unavailable instead of hanging
+503
+
+SMOKE TEST PASSED (gateway part ran: key, wrong key, /internal not routed, analysis, markdown and 503)
+
+
+3. CONTENEDORES AL FINAL
+------------------------
+
+gyde-gateway-1  Up 2 minutes (healthy)
+gyde-llm-analysis-1  Up 29 seconds (healthy)
+gyde-normalization-1  Up 2 minutes (healthy)
+gyde-postgres-1  Up 15 minutes (healthy)
+gyde-registry-1  Up 2 minutes (healthy)
+gyde-reports-1  Up About a minute (healthy)
+gyde-retrieval-1  Up 2 minutes (healthy)
+gyde-web-1  Up 2 minutes (healthy)

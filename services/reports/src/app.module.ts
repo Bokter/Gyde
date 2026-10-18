@@ -28,6 +28,10 @@ export interface AppModuleOverrides {
   schedule?: (fn: () => void, ms: number, timer?: TimerName) => void;
   /** Receives the watchdog's own failures. Defaults to the Nest logger of the use case. */
   logger?: LifecycleLogger;
+  /** Test-only clock; defaults to the real one. */
+  now?: () => Date;
+  /** Test-only id generator; defaults to `randomUUID`. */
+  newId?: () => string;
 }
 
 /**
@@ -77,6 +81,8 @@ export class AppModule {
               aiTimeoutMs: config.REPORTS_AI_TIMEOUT_MS,
               retrievalTimeoutMs: config.REPORTS_RETRIEVAL_TIMEOUT_MS,
               schedule: overrides.schedule,
+              now: overrides.now,
+              newId: overrides.newId,
             }),
           inject: [REPORT_REPOSITORY, RETRIEVAL_CLIENT, APP_CONFIG],
         },

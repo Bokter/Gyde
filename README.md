@@ -2,7 +2,7 @@
 
 Plataforma SaaS que detecta y gestiona vulnerabilidades, conflictos de licencias y riesgos de compatibilidad en proyectos de videojuegos (Unity y Unreal Engine), apoyándose en bases de datos públicas de vulnerabilidades. Se ofrece con planes de suscripción cobrados con Stripe (modo test).
 
-> **Estado:** MVP funcional de punta a punta. Probado en Docker con los siete servicios: inicio de sesión con GitHub, creación de API key, `gyde analyze` y reporte priorizado, con degradado y recuperación ante fallos. Evidencia de ejecución en [`docs/evidence/`](docs/evidence/humo-2026-10-12.txt). Lo que queda fuera del MVP está en [Alcance y límites](#alcance-y-límites).
+> **Estado:** MVP funcional de punta a punta. Probado en Docker con los siete servicios: inicio de sesión con GitHub, creación de API key, `gyde analyze` y reporte priorizado, con degradado y recuperación ante fallos. Evidencia de ejecución tras el refactor a arquitectura limpia: [`docs/evidence/humo-2026-10-18.txt`](docs/evidence/humo-2026-10-18.txt) (los archivos del 12-oct de esa carpeta son históricos, anteriores al refactor). Lo que queda fuera del MVP está en [Alcance y límites](#alcance-y-límites).
 
 ## Qué hace
 
@@ -113,29 +113,41 @@ Stack: TypeScript · pnpm + Turborepo · NestJS sobre Fastify (servicios) · Nex
 
 ## Cómo se evidencia Clean Architecture
 
-Cada servicio separa cuatro capas y la dependencia apunta siempre hacia adentro:
+Cada servicio de backend (`gateway`, `registry`, `retrieval`, `normalization`, `llm-analysis`, `reports`) separa cuatro capas y la dependencia apunta siempre hacia adentro (`http` y `infrastructure` → `application` → `domain`):
 
-| Capa | Qué contiene | Ejemplo real |
+| Capa | Qué contiene | Ejemplo real (servicio de referencia: `reports`) |
 |---|---|---|
-| `domain/` | Entidades y reglas puras | `reports/src/domain/report/*` (reporte y decoradores) |
-| `application/` | **Casos de uso** y **puertos** (interfaces) | `AuthenticateApiKey`, `SubmitAnalysis`, puerto `ApiKeyVerifier` |
-| `infrastructure/` | **Adaptadores** (HTTP, base de datos, memoria) y **repositorios** | `WebApiKeyVerifier`, `MemoryAuthCache`, `HttpReportsClient` |
-| `http/` | **Controladores** o handlers: reciben, validan (zod) y llaman a un caso de uso | `GatewayController`, `ApiKeyGuard` |
+| `domain/` | Entidades (`entities/*.entity.ts`), contratos de repositorio (`repositories/*.repository.ts`: interfaz y `Symbol` de inyección) y reglas puras | `services/reports/src/domain/entities/analysis.entity.ts` (la entidad `Analysis` y su máquina de estados), `services/reports/src/domain/repositories/report.repository.ts` (`ReportRepository`) y `services/reports/src/domain/report/` (reporte y decoradores) |
+| `application/` | **Casos de uso** (`use-cases/*.use-case.ts`, clases `*UseCase`), DTO planos, errores sin HTTP y **puertos** | `services/reports/src/application/use-cases/create-analysis.use-case.ts` (`CreateAnalysisUseCase`); en el gateway, `AuthenticateApiKeyUseCase` y `SubmitAnalysisUseCase` |
+| `infrastructure/` | Implementaciones de los repositorios (`repositories/`), adaptadores de los puertos (`adapters/*.adapter.ts`) y mappers fila/contrato <-> dominio | `services/reports/src/infrastructure/repositories/postgres-report.repository.ts` e `in-memory-report.repository.ts`, `services/reports/src/infrastructure/adapters/http-retrieval-client.adapter.ts` |
+| `http/` | Controlador delgado (recibe, valida el contrato con zod (`ZodValidationPipe`) y llama a un caso de uso), `mappers/` y el interceptor de errores | `services/reports/src/http/reports.controller.ts`, `services/reports/src/http/application-error.interceptor.ts` |
 
-- La regla **la impone `pnpm lint`** ([`tooling/eslint/layer-boundaries.mjs`](tooling/eslint/layer-boundaries.mjs)): `domain/` y `application/` no pueden importar NestJS, Fastify, Drizzle, Stripe ni `infrastructure/`. Los casos de uso se construyen en el *composition root* (`app.module.ts`).
-- El desacoplamiento se nota en que **se cambia un adaptador sin tocar el caso de uso**: Reports usa `PostgresReportRepository` (o `InMemoryReportRepository` si no hay `REPORTS_DATABASE_URL`) detrás del puerto `ReportRepository`; el Servicio Web tiene un adaptador del puerto de prueba de conexión por proveedor de IA y uno sin red; llm-analysis, uno del puerto `FindingAnalyzer` por proveedor.
-- Diagramas de contexto, contenedores y componentes, con el archivo de cada pieza: [Modelo C4](docs/architecture/05-modelo-c4.md), exportado de una única fuente en Structurizr DSL ([`workspace.dsl`](docs/architecture/c4/workspace.dsl)).
+El *composition root* es `app.module.ts`, en la raíz de `src/`: es el único lugar que enlaza puertos con adaptadores y construye los casos de uso.
+
+**Qué se puede cambiar sin tocar el caso de uso.** En Reports, `ReportRepository` tiene dos implementaciones, `PostgresReportRepository` e `InMemoryReportRepository` (esta última cuando no hay `REPORTS_DATABASE_URL`); `CreateAnalysisUseCase` recibe el repositorio por el puerto y no sabe cuál es. Lo mismo con `RetrievalClient` (adaptador HTTP con discovery y breaker) y, en llm-analysis, con el puerto `FindingAnalyzer` (adaptadores `mock`, `anthropic` y `gemini`). Los errores de aplicación (`AnalysisNotFoundError`, etc.) no llevan estado HTTP: los traduce el interceptor.
+
+**Desviaciones deliberadas** (documentadas, no olvidos):
+
+- Los errores de aplicación se traducen con un **interceptor** (`APP_INTERCEPTOR`), no con un filtro de excepciones; el filtro global de `service-kit` solo produce el sobre `ApiError`. Gateway, registry, normalization y reports lo tienen; retrieval y llm-analysis no, porque responden `202` y ningún error de aplicación llega a HTTP.
+- El controlador vive en `http/` y `app.module.ts` queda en la raíz de `src/`, no dentro de una capa.
+- No hay un puerto `Clock`: donde un caso de uso necesita la hora recibe una función `now` opcional (p. ej. `CreateAnalysisUseCase`), sin una abstracción propia.
+- `GET /v1/services/:serviceName` de registry no valida el nombre (`bogus` responde `200` con lista vacía en vez de `400`); se conserva para no cambiar el contrato (ver [`services/registry/README.md`](services/registry/README.md#desviación-conocida)).
+- Entidades con identidad hay en `registry` (`ServiceInstance`), `normalization` (`KnowledgeObject`) y `reports` (`Analysis`). `gateway`, `retrieval` y `llm-analysis` solo tienen *value objects* y reglas puras en `domain/` (tipos planos y funciones), sin `entities/` ni repositorio de entidad: no guardan entidades con ciclo de vida.
+
+**Cómo se comprueba.** `pnpm lint` aplica la pureza estricta de `domain/` y `application/` a los seis servicios: `domain/` solo admite imports relativos (ni `@gyde/*`, ni `zod`, ni `node:*`, ni librerías) y `application/` no puede importar `zod`, `@gyde/service-kit`, `@gyde/resilience`, `@gyde/discovery`, `@nestjs/*` ni `node:*`, ni `infrastructure/` ni `http/` (solo se tolera `import type` de `@gyde/contracts` en los archivos que el README de cada servicio lista como excepción). La regla vive en [`tooling/eslint/layer-boundaries.mjs`](tooling/eslint/layer-boundaries.mjs). La evidencia de la comprobación está en [`docs/evidence/clean-architecture-2026-10-18.md`](docs/evidence/clean-architecture-2026-10-18.md).
+
+Diagramas de contexto, contenedores y componentes, con el archivo de cada pieza: [Modelo C4](docs/architecture/05-modelo-c4.md), exportado de una única fuente en Structurizr DSL ([`workspace.dsl`](docs/architecture/c4/workspace.dsl)).
 
 ## Patrones implementados
 
 | Patrón | Tipo | Dónde | Evidencia de que funciona |
 |---|---|---|---|
-| Circuit Breaker | Arquitectónico | `packages/resilience`, usado por `ResilientHttpClient` | Con Reports detenido el gateway responde `503 upstream_unavailable` y se recupera (humo) |
+| Circuit Breaker | Arquitectónico | `packages/resilience`, usado por `ResilientHttpClient` | Con Reports detenido el gateway responde `503 upstream_unavailable` y se recupera (humo `docs/evidence/humo-2026-10-18.txt`). Pruebas: `services/reports/test/http-retrieval-client.test.ts` ("opens the circuit after repeated failures and stops calling Retrieval") y `services/gateway/test/app.test.ts` ("answers 503 when Reports is unreachable or fails, without leaking details") |
 | Service Discovery | Arquitectónico | `services/registry`, `packages/discovery` | Registro, latido y resolución; respaldo a `*_URL` si el registry cae |
 | Abstract Factory | Diseño | `packages/analysis-engine/src/toolchain/` | Unity (C# + OSV) o Unreal (C++ + NVD) según `detectGameEngine` |
 | Template Method (pipeline) | Diseño | `packages/analysis-engine/src/pipeline/` | `runAnalysis` fija el orden; una prueba impide sobrescribirlo |
 | Template Method (analizadores) | Diseño | `services/retrieval/src/domain/analyzers/` | `BaseAnalyzer.analyze` fija select → match → toFinding → prioritize |
-| Decorator | Diseño | `services/reports/src/domain/report/` | Capas `basic, license-compliance, ai-enrichment, severity-score` según el plan (humo) |
+| Decorator | Diseño | `services/reports/src/domain/report/` | Capas `basic, license-compliance, ai-enrichment, severity-score` según el plan; prueba: `services/reports/test/report-decorator.test.ts` ("composeReport: free plan = basic + license + severity, never the AI layer" y "composeReport: pro and studio plans add the AI layer only when an AiResult is present") |
 
 Detalle y cómo se prueba cada uno: [Patrones](docs/architecture/03-patrones.md).
 
@@ -172,7 +184,7 @@ Fuera del MVP o en esqueleto, de forma declarada: `CompatibilityAnalyzer`, fuent
 | [Arquitectura](docs/architecture/00-vision-general.md) | Contenedores, flujos, patrones, datos y seguridad |
 | [Modelo C4](docs/architecture/05-modelo-c4.md) | Contexto, contenedores y componentes (Structurizr, única fuente de los diagramas) |
 | [Decisiones (ADR)](docs/adr/README.md) | Por qué se decidió cada cosa |
-| [Evidencia de ejecución](docs/evidence/humo-2026-10-12.txt) | Salida de la prueba de humo de punta a punta |
+| [Evidencia de ejecución](docs/evidence/humo-2026-10-18.txt) | Salida de la prueba de humo de punta a punta tras el refactor (los archivos del 12-oct de `docs/evidence/` son históricos) |
 | [Día de integración](docs/workflow/dia-de-integracion.md) | Lista de verificación y guion de la demo |
 | [Sistema de diseño](docs/design/sistema-de-diseno.md) | Fuente, paleta, tokens y accesibilidad |
 | [Plan del equipo](docs/tasks/00-resumen.md) | Reparto en 4 áreas y briefs |

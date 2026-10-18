@@ -59,7 +59,7 @@ src/http/                 controlador NestJS (202 en vivo) y mappers/ (contrato 
 src/app.module.ts         composition root: enlaza puertos con adaptadores (ADR 0011)
 ```
 
-Las reglas de capas se comprueban con `pnpm exec eslint --config tooling/eslint/purity.config.mjs services/llm-analysis/src` (ADR 0012).
+Las reglas de capas las aplica `pnpm lint` (ADR 0012).
 
 El controlador no traduce errores a HTTP (responde `202` y el trabajo sigue en segundo plano), así que este servicio no tiene `application-error.interceptor.ts` ni `application/errors.ts`.
 
@@ -67,10 +67,11 @@ El controlador no traduce errores a HTTP (responde `202` y el trabajo sigue en s
 
 Ninguna: `application/` no importa `@gyde/contracts`. Los puertos hablan en DTO y en `TenantLlmConfig` (que lleva la llave descifrada), no en tipos del contrato.
 
-### Desviaciones respecto al plan del refactor (WP-2D)
+### Desviaciones de diseño
 
-- **Validación `AiResult` en el analizador, no en el cliente de Reports.** El paso 3 del plan la movía al mapper de `http-reports-client.adapter.ts`. Se mantiene dentro de `analyze` de cada proveedor y del mock (`infrastructure/mappers/ai-result.mapper.ts`, `parseAiResult`): así un resultado inválido sigue siendo una llamada fallida dentro del breaker y nunca llega a la caché de respaldo. `toAiResultContract` (en el cliente de Reports) solo tipa el cuerpo publicado.
-- **Sin clases de error de aplicación.** El paso 6 pedía `application/errors.ts`. Los fallos del proveedor se publican con `describe(error)` = `"<name>: <message>"`; envolverlos en clases propias cambiaría el `name` y por tanto el `message` que recibe Reports. Los motivos se tipan con `FailureReason`.
+- **`AiResult` se valida dentro del analizador, no en el cliente de Reports.** `parseAiResult` (`infrastructure/mappers/ai-result.mapper.ts`) se llama desde `analyze` de cada proveedor y del mock: así un resultado inválido cuenta como una llamada fallida dentro del breaker y nunca llega a la caché de respaldo. `toAiResultContract` (en el cliente de Reports) solo tipa el cuerpo publicado.
+- **Sin `application/errors.ts` ni clases de error de aplicación.** Los fallos del proveedor se publican con `describe(error)` = `"<name>: <message>"`; envolverlos en clases propias cambiaría el `name` y por tanto el `message` que recibe Reports. Los motivos se tipan con `FailureReason`.
+- **Sin `domain/entities/` ni `domain/repositories/`.** `domain/` solo tiene tipos planos y funciones puras (`analysis.ts`, `prompt.ts`, `redact.ts`); el servicio no guarda entidades con identidad.
 - **Mappers de identidad.** `toAnalyzeFindingsDto` y `toAiResultContract` devuelven el mismo objeto (los tipos son estructuralmente iguales a los del contrato) para no alterar el orden de claves, que forma parte del prompt y de la huella de la caché de respaldo.
 
 ## Configuración
@@ -85,4 +86,4 @@ Ninguna: `application/` no importa `@gyde/contracts`. Los puertos hablan en DTO 
 | `CB_*` | — | Umbrales del Circuit Breaker (`packages/resilience`). `CB_CALL_TIMEOUT_MS` no se aplica a la llamada al modelo |
 | `LLM_PROVIDER_TIMEOUT_MS` | `30000` | Tiempo máximo de una llamada al proveedor de IA; el breaker espera este valor más 15 s, para que no corte una respuesta lenta y la cuente como fallo |
 
-Los criterios de aceptación son las pruebas de `test/` (26 originales de `app.test.ts` y `gemini-finding-analyzer.test.ts`; `characterization.test.ts` fija los cuerpos, mensajes y prompts exactos que se publican y se envían al modelo).
+Los criterios de aceptación son las pruebas de `test/` (65 pruebas en 5 archivos: `app.test.ts`, `characterization.test.ts`, `gemini-finding-analyzer.test.ts`, `prompt.test.ts` y `resilient-model-call-policy.test.ts`; `characterization.test.ts` fija los cuerpos, mensajes y prompts exactos que se publican y se envían al modelo).

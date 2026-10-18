@@ -2,7 +2,7 @@
 
 **Consolida** lo determinístico (Retrieval) y lo producido por el LLM en un **reporte de riesgo priorizado y explicable** (evidencia, impacto, recomendación). Es el **orquestador** del análisis: crea el trabajo, pide la evidencia a Retrieval y arma el reporte final.
 
-> **Estado:** `POST /internal/analyses` y `GET /internal/analyses/:id` **en vivo** (cliente HTTP de Retrieval con Service Discovery y Circuit Breaker, mediante `ResilientHttpClient`), **persistencia PostgreSQL** con migraciones y barrido de arranque, y render Markdown. Decorator (base hecha); decoradores concretos: **Área 4** (`docs/tasks/area-4-motor-llm-y-reportes.md`).
+> **Estado:** `POST /internal/analyses` y `GET /internal/analyses/:id` **en vivo** (cliente HTTP de Retrieval con Service Discovery y Circuit Breaker, mediante `ResilientHttpClient`), **persistencia PostgreSQL** con migraciones y barrido de arranque, y render Markdown. Patrón Decorator completo: la base y los tres decoradores concretos viven en `src/domain/report/` y `src/domain/report/decorators/`.
 
 - Puerto: `REPORTS_PORT` (4500) · Solo red interna (el gateway es su cliente).
 - Datos propios: schema `reports` de PostgreSQL (`REPORTS_DATABASE_URL` es **opcional**: sin ella el servicio corre en memoria, pensado para desarrollo local y tests).
@@ -81,15 +81,16 @@ src/application/         use-cases/ (CreateAnalysisUseCase, RecordDeterministicR
                          SweepStaleAnalysesUseCase; un archivo *.use-case.ts cada uno), analysis-watchdog.ts
                          (los dos temporizadores), errors.ts (AnalysisNotFoundError, sin HTTP), dto/ (tipos
                          planos) y ports/ (RetrievalClient)
-src/infrastructure/      adapters/ (http-retrieval-client.adapter.ts), repositories/ (PostgresReportRepository e InMemoryReportRepository), mappers/analysis.mapper.ts
-                         (fila <-> entidad), HttpRetrievalClient con breaker, reports-startup.ts y db/ (esquema
+src/infrastructure/      adapters/http-retrieval-client.adapter.ts (HttpRetrievalClient, con discovery y breaker),
+                         repositories/ (PostgresReportRepository e InMemoryReportRepository),
+                         mappers/analysis.mapper.ts (fila <-> entidad), reports-startup.ts y db/ (esquema
                          Drizzle, pool, migraciones)
 src/http/                controlador delgado, mappers/ (contrato <-> DTO) y application-error.interceptor.ts
 src/app.module.ts        composition root: enlaza puertos con adaptadores y registra el interceptor (ADR 0011)
 drizzle/                 migraciones SQL generadas con `pnpm --filter @gyde/reports db:generate`
 ```
 
-Las reglas de capas se comprueban con `pnpm exec eslint --config tooling/eslint/purity.config.mjs services/reports/src` (ADR 0012).
+Las reglas de capas las aplica `pnpm lint` (ADR 0012).
 
 Los criterios de aceptación están como tests en `test/characterization.test.ts` (comportamiento externo fijado antes del refactor), `test/app.test.ts`, `test/analysis.test.ts` (la entidad, sin Nest ni BD), `test/contract-compat.test.ts` (los tipos del dominio y los DTO siguen siendo equivalentes a los contratos), `test/reports.mapper.test.ts`, `test/postgres-report-repository.test.ts`, `test/migrations.test.ts` y `test/report-decorator.test.ts`.
 
@@ -99,7 +100,7 @@ Ninguna: `application/` no importa `@gyde/contracts`. Los DTO de `application/dt
 
 ## Comportamientos conocidos (conservados por el refactor)
 
-Descripción factual de lo que el servicio hace hoy. El refactor no los cambia y cada uno está fijado por una prueba de caracterización (nombre del `it` entre comillas).
+Descripción factual de lo que el servicio hace hoy. La numeración R1 a R7 es propia de este README y no coincide con la de otras listas del repositorio. El refactor no los cambia y cada uno está fijado por una prueba de caracterización (nombre del `it` entre comillas).
 
 | # | Qué ocurre | Dónde | Prueba |
 |---|---|---|---|

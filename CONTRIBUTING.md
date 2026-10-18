@@ -72,20 +72,49 @@ Si un cambio cruza varios módulos, omite el scope. Un cambio incompatible lleva
 
 ## 5. Estructura y reglas de capas
 
-Cada servicio sigue la misma estructura:
+Cada servicio backend (`gateway`, `registry`, `retrieval`, `normalization`, `llm-analysis`, `reports`) sigue la misma estructura; solo existen las carpetas que el servicio necesita:
 
 ```
 services/<nombre>/src/
-├─ domain/          # entidades y reglas puras: sin I/O, sin frameworks (ni NestJS)
-├─ application/     # casos de uso + puertos (interfaces) y su token de inyección; sin NestJS
-├─ infrastructure/  # adaptadores @Injectable que implementan los puertos (DB, HTTP, Stripe, LLM…)
-├─ http/            # controladores NestJS; validan con @gyde/contracts (ZodValidationPipe)
-├─ config.ts        # variables de entorno validadas con zod
-├─ app.module.ts    # composition root: enlaza cada puerto con su adaptador
-└─ main.ts          # arranque (createApp + startService)
+├─ domain/
+│  ├─ entities/         # entidades con invariantes: <nombre>.entity.ts
+│  ├─ repositories/     # contrato de repositorio (interface + token Symbol): <nombre>.repository.ts
+│  └─ ...               # valores, reglas puras y puertos que el dominio necesita (p. ej. LicenseExpressionParser)
+├─ application/
+│  ├─ dto/              # tipos planos de entrada/salida: <nombre>.dto.ts
+│  ├─ use-cases/        # una clase por caso de uso con execute(): <nombre>.use-case.ts
+│  ├─ ports/            # puertos hacia otros servicios y recursos (interface + token Symbol)
+│  └─ errors.ts         # errores de aplicación sin HTTP (clase base con `code`)
+├─ infrastructure/
+│  ├─ repositories/     # adaptadores de repositorio: postgres-<nombre>.repository.ts, in-memory-...
+│  ├─ adapters/         # adaptadores del resto de puertos: <nombre>.adapter.ts
+│  └─ mappers/          # fila/contrato <-> entidad o DTO: *.mapper.ts
+├─ http/
+│  ├─ mappers/          # contrato <-> DTO: *.mapper.ts
+│  ├─ application-error.interceptor.ts   # errores de aplicación -> HttpError
+│  └─ *.controller.ts   # controladores delgados
+├─ config.ts            # variables de entorno validadas con zod
+├─ app.module.ts        # composition root: enlaza cada puerto con su adaptador
+└─ main.ts              # arranque (createApp + startService)
 ```
 
-Las dependencias van hacia adentro: `http → application → domain` e `infrastructure → application`. `domain` y `application` no importan las capas exteriores ni librerías de infraestructura, **incluido NestJS**. ESLint lo comprueba y el CI falla si se viola.
+Las dependencias van hacia adentro: `http → application → domain` e `infrastructure → application`. Qué puede importar cada capa:
+
+| Capa | Puede importar | No puede importar |
+|---|---|---|
+| `domain/` | solo imports relativos dentro de `domain/` | `@gyde/*`, `zod`, `@nestjs/*`, `node:*`, librerías de terceros, capas exteriores |
+| `application/` | `domain/` y relativos propios | `zod`, `@gyde/service-kit`, `@gyde/resilience`, `@gyde/discovery`, `@nestjs/*`, `node:*`, `infrastructure/`, `http/`; `@gyde/contracts` salvo la allowlist |
+| `infrastructure/` | `application/`, `domain/`, `@gyde/*`, librerías | `http/` |
+| `http/` | `application/`, `@gyde/contracts`, `@gyde/service-kit`, `@nestjs/*` | `infrastructure/` |
+| `app.module.ts`, `main.ts` | todo | n/a |
+
+ESLint lo comprueba (`tooling/eslint/layer-boundaries.mjs`, con `pnpm lint`) y el CI falla si se viola. El Servicio Web (Next.js) aplica las reglas de dirección de capas dentro de cada `modules/<nombre>`, sin las de pureza estricta.
+
+**DTOs, mappers y errores.** Un DTO es un tipo plano (`XxxDto`) en `application/dto/`, sin decoradores ni zod. Los mappers son funciones puras (`toXxxDto`, `toXxxContract`) en `http/mappers/` (contrato ↔ DTO) y en `infrastructure/mappers/` (fila o contrato ↔ entidad). Los errores de aplicación extienden la clase base del servicio en `application/errors.ts`, no llevan estado HTTP, y `http/application-error.interceptor.ts` (registrado con `APP_INTERCEPTOR`) los traduce a `HttpError`. Detalle y excepciones por servicio en el [ADR 0012](docs/adr/0012-dtos-entidades-y-pureza-de-capas.md).
+
+**Dónde se validan los contratos.** En el borde: `http/` usa `ZodValidationPipe(Schema)` sobre el cuerpo de la petición, y `infrastructure/` re-valida con el schema del contrato las respuestas de otros servicios antes de mapearlas. `domain/` y `application/` no importan `@gyde/contracts`.
+
+**Allowlist.** La única excepción son los casos de uso (y puertos) de paso, que pueden usar `import type { ... } from '@gyde/contracts'` si su entrada y salida son exactamente un tipo del contrato; nunca valores. Hoy son dos archivos de gateway (`get-report.use-case.ts` y `ports/report-reader.ts`, tipo `Report`). Añadir una exige editar la tabla del [ADR 0012](docs/adr/0012-dtos-entidades-y-pureza-de-capas.md#allowlist-de-tipos-de-contrato-en-application) y el README del servicio; el lint no distingue las permitidas, la lista la hace cumplir el comando de aceptación del ADR.
 
 **NestJS** ([ADR 0011](docs/adr/0011-nestjs-como-framework-de-los-servicios.md)): los casos de uso son clases normales; en `app.module.ts` se construyen con `useFactory` y cada puerto se enlaza a su adaptador por su token (`{ provide: REPORT_REPOSITORY, useClass: ... }`). Siempre `@Inject(TOKEN)` explícito en los constructores, porque `esbuild` (tsup y Vitest) no emite metadatos de decoradores. Los contratos son zod, no DTO con `class-validator`. En las pruebas: `const app = await createApp(...)`, `app.inject(...)` y `afterAll(() => app.close())`.
 

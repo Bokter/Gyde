@@ -15,7 +15,7 @@ Recupera la información pertinente por **tres vías** y la cruza con el proyect
 | `LicenseAnalyzer` | Compatibilidad de licencias SPDX (determinístico) | `licenseCompliance` |
 | `CompatibilityAnalyzer` | Motor + SDK + plataforma contra documentación y *changelogs* | `compatibilityAnalysis` |
 
-Viven como **módulos de este servicio** (no como tres microservicios), compartiendo el algoritmo de `BaseAnalyzer`: `select → match → toFinding → prioritize → evidencia`. `prioritize` es invariante (severidad, luego CVSS, luego título) y el análisis es **puro y síncrono**: misma entrada, misma salida.
+Viven como **módulos de este servicio** (no como tres microservicios), compartiendo el algoritmo de `BaseAnalyzer`: `select → match → toFinding → prioritize → evidencia`. `prioritize` es invariante (severidad, luego CVSS, luego título y, a igualdad, id) y el análisis es **puro y síncrono**: misma entrada, misma salida.
 
 ## Flujo del caso de uso `RetrieveEvidenceUseCase`
 
@@ -51,7 +51,7 @@ src/http/                controlador NestJS de `POST /internal/retrieve` y mappe
 src/app.module.ts        composition root: enlaza puertos con adaptadores y construye los analizadores con el parser y el digest (ADR 0011)
 ```
 
-Los analizadores y los tipos de `domain/model.ts` son *value objects* y servicios de dominio (tipos planos de solo lectura con funciones puras), no entidades con ciclo de vida: Retrieval no guarda estado. Las reglas de capas se comprueban con `pnpm exec eslint --config tooling/eslint/purity.config.mjs services/retrieval/src` (ADR 0012).
+Los analizadores y los tipos de `domain/model.ts` son *value objects* y servicios de dominio (tipos planos de solo lectura con funciones puras), no entidades con ciclo de vida: Retrieval no guarda estado. Las reglas de capas las aplica `pnpm lint` (ADR 0012).
 
 ### Errores y por qué no hay interceptor
 
@@ -128,7 +128,7 @@ Retrieval **no guarda estado**: lo que calcula solo existe hasta que Reports lo 
 
 - **Si Reports no contesta**, el resultado determinístico se reintenta (3 intentos con espera corta, siempre detrás del breaker). Si sigue sin entregarse, se intenta avisar con un `AnalysisFailure` (`retrieval-error`) y, si tampoco se puede, queda **solo en el log** del servicio. Retrieval no se cae ni bloquea a nadie: responde `202` y trabaja en segundo plano.
 - **Un 4xx de Reports** (p. ej. `404` por un análisis que no existe) no se reintenta: reintentar fallaría igual.
-- **Un análisis puede quedarse en `retrieving`.** Reports solo arranca su temporizador (`REPORTS_AI_TIMEOUT_MS`) cuando el análisis pasa a `analyzing`. Si Retrieval aceptó la solicitud (`202`) pero no logra entregar ni el resultado ni el fallo —o el proceso se reinicia a mitad de trabajo—, Reports no recibe nada y el análisis queda en `retrieving` para siempre. Retrieval no puede resolverlo solo (no tiene dónde guardar el trabajo pendiente): hace falta un temporizador para el estado `retrieving` en Reports. **Pendiente del Área 4.**
+- **Un análisis no se queda en `retrieving` para siempre.** Si Retrieval aceptó la solicitud (`202`) pero no logra entregar ni el resultado ni el fallo —o el proceso se reinicia a mitad de trabajo—, Reports lo cierra: pasado `REPORTS_RETRIEVAL_TIMEOUT_MS` (90 s por defecto) el análisis queda `failed` con `retrieval-error` (ver el README de reports). Retrieval no guarda el trabajo pendiente, así que el temporizador es de Reports. Límite: tras un reinicio de Reports, el barrido de arranque solo cierra lo que ya superó ese umbral.
 - **El análisis con IA depende de llm-analysis y de `web`** (este le entrega la configuración del tenant). Si llm-analysis no puede conseguirla, es él quien avisa a Reports; Retrieval solo avisa cuando **no logra llegar** a llm-analysis (`llm-unavailable`).
 - **Conocimiento retirado:** Retrieval consulta lo que normalization tiene guardado (ver el README de normalization sobre los avisos retirados).
 

@@ -35,13 +35,20 @@ Viven como **módulos de este servicio** (no como tres microservicios), comparti
 ## Estructura
 
 ```
-src/domain/analyzers/    BaseAnalyzer (hecho) · vulnerabilities/ (hecho) · licenses/ (hecho) · compatibility/
-src/domain/versions/     comparación de versiones por ecosistema y rangos afectados (puro)
-src/application/         RetrieveEvidence, BackgroundJobs y puertos: KnowledgeSource, ReportsClient, LlmClient
-src/infrastructure/      adaptadores HTTP hacia normalization, reports y llm-analysis sobre `ResilientHttpClient` (discovery + `*_URL`, breaker por dependencia)
-src/http/                controlador NestJS de `POST /internal/retrieve`
-src/app.module.ts        composition root: enlaza puertos con adaptadores (ADR 0011)
+src/domain/              tipos propios (types.ts), puertos (ports.ts: LicenseExpressionParser, IdHasher),
+                         analyzers/ (BaseAnalyzer, vulnerabilities/, licenses/, compatibility/) y versions/; solo imports relativos
+src/application/         RetrieveEvidence, BackgroundJobs, errors.ts, dto/ (tipos planos) y ports/: KnowledgeSource, ReportsClient, LlmClient
+src/infrastructure/      adaptadores HTTP hacia normalization, reports y llm-analysis sobre `ResilientHttpClient` (discovery + `*_URL`, breaker por dependencia),
+                         SpdxLicenseExpressionParser, CryptoIdHasher y mappers/ (contrato <-> DTO/dominio)
+src/http/                controlador NestJS de `POST /internal/retrieve` y mappers/ (contrato -> DTO)
+src/app.module.ts        composition root: enlaza puertos con adaptadores y construye los analizadores (ADR 0011)
 ```
+
+Las reglas de capas se comprueban con `pnpm exec eslint --config tooling/eslint/purity.config.mjs services/retrieval/src` (ADR 0012). No hace falta `application-error.interceptor.ts`: el controlador responde `202` y los errores de aplicación (`KnowledgeUnavailableError`, `LlmUnavailableError`) se traducen dentro del caso de uso a `AnalysisFailure`, nunca a una respuesta HTTP.
+
+## Excepciones de contrato en application
+
+Ninguna: `application/` no importa `@gyde/contracts` (`grep -rn "@gyde/contracts" services/retrieval/src` solo encuentra `http/` e `infrastructure/`).
 
 Los criterios de aceptación pendientes (`CompatibilityAnalyzer`) están como `it.todo` en `test/base-analyzer.test.ts`.
 

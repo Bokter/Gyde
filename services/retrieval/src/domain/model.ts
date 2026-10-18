@@ -65,11 +65,11 @@ export interface Finding {
   readonly severity: Severity;
   readonly title: string;
   readonly dependency?: Pick<Dependency, 'ecosystem' | 'name' | 'version'> | undefined;
-  readonly evidence: Evidence[];
+  readonly evidence: readonly Evidence[];
   readonly impact?: string | undefined;
   readonly recommendation?: string | undefined;
   readonly cvss?: number | undefined;
-  readonly references: string[];
+  readonly references: readonly string[];
   /** True when produced by deterministic matching, without any LLM involved. */
   readonly deterministic: boolean;
 }

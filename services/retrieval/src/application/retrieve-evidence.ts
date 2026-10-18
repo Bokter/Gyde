@@ -1,17 +1,17 @@
-import type {
-  AnalysisFailure,
-  DeterministicResult,
-  Entitlements,
-  KnowledgeObject,
-  RetrieveRequest,
-} from '@gyde/contracts';
-
 import {
   type AnalyzerName,
   type BaseAnalyzer,
   compareFindings,
 } from '../domain/analyzers/base-analyzer';
 
+import type { KnowledgeEntry } from '../domain/model';
+
+import type {
+  AnalysisFailureDto,
+  DeterministicResultDto,
+  PlanFeaturesDto,
+  RetrieveEvidenceDto,
+} from './dto/retrieval.dto';
 import { KnowledgeUnavailableError, LlmUnavailableError } from './errors';
 import type { LlmClient, ReportsClient } from './ports/downstream';
 import type { KnowledgeSource } from './ports/knowledge-source';
@@ -30,10 +30,10 @@ export interface RetrieveEvidenceDeps {
 }
 
 /** Which plan feature each analyzer needs. Vulnerabilities are part of every plan. */
-const GATES: Record<AnalyzerName, (entitlements: Entitlements) => boolean> = {
+const GATES: Record<AnalyzerName, (features: PlanFeaturesDto) => boolean> = {
   vulnerabilities: () => true,
-  licenses: (entitlements) => entitlements.features.licenseCompliance,
-  compatibility: (entitlements) => entitlements.features.compatibilityAnalysis,
+  licenses: (features) => features.licenseCompliance,
+  compatibility: (features) => features.compatibilityAnalysis,
 };
 
 /** Most dependencies one request can carry (the contract limit); asks for all their knowledge. */
@@ -61,10 +61,10 @@ export class RetrieveEvidence {
     this.deps = deps;
   }
 
-  async execute(job: RetrieveRequest): Promise<void> {
+  async execute(job: RetrieveEvidenceDto): Promise<void> {
     const { analysisId } = job;
 
-    let result: DeterministicResult;
+    let result: DeterministicResultDto;
     try {
       result = await this.analyze(job);
     } catch (error) {
@@ -94,12 +94,14 @@ export class RetrieveEvidence {
     await this.dispatchToLlm(job, result);
   }
 
-  private async analyze(job: RetrieveRequest): Promise<DeterministicResult> {
-    const { request, entitlements, analysisId } = job;
-    const enabled = this.deps.analyzers.filter((analyzer) => GATES[analyzer.name](entitlements));
-    const { objects, partial } = await this.fetchKnowledge(job);
+  private async analyze(job: RetrieveEvidenceDto): Promise<DeterministicResultDto> {
+    const { dependencies, features, analysisId } = job;
+    const enabled = this.deps.analyzers.filter((analyzer) => GATES[analyzer.name](features));
+    const { entries, partial } = await this.fetchKnowledge(job);
 
-    const results = enabled.map((analyzer) => analyzer.analyze({ request, knowledge: objects }));
+    const results = enabled.map((analyzer) =>
+      analyzer.analyze({ request: { dependencies }, knowledge: entries }),
+    );
     // One list for the whole report: most severe first, whichever analyzer found it.
     const findings = results.flatMap((result) => result.findings).sort(compareFindings);
     const ran = (name: AnalyzerName) => enabled.some((analyzer) => analyzer.name === name);
@@ -119,13 +121,13 @@ export class RetrieveEvidence {
 
   /** Without normalization the deterministic analysis still runs on what needs no knowledge. */
   private async fetchKnowledge(
-    job: RetrieveRequest,
-  ): Promise<{ objects: KnowledgeObject[]; partial: boolean }> {
-    const { request } = job;
-    if (request.dependencies.length === 0) return { objects: [], partial: false };
+    job: RetrieveEvidenceDto,
+  ): Promise<{ entries: readonly KnowledgeEntry[]; partial: boolean }> {
+    const { dependencies, project } = job;
+    if (dependencies.length === 0) return { entries: [], partial: false };
 
     const seen = new Set<string>();
-    const packages = request.dependencies.flatMap(({ ecosystem, name, version }) => {
+    const packages = dependencies.flatMap(({ ecosystem, name, version }) => {
       const key = `${ecosystem}\u0000${name}\u0000${version}`;
       if (seen.has(key)) return [];
       seen.add(key);
@@ -135,27 +137,30 @@ export class RetrieveEvidence {
     try {
       return await this.deps.knowledge.query({
         packages,
-        gameEngine: request.project.gameEngine,
+        gameEngine: project.gameEngine,
         limit: KNOWLEDGE_LIMIT,
       });
     } catch (error) {
       if (error instanceof KnowledgeUnavailableError) {
         this.deps.onError?.(error, { analysisId: job.analysisId, step: 'knowledge' });
-        return { objects: [], partial: true };
+        return { entries: [], partial: true };
       }
       throw error;
     }
   }
 
-  private async dispatchToLlm(job: RetrieveRequest, result: DeterministicResult): Promise<void> {
-    const { analysisId, tenantId, entitlements, request } = job;
-    if (!entitlements.features.aiEnrichment || !request.options.includeAi) return;
+  private async dispatchToLlm(
+    job: RetrieveEvidenceDto,
+    result: DeterministicResultDto,
+  ): Promise<void> {
+    const { analysisId, tenantId, features, project, includeAi } = job;
+    if (!features.aiEnrichment || !includeAi) return;
 
     try {
       await this.deps.llm.dispatch({
         analysisId,
         tenantId,
-        project: request.project,
+        project,
         findings: result.findings,
         evidence: result.evidence,
       });
@@ -174,7 +179,7 @@ export class RetrieveEvidence {
   }
 
   /** Best effort: if Reports cannot be told either, there is nobody left to tell. */
-  private async fail(failure: AnalysisFailure): Promise<void> {
+  private async fail(failure: AnalysisFailureDto): Promise<void> {
     try {
       await this.deps.reports.publishFailure(failure);
     } catch (error) {

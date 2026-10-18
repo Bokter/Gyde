@@ -1,9 +1,13 @@
-import type { AnalysisFailure, DeterministicResult, LlmAnalysisRequest } from '@gyde/contracts';
+import type {
+  AnalysisFailureDto,
+  DeterministicResultDto,
+  LlmAnalysisRequestDto,
+} from '../dto/retrieval.dto';
 
 /** Port to the Reports service: where the deterministic result (and any failure) is delivered. */
 export interface ReportsClient {
-  publishDeterministicResult(result: DeterministicResult): Promise<void>;
-  publishFailure(failure: AnalysisFailure): Promise<void>;
+  publishDeterministicResult(result: DeterministicResultDto): Promise<void>;
+  publishFailure(failure: AnalysisFailureDto): Promise<void>;
 }
 
 /**
@@ -11,7 +15,7 @@ export interface ReportsClient {
  * if this call cannot be made the report simply stays deterministic (degraded).
  */
 export interface LlmClient {
-  dispatch(request: LlmAnalysisRequest): Promise<void>;
+  dispatch(request: LlmAnalysisRequestDto): Promise<void>;
 }
 
 /** DI token of the `ReportsClient` port: `app.module.ts` binds it to an adapter (see ADR 0011). */

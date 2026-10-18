@@ -2,7 +2,7 @@
 
 **Interpreta y correlaciona** la evidencia recuperada con todo el contexto del proyecto y devuelve hallazgos priorizados y explicados. Usa la **llave del propio estudio** (BYOK): Gyde no paga ni custodia las llaves de IA de los clientes más allá de lo imprescindible.
 
-> **Estado:** implementado (PR D). Caso de uso, proveedores (mock + Anthropic) y endpoints en vivo.
+> **Estado:** implementado. Caso de uso, proveedores (mock, Anthropic y Google Gemini) y endpoint en vivo, con las capas de la arquitectura limpia (ADR 0011 y 0012).
 
 - Puerto: `LLM_ANALYSIS_PORT` (4400) · Solo red interna · Su único cliente es **Retrieval**.
 - Origen en el documento: contenedor *Servicio de análisis LLM* ("Interpreta y correlaciona") y el servicio de clasificación de IA del patrón Circuit Breaker.
@@ -25,7 +25,7 @@ Proveedores soportados hoy: **Anthropic** y **Google Gemini**. Un tenant con otr
 - **Mock determinístico** (`src/infrastructure/providers/mock-finding-analyzer.ts`): responde **solo** con `LLM_MOCK_ENABLED=true` y **sin llave**; el mismo entrada produce siempre la misma salida.
 - **Google Gemini** (`gemini-finding-analyzer.ts`): `POST /v1beta/models/{modelo}:generateContent` con la llave del tenant en la cabecera `x-goog-api-key` (**nunca en la URL**), salida en JSON (`responseMimeType`) y la misma validación estricta de lo que responde el modelo; el nombre del modelo se valida antes de ir a la ruta. Un bloqueo de seguridad del proveedor (`promptFeedback.blockReason`) es `llm-error`.
 - **Anthropic** (`anthropic-finding-analyzer.ts`): `POST /v1/messages` con la llave del tenant (`x-api-key`), timeout configurable (`LLM_PROVIDER_TIMEOUT_MS`, 30 s por defecto) y respuesta interpretada como JSON estricto.
-- El breaker es **por tenant + proveedor**: la llave inválida o el rate limit de un estudio no abre el circuito de los demás. Con el circuito abierto se sirve la **última clasificación cacheada** cuando los hallazgos son idénticos (mismo tenant, proveedor y huella); si no la hay, `llm-unavailable`.
+- El breaker (puerto `ModelCallPolicy`, implementado por `ResilientModelCallPolicy`, un singleton del servicio) es **por tenant + proveedor**: la llave inválida o el rate limit de un estudio no abre el circuito de los demás. Con el circuito abierto se sirve la **última clasificación cacheada** cuando los hallazgos son idénticos (mismo tenant, proveedor y huella); si no la hay, `llm-unavailable`.
 
 ## Seguridad (BYOK)
 
@@ -36,15 +36,39 @@ Proveedores soportados hoy: **Anthropic** y **Google Gemini**. Un tenant con otr
 ## Estructura
 
 ```
-src/application/ports/     TenantLlmConfigProvider, FindingAnalyzer, ReportsClient (los puertos del servicio)
-src/application/           AnalyzeFindings (caso de uso) y BackgroundJobs
-src/domain/                prompt del modelo, fusión de explicaciones y redacción de secretos
-src/infrastructure/        ResilientHttpClient (discovery + *_URL) y sus adaptadores:
-  providers/               HttpTenantLlmConfigProvider, MockFindingAnalyzer,
-                           AnthropicFindingAnalyzer, GeminiFindingAnalyzer, HttpReportsClient
-src/http/                  controlador NestJS (202 en vivo)
-src/app.module.ts          composition root: enlaza puertos con adaptadores (ADR 0011)
+src/domain/               reglas puras, solo imports relativos:
+                          analysis.ts (tipos planos: AnalysisInput, ModelOutput, AiAnalysis, Finding...),
+                          prompt.ts (prompt del sistema, buildUserPrompt, extractJsonText, fusión
+                          applyModelPayload) y redact.ts (redactSecrets, truncateMessage)
+src/application/          AnalyzeFindings (caso de uso) y BackgroundJobs
+  dto/                    AnalyzeFindingsDto, AiResultDto, AnalysisFailureDto, TenantLlmConfig,
+                          FailureReason (tipos planos, sin Zod)
+  ports/                  TenantLlmConfigProvider, FindingAnalyzer, ReportsClient y ModelCallPolicy
+src/infrastructure/       ResilientHttpClient (discovery + *_URL) y sus adaptadores:
+  resilient-model-call-policy.ts   ModelCallPolicy: un CircuitBreaker por tenant + proveedor y la
+                          caché de respaldo (@gyde/resilience, huella con node:crypto)
+  mappers/                ai-result.mapper.ts (valida con AiResult), analysis-failure.mapper.ts,
+                          tenant-llm-config.mapper.ts (InternalLlmConfig -> TenantLlmConfig)
+  providers/              HttpTenantLlmConfigProvider, MockFindingAnalyzer, AnthropicFindingAnalyzer,
+                          GeminiFindingAnalyzer, HttpReportsClient y model-output.parser.ts
+                          (esquema Zod estricto de lo que responde el modelo)
+src/http/                 controlador NestJS (202 en vivo) y mappers/ (contrato <-> DTO)
+src/app.module.ts         composition root: enlaza puertos con adaptadores (ADR 0011)
 ```
+
+Las reglas de capas se comprueban con `pnpm exec eslint --config tooling/eslint/purity.config.mjs services/llm-analysis/src` (ADR 0012).
+
+El controlador no traduce errores a HTTP (responde `202` y el trabajo sigue en segundo plano), así que este servicio no tiene `application-error.interceptor.ts` ni `application/errors.ts`.
+
+### Excepciones de contrato en application
+
+Ninguna: `application/` no importa `@gyde/contracts`. Los puertos hablan en DTO y en `TenantLlmConfig` (que lleva la llave descifrada), no en tipos del contrato.
+
+### Desviaciones respecto al plan del refactor (WP-2D)
+
+- **Validación `AiResult` en el analizador, no en el cliente de Reports.** El paso 3 del plan la movía al mapper de `http-reports-client.ts`. Se mantiene dentro de `analyze` de cada proveedor y del mock (`infrastructure/mappers/ai-result.mapper.ts`, `parseAiResult`): así un resultado inválido sigue siendo una llamada fallida dentro del breaker y nunca llega a la caché de respaldo. `toAiResultContract` (en el cliente de Reports) solo tipa el cuerpo publicado.
+- **Sin clases de error de aplicación.** El paso 6 pedía `application/errors.ts`. Los fallos del proveedor se publican con `describe(error)` = `"<name>: <message>"`; envolverlos en clases propias cambiaría el `name` y por tanto el `message` que recibe Reports. Los motivos se tipan con `FailureReason`.
+- **Mappers de identidad.** `toAnalyzeFindingsDto` y `toAiResultContract` devuelven el mismo objeto (los tipos son estructuralmente iguales a los del contrato) para no alterar el orden de claves, que forma parte del prompt y de la huella de la caché de respaldo.
 
 ## Configuración
 
@@ -58,4 +82,4 @@ src/app.module.ts          composition root: enlaza puertos con adaptadores (ADR
 | `CB_*` | — | Umbrales del Circuit Breaker (`packages/resilience`). `CB_CALL_TIMEOUT_MS` no se aplica a la llamada al modelo |
 | `LLM_PROVIDER_TIMEOUT_MS` | `30000` | Tiempo máximo de una llamada al proveedor de IA; el breaker espera este valor más 15 s, para que no corte una respuesta lenta y la cuente como fallo |
 
-Los criterios de aceptación son las 16 pruebas de `test/app.test.ts`.
+Los criterios de aceptación son las pruebas de `test/` (26 originales de `app.test.ts` y `gemini-finding-analyzer.test.ts`; `characterization.test.ts` fija los cuerpos, mensajes y prompts exactos que se publican y se envían al modelo).

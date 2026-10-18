@@ -1,14 +1,3 @@
-import { createHash } from 'node:crypto';
-
-import {
-  CircuitBreaker,
-  type CircuitBreakerOptions,
-  type FallbackCache,
-  MemoryFallbackCache,
-  createBreakerFromEnv,
-} from '@gyde/resilience';
-
-import type { AiAnalysis } from '../domain/analysis';
 import { redactSecrets, truncateMessage } from '../domain/redact';
 import type {
   AnalyzeFindingsDto,
@@ -17,6 +6,7 @@ import type {
   TenantLlmConfig,
 } from './dto/llm-analysis.dto';
 import type { FindingAnalyzer } from './ports/finding-analyzer';
+import type { ModelCallPolicy } from './ports/model-call-policy';
 import type { ReportsClient } from './ports/reports-client';
 import type { TenantLlmConfigProvider } from './ports/tenant-llm-config';
 
@@ -39,10 +29,8 @@ export interface AnalyzeFindingsDeps {
   mockAnalyzer?: FindingAnalyzer;
   mockEnabled: boolean;
   reports: ReportsClient;
-  /** Overrides the `CB_*` defaults of the per tenant + provider breakers (tests). */
-  breakerOptions?: Partial<CircuitBreakerOptions>;
-  /** Injectable clock for the fallback cache (tests). */
-  now?: () => number;
+  /** Breaker per tenant + provider and fallback cache of the model calls. */
+  modelCalls: ModelCallPolicy;
   /** Last resort: a bug here is logged, never thrown into the caller. */
   onError?: (error: unknown, context: string) => void;
 }
@@ -67,17 +55,7 @@ export interface AnalyzeFindingsDeps {
  * and every message that leaves here goes through `redactSecrets`.
  */
 export class AnalyzeFindings {
-  private readonly breakers = new Map<string, CircuitBreaker>();
-  /** Last AI result per tenant + provider + fingerprint of the findings it explained. */
-  private readonly fallbackCache: FallbackCache<AiAnalysis>;
-
-  constructor(private readonly deps: AnalyzeFindingsDeps) {
-    this.fallbackCache = new MemoryFallbackCache<AiAnalysis>({
-      maxEntries: 100,
-      ttlMs: 300_000,
-      ...(deps.now && { now: deps.now }),
-    });
-  }
+  constructor(private readonly deps: AnalyzeFindingsDeps) {}
 
   async execute(request: AnalyzeFindingsDto): Promise<void> {
     try {
@@ -148,14 +126,14 @@ export class AnalyzeFindings {
     analyzer: FindingAnalyzer,
     config: TenantLlmConfig,
   ): Promise<void> {
-    const breaker = this.getBreaker(breakerKey);
+    const outcome = await this.deps.modelCalls.run(breakerKey, request, () =>
+      analyzer.analyze(request, config),
+    );
 
-    if (this.isOpen(breaker)) {
-      // Without a cached classification the report simply stays deterministic.
-      const cached = await this.fallbackCache.get(this.cacheKey(request, breakerKey));
-      if (cached) {
+    if (outcome.status === 'circuit-open') {
+      if (outcome.cached) {
         await this.deps.reports.publishAiResult({
-          ...cached.value,
+          ...outcome.cached,
           analysisId: request.analysisId,
         });
       } else {
@@ -169,13 +147,19 @@ export class AnalyzeFindings {
       return;
     }
 
-    try {
-      const aiResult = await breaker.execute(() => analyzer.analyze(request, config));
-      await this.fallbackCache.set(this.cacheKey(request, breakerKey), aiResult);
-      await this.deps.reports.publishAiResult(aiResult);
-    } catch (error) {
+    if (outcome.status === 'failed') {
       // A failure that just opened the breaker is an outage of the provider, not a bad answer.
-      const reason: FailureReason = this.isOpen(breaker) ? 'llm-unavailable' : 'llm-error';
+      const reason: FailureReason = outcome.circuitOpen ? 'llm-unavailable' : 'llm-error';
+      await this.publishFailure(request.analysisId, reason, describe(outcome.error), config.apiKey);
+      return;
+    }
+
+    try {
+      await this.deps.reports.publishAiResult(outcome.value);
+    } catch (error) {
+      const reason: FailureReason = this.deps.modelCalls.isOpen(breakerKey)
+        ? 'llm-unavailable'
+        : 'llm-error';
       await this.publishFailure(request.analysisId, reason, describe(error), config.apiKey);
     }
   }
@@ -192,39 +176,6 @@ export class AnalyzeFindings {
       reason,
       message: truncateMessage(redactSecrets(message, [secret])),
     });
-  }
-
-  /** One breaker per TENANT + PROVIDER: a studio's broken key never affects the others. */
-  private getBreaker(breakerKey: string): CircuitBreaker {
-    let breaker = this.breakers.get(breakerKey);
-    if (!breaker) {
-      breaker = new CircuitBreaker({
-        ...createBreakerFromEnv(`llm:${breakerKey}`),
-        ...this.deps.breakerOptions,
-      });
-      this.breakers.set(breakerKey, breaker);
-    }
-    return breaker;
-  }
-
-  /**
-   * `state` is a getter that also performs the open → half-open transition, so it is read
-   * through this method: TypeScript cannot keep a stale narrowing of it across an `await`.
-   */
-  private isOpen(breaker: CircuitBreaker): boolean {
-    return breaker.state === 'open';
-  }
-
-  /**
-   * The cached classification is keyed by what it explains, never by `analysisId` (a new analysis
-   * gets a new id): the same tenant, provider and findings can reuse the last answer.
-   */
-  private cacheKey(request: AnalyzeFindingsDto, breakerKey: string): string {
-    const fingerprint = createHash('sha256')
-      .update(JSON.stringify({ findings: request.findings, evidence: request.evidence }))
-      .digest('hex')
-      .slice(0, 16);
-    return `${breakerKey}:${fingerprint}`;
   }
 }
 

@@ -4,11 +4,11 @@ import { KnowledgeQueryResult, ROUTES } from '@gyde/contracts';
 import type { FallbackCache } from '@gyde/resilience';
 import type { ResilientHttpClient } from '@gyde/service-kit';
 
-import type { KnowledgeAnswerDto, KnowledgeQueryDto } from '../application/dto/retrieval.dto';
-import { KnowledgeUnavailableError } from '../application/errors';
-import type { KnowledgeSource } from '../application/ports/knowledge-source';
-import { toKnowledgeEntry, toKnowledgeQueryContract } from './mappers/knowledge.mapper';
-import { ServiceUnavailableError, toUnavailable } from './unavailable';
+import type { KnowledgeAnswerDto, KnowledgeQueryDto } from '../../application/dto/retrieval.dto';
+import { KnowledgeUnavailableError } from '../../application/errors';
+import type { KnowledgeSource } from '../../application/ports/knowledge-source';
+import { toKnowledgeEntry, toKnowledgeQueryContract } from '../mappers/knowledge.mapper';
+import { ServiceUnavailableError, toUnavailable } from '../unavailable';
 
 /**
  * Asks the normalization service for knowledge. When it cannot answer, the last answer for the

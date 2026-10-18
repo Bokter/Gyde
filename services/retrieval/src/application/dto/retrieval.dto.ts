@@ -24,7 +24,7 @@ export type PlanFeaturesDto = {
   readonly aiEnrichment: boolean;
 };
 
-/** Input of `RetrieveEvidence`: Reports asks for the evidence of one analysis. */
+/** Input of `RetrieveEvidenceUseCase`: Reports asks for the evidence of one analysis. */
 export type RetrieveEvidenceDto = {
   readonly analysisId: string;
   readonly tenantId: string;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { sha256Hex } from '../src/infrastructure/sha256-hex';
-import { SpdxLicenseExpressionParser } from '../src/infrastructure/spdx-license-expression-parser';
+import { sha256Hex } from '../src/infrastructure/adapters/sha256-hex.adapter';
+import { SpdxLicenseExpressionParser } from '../src/infrastructure/adapters/spdx-license-expression-parser.adapter';
 
 const parser = new SpdxLicenseExpressionParser();
 

@@ -3,8 +3,8 @@ import { sampleAnalysisRequest, sampleLicenseFinding } from '@gyde/contracts/sam
 import { describe, expect, it } from 'vitest';
 
 import { LicenseAnalyzer } from '../src/domain/analyzers/licenses/license-analyzer';
-import { sha256Hex } from '../src/infrastructure/sha256-hex';
-import { SpdxLicenseExpressionParser } from '../src/infrastructure/spdx-license-expression-parser';
+import { sha256Hex } from '../src/infrastructure/adapters/sha256-hex.adapter';
+import { SpdxLicenseExpressionParser } from '../src/infrastructure/adapters/spdx-license-expression-parser.adapter';
 
 const analyzer = new LicenseAnalyzer(new SpdxLicenseExpressionParser(), sha256Hex);
 

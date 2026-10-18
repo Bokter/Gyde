@@ -1,11 +1,11 @@
 import { ROUTES } from '@gyde/contracts';
 import type { ResilientHttpClient } from '@gyde/service-kit';
 
-import type { LlmAnalysisRequestDto } from '../application/dto/retrieval.dto';
-import { LlmUnavailableError } from '../application/errors';
-import type { LlmClient } from '../application/ports/downstream';
-import { toLlmAnalysisRequestContract } from './mappers/pipeline.mapper';
-import { ServiceUnavailableError, toUnavailable } from './unavailable';
+import type { LlmAnalysisRequestDto } from '../../application/dto/retrieval.dto';
+import { LlmUnavailableError } from '../../application/errors';
+import type { LlmClient } from '../../application/ports/downstream';
+import { toLlmAnalysisRequestContract } from '../mappers/pipeline.mapper';
+import { ServiceUnavailableError, toUnavailable } from '../unavailable';
 
 /**
  * Hands the evidence to llm-analysis. Fire and forget: the AI result reaches Reports directly.

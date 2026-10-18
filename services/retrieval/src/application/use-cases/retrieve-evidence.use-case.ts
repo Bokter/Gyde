@@ -2,19 +2,19 @@ import {
   type AnalyzerName,
   type BaseAnalyzer,
   compareFindings,
-} from '../domain/analyzers/base-analyzer';
+} from '../../domain/analyzers/base-analyzer';
 
-import type { KnowledgeEntry } from '../domain/model';
+import type { KnowledgeEntry } from '../../domain/model';
 
 import type {
   AnalysisFailureDto,
   DeterministicResultDto,
   PlanFeaturesDto,
   RetrieveEvidenceDto,
-} from './dto/retrieval.dto';
-import { KnowledgeUnavailableError, LlmUnavailableError } from './errors';
-import type { LlmClient, ReportsClient } from './ports/downstream';
-import type { KnowledgeSource } from './ports/knowledge-source';
+} from '../dto/retrieval.dto';
+import { KnowledgeUnavailableError, LlmUnavailableError } from '../errors';
+import type { LlmClient, ReportsClient } from '../ports/downstream';
+import type { KnowledgeSource } from '../ports/knowledge-source';
 
 /** What the use case needs from an analyzer (every `BaseAnalyzer` satisfies it). */
 export type Analyzer = Pick<BaseAnalyzer<unknown, unknown>, 'name' | 'analyze'>;
@@ -54,7 +54,7 @@ const KNOWLEDGE_LIMIT = 5000;
  * `execute` never rejects: whatever goes wrong becomes a failure published to Reports (or, if even
  * that cannot be delivered, a call to `onError`).
  */
-export class RetrieveEvidence {
+export class RetrieveEvidenceUseCase {
   private readonly deps: RetrieveEvidenceDeps;
 
   constructor(deps: RetrieveEvidenceDeps) {

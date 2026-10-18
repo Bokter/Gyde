@@ -1,9 +1,9 @@
 import type { AnalysisAccepted, AnalysisRequest, CreateAnalysisJob } from '@gyde/contracts';
-import { HttpError } from '@gyde/service-kit';
 
 import type { ReportsClient } from './ports/reports-client';
 import type { UsageCounter } from './ports/usage-counter';
 import type { Principal } from '../domain/principal';
+import { PlanLimitExceededError } from './errors';
 import { billingPeriodOf } from '../domain/usage-allowance';
 import type { RequestContext } from './request-context';
 
@@ -33,10 +33,7 @@ export class SubmitAnalysis {
     const period = billingPeriodOf(this.deps.now());
 
     if (!this.deps.usage.reserve(principal.tenantId, period, limits.analysesPerMonth)) {
-      throw new HttpError(
-        'plan_limit_exceeded',
-        `The ${plan} plan allows ${limits.analysesPerMonth} analyses per month and this tenant has used them`,
-      );
+      throw new PlanLimitExceededError(plan, limits.analysesPerMonth);
     }
 
     const job: CreateAnalysisJob = {

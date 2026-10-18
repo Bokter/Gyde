@@ -13,10 +13,12 @@ import type { Config } from './config';
 import { LicenseAnalyzer } from './domain/analyzers/licenses/license-analyzer';
 import { VulnerabilityAnalyzer } from './domain/analyzers/vulnerabilities/vulnerability-analyzer';
 import { RetrievalController } from './http/retrieval.controller';
+import { CryptoIdHasher } from './infrastructure/crypto-id-hasher';
 import { HttpKnowledgeSource } from './infrastructure/http-knowledge-source';
 import { HttpLlmClient } from './infrastructure/http-llm-client';
 import { HttpReportsClient } from './infrastructure/http-reports-client';
 import { createServiceResolver, staticUrls } from './infrastructure/service-resolver';
+import { SpdxLicenseExpressionParser } from './infrastructure/spdx-license-expression-parser';
 
 export interface AppModuleOptions {
   /** Replaces discovery (`REGISTRY_URL`), e.g. a fake registry in a test. */
@@ -79,11 +81,15 @@ export class AppModule {
           provide: RetrieveEvidence,
           useFactory: (knowledge: KnowledgeSource, reports: ReportsClient, llm: LlmClient) => {
             const logger = new Logger(RetrieveEvidence.name);
+            const hasher = new CryptoIdHasher();
             return new RetrieveEvidence({
               knowledge,
               reports,
               llm,
-              analyzers: [new VulnerabilityAnalyzer(), new LicenseAnalyzer()],
+              analyzers: [
+                new VulnerabilityAnalyzer(hasher),
+                new LicenseAnalyzer(new SpdxLicenseExpressionParser(), hasher),
+              ],
               onError: (error, { analysisId, step }) =>
                 logger.warn(
                   `${step} failed for ${analysisId}: ${error instanceof Error ? `${error.name}: ${error.message}` : 'unknown error'}`,

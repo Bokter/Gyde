@@ -10,6 +10,8 @@ import { configSchema } from '../src/config';
 import { LicenseAnalyzer } from '../src/domain/analyzers/licenses/license-analyzer';
 import { VulnerabilityAnalyzer } from '../src/domain/analyzers/vulnerabilities/vulnerability-analyzer';
 import { createApp } from '../src/http/app';
+import { CryptoIdHasher } from '../src/infrastructure/crypto-id-hasher';
+import { SpdxLicenseExpressionParser } from '../src/infrastructure/spdx-license-expression-parser';
 import { FakeServices, HOSTS } from './support/fake-services';
 
 /**
@@ -35,7 +37,10 @@ describe('finding ids', () => {
   const longName = 'Acme.' + 'Long'.repeat(40);
 
   it('hashes a license id that would exceed 100 characters: sha256 of the readable id, 40 hex', () => {
-    const [finding] = new LicenseAnalyzer().analyze({
+    const [finding] = new LicenseAnalyzer(
+      new SpdxLicenseExpressionParser(),
+      new CryptoIdHasher(),
+    ).analyze({
       request: {
         ...sampleAnalysisRequest,
         dependencies: [
@@ -54,7 +59,7 @@ describe('finding ids', () => {
   });
 
   it('hashes a vulnerability id that would exceed 100 characters, keeping the prefix', () => {
-    const [finding] = new VulnerabilityAnalyzer().analyze({
+    const [finding] = new VulnerabilityAnalyzer(new CryptoIdHasher()).analyze({
       request: {
         ...sampleAnalysisRequest,
         dependencies: [{ ecosystem: 'nuget', name: longName, version: '1.0.0', direct: true }],
@@ -70,8 +75,6 @@ describe('finding ids', () => {
           summary: '',
           aliases: ['LONG-1'],
           affected: [{ ecosystem: 'nuget', name: longName, fixed: '2.0.0' }],
-          gameEngines: [],
-          ingestedAt: '2026-10-01T12:00:00Z',
         },
       ],
     }).findings;
@@ -79,7 +82,10 @@ describe('finding ids', () => {
   });
 
   it('keeps short ids readable', () => {
-    const [finding] = new LicenseAnalyzer().analyze({
+    const [finding] = new LicenseAnalyzer(
+      new SpdxLicenseExpressionParser(),
+      new CryptoIdHasher(),
+    ).analyze({
       request: {
         ...sampleAnalysisRequest,
         dependencies: [

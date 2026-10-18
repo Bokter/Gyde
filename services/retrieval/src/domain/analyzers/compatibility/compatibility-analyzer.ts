@@ -1,10 +1,9 @@
-import type { Dependency, Finding, KnowledgeObject } from '@gyde/contracts';
-
+import type { Dependency, Finding, KnowledgeEntry } from '../../types';
 import { BaseAnalyzer, type AnalyzerInput } from '../base-analyzer';
 
 export interface CompatibilityMatch {
   dependency: Dependency;
-  note: KnowledgeObject;
+  note: KnowledgeEntry;
 }
 
 /**

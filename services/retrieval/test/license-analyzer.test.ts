@@ -3,8 +3,10 @@ import { sampleAnalysisRequest, sampleLicenseFinding } from '@gyde/contracts/sam
 import { describe, expect, it } from 'vitest';
 
 import { LicenseAnalyzer } from '../src/domain/analyzers/licenses/license-analyzer';
+import { CryptoIdHasher } from '../src/infrastructure/crypto-id-hasher';
+import { SpdxLicenseExpressionParser } from '../src/infrastructure/spdx-license-expression-parser';
 
-const analyzer = new LicenseAnalyzer();
+const analyzer = new LicenseAnalyzer(new SpdxLicenseExpressionParser(), new CryptoIdHasher());
 
 const dependency = (declaredLicense: string | undefined, overrides: Partial<Dependency> = {}) =>
   ({

@@ -1,8 +1,5 @@
-import { createHash } from 'node:crypto';
-
-import type { Dependency, Finding, Severity } from '@gyde/contracts';
-import parseSpdx from 'spdx-expression-parse';
-
+import type { IdHasher, LicenseExpression, LicenseExpressionParser } from '../../ports';
+import type { Dependency, Finding, Severity } from '../../types';
 import { BaseAnalyzer, type AnalyzerInput } from '../base-analyzer';
 import {
   CLASS_RANK,
@@ -46,6 +43,13 @@ export interface LicenseMatch {
 export class LicenseAnalyzer extends BaseAnalyzer<Dependency, LicenseMatch> {
   readonly name = 'licenses' as const;
 
+  constructor(
+    private readonly parser: LicenseExpressionParser,
+    private readonly hasher: IdHasher,
+  ) {
+    super();
+  }
+
   protected select(input: AnalyzerInput): Dependency[] {
     return [...input.request.dependencies];
   }
@@ -58,7 +62,7 @@ export class LicenseAnalyzer extends BaseAnalyzer<Dependency, LicenseMatch> {
           ? [{ dependency, license: '', reason: 'missing' }]
           : [];
       }
-      const assessment = assess(license);
+      const assessment = assess(this.parser, license);
       if (assessment.kind === 'unknown') {
         return [{ dependency, license, reason: 'unknown', valid: assessment.valid }];
       }
@@ -81,7 +85,7 @@ export class LicenseAnalyzer extends BaseAnalyzer<Dependency, LicenseMatch> {
   protected toFinding(match: LicenseMatch): Finding {
     const { dependency, license } = match;
     const base = {
-      id: findingId(dependency),
+      id: findingId(this.hasher, dependency),
       kind: 'license' as const,
       dependency: {
         ecosystem: dependency.ecosystem,
@@ -201,7 +205,7 @@ type Assessment =
   | { kind: 'unknown'; valid: boolean }
   | { kind: 'incompatible'; conflict: readonly [string, string] };
 
-type Node = ReturnType<typeof parseSpdx>;
+type Node = LicenseExpression;
 
 interface Evaluated {
   licenseClass: LicenseClass | 'unknown';
@@ -234,10 +238,10 @@ function evaluate(node: Node, leaves: string[]): Evaluated {
   return { licenseClass, driver: node.plus ? `${driver}+` : driver };
 }
 
-function assess(expression: string): Assessment {
+function assess(parser: LicenseExpressionParser, expression: string): Assessment {
   let tree: Node;
   try {
-    tree = parseSpdx(expression);
+    tree = parser.parse(expression);
   } catch {
     return { kind: 'unknown', valid: false };
   }
@@ -264,9 +268,7 @@ function hasConjunction(node: Node, conjunction: 'and' | 'or'): boolean {
 }
 
 /** Stable, readable finding id; hashed when it would exceed the contract's 100 characters. */
-function findingId(dependency: Dependency): string {
+function findingId(hasher: IdHasher, dependency: Dependency): string {
   const readable = `license:${dependency.ecosystem}:${dependency.name}@${dependency.version}`;
-  return readable.length <= 100
-    ? readable
-    : `license:${createHash('sha256').update(readable).digest('hex').slice(0, 40)}`;
+  return readable.length <= 100 ? readable : `license:${hasher.sha256Hex(readable).slice(0, 40)}`;
 }

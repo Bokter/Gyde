@@ -12,8 +12,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { NestFastifyApplication } from '@gyde/service-kit';
 
 import type { AppModuleOverrides } from '../src/app.module';
-import type { StoredAnalysis } from '../src/application/ports/report-repository';
-import type { TimerName } from '../src/application/analysis-lifecycle';
+import type { AnalysisSnapshot } from '../src/domain/analysis/analysis-types';
+import type { TimerName } from '../src/application/analysis-watchdog';
 import { configSchema } from '../src/config';
 import type { DatabaseHandle } from '../src/infrastructure/db/database';
 import { PostgresReportRepository } from '../src/infrastructure/postgres-report.repository';
@@ -557,7 +557,7 @@ describe('record methods and full lifecycle', () => {
 /** PR H: a restart must not leave analyses stuck in `retrieving`/`analyzing` forever. */
 describe('startup sweep', () => {
   /** What a previous run left in the database: rows written long before this process started. */
-  function leftover(id: string, status: ReportStatus): StoredAnalysis {
+  function leftover(id: string, status: ReportStatus): AnalysisSnapshot {
     return {
       id,
       tenantId: 'tenant-1',

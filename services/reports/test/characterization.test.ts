@@ -27,7 +27,7 @@ import { sql } from 'drizzle-orm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AppModuleOverrides } from '../src/app.module';
-import type { TimerName } from '../src/application/analysis-lifecycle';
+import type { TimerName } from '../src/application/analysis-watchdog';
 import { configSchema } from '../src/config';
 import type { DatabaseHandle } from '../src/infrastructure/db/database';
 import { InMemoryReportRepository } from '../src/infrastructure/in-memory-report-repository';

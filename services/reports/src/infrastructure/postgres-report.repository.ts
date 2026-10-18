@@ -1,13 +1,13 @@
-import type { ReportStatus } from '@gyde/contracts';
 import { and, eq, lte } from 'drizzle-orm';
 
-import type { ReportRepository, StoredAnalysis } from '../application/ports/report-repository';
+import type { ReportRepository } from '../application/ports/report-repository';
+import type { AnalysisSnapshot, AnalysisStatus } from '../domain/analysis/analysis-types';
 import type { Database } from './db/database';
 import { analyses } from './db/schema';
 
 type AnalysisRow = typeof analyses.$inferSelect;
 
-function toStored(row: AnalysisRow): StoredAnalysis {
+function toStored(row: AnalysisRow): AnalysisSnapshot {
   return {
     id: row.id,
     tenantId: row.tenantId,
@@ -23,7 +23,7 @@ function toStored(row: AnalysisRow): StoredAnalysis {
 }
 
 /** A row ready to insert; `updatedAt` is the clock the startup sweep reads, so it is explicit. */
-function toRow(analysis: StoredAnalysis, updatedAt: Date) {
+function toRow(analysis: AnalysisSnapshot, updatedAt: Date) {
   return {
     id: analysis.id,
     tenantId: analysis.tenantId,
@@ -47,16 +47,16 @@ function toRow(analysis: StoredAnalysis, updatedAt: Date) {
 export class PostgresReportRepository implements ReportRepository {
   constructor(private readonly db: Database) {}
 
-  async create(analysis: StoredAnalysis): Promise<void> {
+  async create(analysis: AnalysisSnapshot): Promise<void> {
     await this.db.insert(analyses).values(toRow(analysis, new Date(analysis.createdAt)));
   }
 
-  async get(id: string): Promise<StoredAnalysis | undefined> {
+  async get(id: string): Promise<AnalysisSnapshot | undefined> {
     const rows = await this.db.select().from(analyses).where(eq(analyses.id, id)).limit(1);
     return rows[0] ? toStored(rows[0]) : undefined;
   }
 
-  async update(analysis: StoredAnalysis): Promise<void> {
+  async update(analysis: AnalysisSnapshot): Promise<void> {
     const { id, ...values } = toRow(analysis, new Date());
     await this.db
       .insert(analyses)
@@ -64,7 +64,7 @@ export class PostgresReportRepository implements ReportRepository {
       .onConflictDoUpdate({ target: analyses.id, set: values });
   }
 
-  async findStale(status: ReportStatus, cutoff: Date): Promise<StoredAnalysis[]> {
+  async findStale(status: AnalysisStatus, cutoff: Date): Promise<AnalysisSnapshot[]> {
     const rows = await this.db
       .select()
       .from(analyses)

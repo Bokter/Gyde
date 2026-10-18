@@ -1,0 +1,27 @@
+import { Analysis } from '../domain/analysis/analysis';
+import type { AiResultDto } from './dto/analysis.dto';
+import { AnalysisNotFoundError } from './errors';
+import type { ReportRepository } from './ports/report-repository';
+
+export const RECORD_AI_RESULT = Symbol('RecordAiResult');
+
+/**
+ * Called by llm-analysis when the AI enrichment finishes. Late results (the job is already `ready`
+ * or `failed`) are ignored; one that arrives before the deterministic result is kept until that
+ * one completes the job.
+ */
+export class RecordAiResult {
+  constructor(
+    private readonly repository: ReportRepository,
+    private readonly options: { now?: () => Date } = {},
+  ) {}
+
+  async execute(result: AiResultDto): Promise<void> {
+    const snapshot = await this.repository.get(result.analysisId);
+    if (!snapshot) throw new AnalysisNotFoundError(result.analysisId);
+
+    const analysis = Analysis.rehydrate(snapshot);
+    if (!analysis.recordAi(result, this.options.now ? this.options.now() : new Date())) return;
+    await this.repository.update(analysis.snapshot());
+  }
+}

@@ -30,11 +30,13 @@ import type { AppModuleOverrides } from '../src/app.module';
 import type { TimerName } from '../src/application/analysis-watchdog';
 import { configSchema } from '../src/config';
 import type { DatabaseHandle } from '../src/infrastructure/db/database';
+import { Analysis } from '../src/domain/analysis/analysis';
 import { InMemoryReportRepository } from '../src/infrastructure/in-memory-report-repository';
 import { PostgresReportRepository } from '../src/infrastructure/postgres-report.repository';
 import { createApp } from '../src/http/app';
 import { FakeRepository, FakeRetrieval } from './support/fakes';
 import { createPgliteDatabase } from './support/pglite';
+import { viaSnapshots } from './support/snapshots';
 
 const token = 'test-internal-token-123456';
 const config = configSchema.parse({ INTERNAL_SERVICE_TOKEN: token });
@@ -934,7 +936,7 @@ describe('PostgreSQL persistence (PGlite)', () => {
   it('reads back every stored field unchanged', async () => {
     const database = createPgliteDatabase();
     await database.migrate();
-    const repository = new PostgresReportRepository(database.db);
+    const repository = viaSnapshots(new PostgresReportRepository(database.db));
     const full = {
       id: 'full-1',
       tenantId: 'tenant-1',
@@ -965,7 +967,7 @@ describe('PostgreSQL persistence (PGlite)', () => {
       sql`insert into analyses (id, tenant_id, status, ai_expected, entitlements, deterministic, created_at, updated_at)
           values ('old-1', 'tenant-1', 'ready', false, ${JSON.stringify(PLAN_CATALOG.free)}::jsonb, ${JSON.stringify(legacy)}::jsonb, now(), now())`,
     );
-    const repository = new PostgresReportRepository(database.db);
+    const repository = viaSnapshots(new PostgresReportRepository(database.db));
     const stored = await repository.get('old-1');
     expect(stored?.deterministic).toEqual(legacy);
     expect(stored?.entitlements).toEqual(PLAN_CATALOG.free);
@@ -975,7 +977,7 @@ describe('PostgreSQL persistence (PGlite)', () => {
   it('update inserts the row when it does not exist (upsert)', async () => {
     const database = createPgliteDatabase();
     await database.migrate();
-    const repository = new PostgresReportRepository(database.db);
+    const repository = viaSnapshots(new PostgresReportRepository(database.db));
     await repository.update({
       id: 'never-created',
       tenantId: 'tenant-1',
@@ -991,7 +993,7 @@ describe('PostgreSQL persistence (PGlite)', () => {
   it('R6: update rewrites the whole row with no locking, so a write built from an older read erases newer data', async () => {
     const database = createPgliteDatabase();
     await database.migrate();
-    const repository = new PostgresReportRepository(database.db);
+    const repository = viaSnapshots(new PostgresReportRepository(database.db));
     const created = {
       id: 'race-1',
       tenantId: 'tenant-1',
@@ -1016,18 +1018,21 @@ describe('PostgreSQL persistence (PGlite)', () => {
     await database.close();
   });
 
-  it('the in-memory repository hands out copies, so mutating one changes nothing stored', async () => {
+  it('the in-memory repository hands out copies, so changing one changes nothing stored', async () => {
     const repository = new InMemoryReportRepository();
-    await repository.create({
-      id: 'm-1',
-      tenantId: 'tenant-1',
-      entitlements: PLAN_CATALOG.pro,
-      aiExpected: true,
-      status: 'retrieving',
-      createdAt: NOW_ISO,
-    });
+    await repository.create(
+      Analysis.rehydrate({
+        id: 'm-1',
+        tenantId: 'tenant-1',
+        entitlements: PLAN_CATALOG.pro,
+        aiExpected: true,
+        status: 'retrieving',
+        createdAt: NOW_ISO,
+      }),
+    );
     const first = await repository.get('m-1');
-    if (first) first.status = 'failed';
+    first?.timeOutRetrieval(NOW, 'timeout');
+    expect(first?.status).toBe('failed');
     expect((await repository.get('m-1'))?.status).toBe('retrieving');
     expect(await repository.get('ghost')).toBeUndefined();
   });
@@ -1047,7 +1052,7 @@ describe('startup sweep: thresholds, messages and log', () => {
   it('closes exactly what is older than or equal to each timeout, with the restart messages', async () => {
     const database = createPgliteDatabase();
     await database.migrate();
-    const repository = new PostgresReportRepository(database.db);
+    const repository = viaSnapshots(new PostgresReportRepository(database.db));
     const ai = config.REPORTS_AI_TIMEOUT_MS;
     const ret = config.REPORTS_RETRIEVAL_TIMEOUT_MS;
     await repository.create(leftover('ai-exact', 'analyzing', ai));

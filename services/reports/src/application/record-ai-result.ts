@@ -1,4 +1,3 @@
-import { Analysis } from '../domain/analysis/analysis';
 import type { AiResultDto } from './dto/analysis.dto';
 import { AnalysisNotFoundError } from './errors';
 import type { ReportRepository } from './ports/report-repository';
@@ -17,11 +16,10 @@ export class RecordAiResult {
   ) {}
 
   async execute(result: AiResultDto): Promise<void> {
-    const snapshot = await this.repository.get(result.analysisId);
-    if (!snapshot) throw new AnalysisNotFoundError(result.analysisId);
+    const analysis = await this.repository.get(result.analysisId);
+    if (!analysis) throw new AnalysisNotFoundError(result.analysisId);
 
-    const analysis = Analysis.rehydrate(snapshot);
     if (!analysis.recordAi(result, this.options.now ? this.options.now() : new Date())) return;
-    await this.repository.update(analysis.snapshot());
+    await this.repository.update(analysis);
   }
 }

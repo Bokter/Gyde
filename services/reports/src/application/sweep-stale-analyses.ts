@@ -1,4 +1,3 @@
-import { Analysis } from '../domain/analysis/analysis';
 import type { SweepResultDto } from './dto/analysis.dto';
 import type { ReportRepository } from './ports/report-repository';
 
@@ -33,10 +32,9 @@ export class SweepStaleAnalyses {
       'analyzing',
       new Date(this.now().getTime() - this.options.aiTimeoutMs),
     );
-    for (const snapshot of staleAnalyzing) {
-      const analysis = Analysis.rehydrate(snapshot);
+    for (const analysis of staleAnalyzing) {
       if (analysis.timeOutAi(this.now(), 'restart')) {
-        await this.repository.update(analysis.snapshot());
+        await this.repository.update(analysis);
       }
     }
 
@@ -44,10 +42,9 @@ export class SweepStaleAnalyses {
       'retrieving',
       new Date(this.now().getTime() - this.options.retrievalTimeoutMs),
     );
-    for (const snapshot of staleRetrieving) {
-      const analysis = Analysis.rehydrate(snapshot);
+    for (const analysis of staleRetrieving) {
       if (analysis.timeOutRetrieval(this.now(), 'restart')) {
-        await this.repository.update(analysis.snapshot());
+        await this.repository.update(analysis);
       }
     }
 

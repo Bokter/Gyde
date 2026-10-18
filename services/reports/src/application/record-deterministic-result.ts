@@ -1,4 +1,3 @@
-import { Analysis } from '../domain/analysis/analysis';
 import type { AnalysisWatchdog } from './analysis-watchdog';
 import type { DeterministicResultDto } from './dto/analysis.dto';
 import { AnalysisNotFoundError } from './errors';
@@ -19,17 +18,16 @@ export class RecordDeterministicResult {
   ) {}
 
   async execute(result: DeterministicResultDto): Promise<void> {
-    const snapshot = await this.repository.get(result.analysisId);
-    if (!snapshot) throw new AnalysisNotFoundError(result.analysisId);
+    const analysis = await this.repository.get(result.analysisId);
+    if (!analysis) throw new AnalysisNotFoundError(result.analysisId);
 
-    const analysis = Analysis.rehydrate(snapshot);
     const outcome = analysis.recordDeterministic(
       result,
       this.options.now ? this.options.now() : new Date(),
     );
     if (outcome === 'ignored') return;
 
-    await this.repository.update(analysis.snapshot());
+    await this.repository.update(analysis);
     if (outcome === 'analyzing') this.watchdog.armAiTimeout(result.analysisId);
   }
 }

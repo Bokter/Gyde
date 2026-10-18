@@ -11,8 +11,8 @@ import { compareFindings } from '../src/domain/analyzers/base-analyzer';
 import { LicenseAnalyzer } from '../src/domain/analyzers/licenses/license-analyzer';
 import { VulnerabilityAnalyzer } from '../src/domain/analyzers/vulnerabilities/vulnerability-analyzer';
 import { createApp } from '../src/http/app';
-import { sha256Hex } from '../src/infrastructure/sha256-hex';
-import { SpdxLicenseExpressionParser } from '../src/infrastructure/spdx-license-expression-parser';
+import { sha256Hex } from '../src/infrastructure/adapters/sha256-hex.adapter';
+import { SpdxLicenseExpressionParser } from '../src/infrastructure/adapters/spdx-license-expression-parser.adapter';
 import { FakeServices, HOSTS } from './support/fake-services';
 
 /**

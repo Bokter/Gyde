@@ -2,7 +2,7 @@
 
 Recupera la información pertinente por **tres vías** y la cruza con el proyecto del cliente. Dos de ellas son **determinísticas**: no usan IA y siguen funcionando aunque el proveedor de LLM falle.
 
-> **Estado:** `POST /internal/retrieve`, el caso de uso `RetrieveEvidence`, los adaptadores HTTP y los analizadores de vulnerabilidades y licencias están implementados y probados. Falta `CompatibilityAnalyzer` (su cobertura se informa como `false` mientras tanto). Implementación: **Área 3** (`docs/tasks/area-3-conocimiento.md`).
+> **Estado:** `POST /internal/retrieve`, el caso de uso `RetrieveEvidenceUseCase`, los adaptadores HTTP y los analizadores de vulnerabilidades y licencias están implementados y probados. Falta `CompatibilityAnalyzer` (su cobertura se informa como `false` mientras tanto). Implementación: **Área 3** (`docs/tasks/area-3-conocimiento.md`).
 
 - Puerto: `RETRIEVAL_PORT` (4300) · Solo red interna · Su único cliente es **Reports**.
 - Origen en el documento: contenedor *Servicio de retrieval* ("Filtra evidencia relevante") y el "Servicio de Análisis (vulnerabilidad y licencias) determinístico".
@@ -17,7 +17,7 @@ Recupera la información pertinente por **tres vías** y la cruza con el proyect
 
 Viven como **módulos de este servicio** (no como tres microservicios), compartiendo el algoritmo de `BaseAnalyzer`: `select → match → toFinding → prioritize → evidencia`. `prioritize` es invariante (severidad, luego CVSS, luego título) y el análisis es **puro y síncrono**: misma entrada, misma salida.
 
-## Flujo del caso de uso `RetrieveEvidence`
+## Flujo del caso de uso `RetrieveEvidenceUseCase`
 
 1. Reports llama `POST /internal/retrieve` y recibe `202` al instante.
 2. Pide a **normalization** el conocimiento de los paquetes (detrás de un Circuit Breaker).
@@ -40,11 +40,13 @@ src/domain/              solo imports relativos (sin contratos, Zod, node:* ni l
   ports.ts               puertos del dominio: LicenseExpressionParser (SPDX) y DigestHex (sha256 hex)
   analyzers/             BaseAnalyzer (Template Method, hecho) · vulnerabilities/ (hecho) · licenses/ (hecho) · compatibility/ (esqueleto)
   versions/              comparación de versiones por ecosistema y rangos afectados (puro)
-src/application/         RetrieveEvidence, BackgroundJobs, errors.ts (RetrievalError con `code` y subclases, sin HTTP)
+src/application/         BackgroundJobs, errors.ts (RetrievalError con `code` y subclases, sin HTTP)
+  use-cases/             retrieve-evidence.use-case.ts (RetrieveEvidenceUseCase)
   dto/                   tipos planos de entrada/salida del caso de uso (retrieval.dto.ts)
   ports/                 KnowledgeSource, ReportsClient, LlmClient (hablan en DTO y tipos de dominio)
-src/infrastructure/      adaptadores HTTP hacia normalization, reports y llm-analysis sobre `ResilientHttpClient` (discovery + `*_URL`, breaker por dependencia),
-                         SpdxLicenseExpressionParser (spdx-expression-parse), sha256Hex (node:crypto) y mappers/ (contrato <-> DTO/dominio)
+src/infrastructure/      service-resolver.ts (discovery + `*_URL`), unavailable.ts (traduce las caídas del cliente) y mappers/ (contrato <-> DTO/dominio)
+  adapters/              http-knowledge-source, http-reports-client y http-llm-client (*.adapter.ts: adaptadores HTTP hacia normalization, reports y llm-analysis sobre `ResilientHttpClient`, breaker por dependencia),
+                         spdx-license-expression-parser (spdx-expression-parse) y sha256-hex (node:crypto)
 src/http/                controlador NestJS de `POST /internal/retrieve` y mappers/ (RetrieveRequest -> DTO)
 src/app.module.ts        composition root: enlaza puertos con adaptadores y construye los analizadores con el parser y el digest (ADR 0011)
 ```
@@ -53,7 +55,7 @@ Los analizadores y los tipos de `domain/model.ts` son *value objects* y servicio
 
 ### Errores y por qué no hay interceptor
 
-`application/errors.ts` define `RetrievalError` (con `code`) y sus subclases `KnowledgeUnavailableError` y `LlmUnavailableError`. A diferencia de registry, **no hay `application-error.interceptor.ts`**: el controlador responde `202` y ningún error de aplicación llega a HTTP. `RetrieveEvidence.execute` los consume y los convierte en un `AnalysisFailure` publicado a Reports (o en una llamada a `onError`). El `400`/`401` los producen el pipe Zod y el guard de `service-kit`, que no cambian.
+`application/errors.ts` define `RetrievalError` (con `code`) y sus subclases `KnowledgeUnavailableError` y `LlmUnavailableError`. A diferencia de registry, **no hay `application-error.interceptor.ts`**: el controlador responde `202` y ningún error de aplicación llega a HTTP. `RetrieveEvidenceUseCase.execute` los consume y los convierte en un `AnalysisFailure` publicado a Reports (o en una llamada a `onError`). El `400`/`401` los producen el pipe Zod y el guard de `service-kit`, que no cambian.
 
 ## Excepciones de contrato en application
 
@@ -74,7 +76,7 @@ Se describen tal como son hoy; el refactor no los cambió.
 
 Los criterios de aceptación pendientes (`CompatibilityAnalyzer`) están como `it.todo` en `test/base-analyzer.test.ts`.
 
-## Cómo se comporta `RetrieveEvidence`
+## Cómo se comporta `RetrieveEvidenceUseCase`
 
 - **Plan:** `vulnerabilities` corre en todos los planes; `licenses` exige `licenseCompliance` y `compatibility` exige `compatibilityAnalysis`. `coverage` del resultado dice qué analizadores corrieron de verdad.
 - **Un solo orden:** los hallazgos de todos los analizadores se mezclan con la misma regla (severidad, CVSS, título, id): mismo conjunto de conocimiento, mismo resultado y mismo orden.

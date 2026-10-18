@@ -1,13 +1,16 @@
 import { ROUTES, buildPath } from '@gyde/contracts';
 import type { ResilientHttpClient } from '@gyde/service-kit';
 
-import type { AnalysisFailureDto, DeterministicResultDto } from '../application/dto/retrieval.dto';
-import type { ReportsClient } from '../application/ports/downstream';
+import type {
+  AnalysisFailureDto,
+  DeterministicResultDto,
+} from '../../application/dto/retrieval.dto';
+import type { ReportsClient } from '../../application/ports/downstream';
 import {
   toAnalysisFailureContract,
   toDeterministicResultContract,
-} from './mappers/pipeline.mapper';
-import { ServiceUnavailableError, toUnavailable } from './unavailable';
+} from '../mappers/pipeline.mapper';
+import { ServiceUnavailableError, toUnavailable } from '../unavailable';
 
 export interface HttpReportsClientOptions {
   /** Attempts per message: Reports may be restarting, and a lost result leaves the report waiting. */

@@ -8,16 +8,16 @@ import { BackgroundJobs } from './application/background-jobs';
 import { LLM_CLIENT, REPORTS_CLIENT } from './application/ports/downstream';
 import type { LlmClient, ReportsClient } from './application/ports/downstream';
 import { KNOWLEDGE_SOURCE, type KnowledgeSource } from './application/ports/knowledge-source';
-import { RetrieveEvidence } from './application/retrieve-evidence';
+import { RetrieveEvidenceUseCase } from './application/use-cases/retrieve-evidence.use-case';
 import type { Config } from './config';
 import { LicenseAnalyzer } from './domain/analyzers/licenses/license-analyzer';
 import { VulnerabilityAnalyzer } from './domain/analyzers/vulnerabilities/vulnerability-analyzer';
 import { RetrievalController } from './http/retrieval.controller';
-import { HttpKnowledgeSource } from './infrastructure/http-knowledge-source';
-import { HttpLlmClient } from './infrastructure/http-llm-client';
-import { HttpReportsClient } from './infrastructure/http-reports-client';
-import { sha256Hex } from './infrastructure/sha256-hex';
-import { SpdxLicenseExpressionParser } from './infrastructure/spdx-license-expression-parser';
+import { HttpKnowledgeSource } from './infrastructure/adapters/http-knowledge-source.adapter';
+import { HttpLlmClient } from './infrastructure/adapters/http-llm-client.adapter';
+import { HttpReportsClient } from './infrastructure/adapters/http-reports-client.adapter';
+import { sha256Hex } from './infrastructure/adapters/sha256-hex.adapter';
+import { SpdxLicenseExpressionParser } from './infrastructure/adapters/spdx-license-expression-parser.adapter';
 import { createServiceResolver, staticUrls } from './infrastructure/service-resolver';
 
 export interface AppModuleOptions {
@@ -78,10 +78,10 @@ export class AppModule {
           inject: [INTERNAL_CLIENT],
         },
         {
-          provide: RetrieveEvidence,
+          provide: RetrieveEvidenceUseCase,
           useFactory: (knowledge: KnowledgeSource, reports: ReportsClient, llm: LlmClient) => {
-            const logger = new Logger(RetrieveEvidence.name);
-            return new RetrieveEvidence({
+            const logger = new Logger(RetrieveEvidenceUseCase.name);
+            return new RetrieveEvidenceUseCase({
               knowledge,
               reports,
               llm,

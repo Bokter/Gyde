@@ -1,4 +1,4 @@
-import type { Severity } from '@gyde/contracts';
+import type { Severity } from '../../model';
 
 /**
  * The compatibility table, kept as DATA: what each license means for a game that is distributed

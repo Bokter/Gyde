@@ -11,6 +11,8 @@ import { compareFindings } from '../src/domain/analyzers/base-analyzer';
 import { LicenseAnalyzer } from '../src/domain/analyzers/licenses/license-analyzer';
 import { VulnerabilityAnalyzer } from '../src/domain/analyzers/vulnerabilities/vulnerability-analyzer';
 import { createApp } from '../src/http/app';
+import { sha256Hex } from '../src/infrastructure/sha256-hex';
+import { SpdxLicenseExpressionParser } from '../src/infrastructure/spdx-license-expression-parser';
 import { FakeServices, HOSTS } from './support/fake-services';
 
 /**
@@ -22,8 +24,8 @@ import { FakeServices, HOSTS } from './support/fake-services';
 const sha40 = (text: string) => createHash('sha256').update(text).digest('hex').slice(0, 40);
 const longName = 'Acme.' + 'Long'.repeat(40);
 
-const licenseAnalyzer = new LicenseAnalyzer();
-const vulnerabilityAnalyzer = new VulnerabilityAnalyzer();
+const licenseAnalyzer = new LicenseAnalyzer(new SpdxLicenseExpressionParser(), sha256Hex);
+const vulnerabilityAnalyzer = new VulnerabilityAnalyzer(sha256Hex);
 
 type Dep = (typeof sampleAnalysisRequest)['dependencies'][number];
 const dep = (overrides: Partial<Dep>): Dep => ({

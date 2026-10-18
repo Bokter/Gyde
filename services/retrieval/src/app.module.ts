@@ -16,6 +16,8 @@ import { RetrievalController } from './http/retrieval.controller';
 import { HttpKnowledgeSource } from './infrastructure/http-knowledge-source';
 import { HttpLlmClient } from './infrastructure/http-llm-client';
 import { HttpReportsClient } from './infrastructure/http-reports-client';
+import { sha256Hex } from './infrastructure/sha256-hex';
+import { SpdxLicenseExpressionParser } from './infrastructure/spdx-license-expression-parser';
 import { createServiceResolver, staticUrls } from './infrastructure/service-resolver';
 
 export interface AppModuleOptions {
@@ -83,7 +85,10 @@ export class AppModule {
               knowledge,
               reports,
               llm,
-              analyzers: [new VulnerabilityAnalyzer(), new LicenseAnalyzer()],
+              analyzers: [
+                new VulnerabilityAnalyzer(sha256Hex),
+                new LicenseAnalyzer(new SpdxLicenseExpressionParser(), sha256Hex),
+              ],
               onError: (error, { analysisId, step }) =>
                 logger.warn(
                   `${step} failed for ${analysisId}: ${error instanceof Error ? `${error.name}: ${error.message}` : 'unknown error'}`,

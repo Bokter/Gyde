@@ -1,4 +1,4 @@
-import type { AffectedRange, Ecosystem } from '@gyde/contracts';
+import type { AffectedRange, Ecosystem } from '../model';
 
 import { compareVersions, parseVersion } from './version';
 

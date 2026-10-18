@@ -45,7 +45,7 @@ Dos patrones arquitectónicos y tres de diseño (GoF), tal como los define el do
 
 **En el pipeline del cliente.** `AnalysisPipeline.runAnalysis()` fija el orden: autenticar, parsear (hook), enviar, vulnerabilidades, licencias, reporte y publicar (hook): los cinco pasos del documento más el envío y la publicación. `LocalCLIPipeline` y `GitHubActionPipeline` solo rellenan los hooks. Nadie puede alterar el orden ni omitir la validación de la API key; un test de arquitectura exige que ninguna subclase sobrescriba `runAnalysis`.
 
-**En Retrieval, internamente** ("aplicando Template Method internamente", como dice el documento). `BaseAnalyzer.analyze()` = `select → match → toFinding → prioritize → evidencia`, con `prioritize` invariante. Los tres analizadores (vulnerabilidades, licencias, compatibilidad) viven como módulos de un mismo servicio y comparten ese esqueleto. Es **puro y síncrono**: misma entrada, misma salida.
+**En Retrieval, internamente** ("aplicando Template Method internamente", como dice el documento). `BaseAnalyzer.analyze()` = `select → match → toFinding → prioritize → evidencia`, con `prioritize` invariante. Los analizadores (vulnerabilidades, licencias y compatibilidad) viven como módulos de un mismo servicio y comparten ese esqueleto; hoy solo se instancian los dos primeros (`app.module.ts`), porque `CompatibilityAnalyzer` es un esqueleto pendiente. Es **puro y síncrono**: misma entrada, misma salida.
 
 **Consecuencia aceptada:** el esqueleto queda fijo; si un escaneo nuevo necesitara saltarse pasos dinámicamente, la herencia se vuelve difícil de mantener.
 

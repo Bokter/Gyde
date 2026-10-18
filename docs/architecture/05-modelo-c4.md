@@ -41,7 +41,7 @@ Detalles que el diagrama resume:
 
 ![Componentes del gateway: guards y controlador, casos de uso con sus puertos y adaptadores de infraestructura](c4/Componentes-gateway.svg)
 
-Archivos en `services/gateway/src/{http,application,infrastructure}`. La caché de verify se indexa por **SHA-256 de la clave**, nunca por la clave. Los contadores del plan y de tasa están en memoria (se pierden al reiniciar): limitación asumida del MVP.
+Archivos en `services/gateway/src/{http,application,domain,infrastructure}`. `domain/` tiene `Principal`/`Entitlements`, `RateLimitWindow`, `TenantUsage` e `isWellFormedApiKey`; `application/` tiene dos casos de uso separados (`SubmitAnalysis` y `GetReport`), DTO, errores y el puerto `ReportReader`; el `ApplicationErrorInterceptor` de `http/` traduce los errores de aplicación a HTTP. El límite de tasa es **por clave de API (`apiKeyId`), con ventana fija de 1 minuto**. La caché de verify se indexa por **SHA-256 de la clave**, nunca por la clave. Los contadores del plan y de tasa están en memoria (se pierden al reiniciar): limitación asumida del MVP.
 
 ### reports: Decorator
 
@@ -49,17 +49,19 @@ Archivos en `services/gateway/src/{http,application,infrastructure}`. La caché 
 
 Cadena en tiempo de ejecución (`services/reports/src/domain/report/compose-report.ts`): `Basic → LicenseCompliance → AiEnrichment (solo si el plan lo incluye y llegó el resultado de IA) → SeverityScore` (siempre último). El plan `free` nunca lleva IA; con IA caída el reporte sale **degradado** pero con los mismos hallazgos.
 
+El modelo agrupa los casos de uso por responsabilidad, no uno por caja: `CreateAnalysis`, `RecordResults` (`RecordDeterministicResult`, `RecordAiResult`, `RecordAnalysisFailure`), `GetReports` (`GetReport`, `GetReportMarkdown`) y `SweepStaleAnalyses`, junto con `AnalysisWatchdog`. La entidad `Analysis` recorre `retrieving → analyzing → ready | failed`; el estado `pending` existe en el contrato pero nunca se escribe. El contrato de persistencia (`ReportRepository`) está en `domain/repositories/`.
+
 ### retrieval: Template Method
 
 ![Componentes de retrieval: RetrieveEvidence, BaseAnalyzer y sus analizadores, puertos y adaptadores HTTP](c4/Componentes-retrieval.svg)
 
-`services/retrieval/src/domain/analyzers/`. Las subclases rellenan los pasos variables (`select`, `match`, `toFinding`); el esqueleto y la priorización están en la clase base. `CompatibilityAnalyzer` es un esqueleto: no se instancia en el MVP.
+`services/retrieval/src/domain/analyzers/`. Las subclases rellenan los pasos variables (`select`, `match`, `toFinding`); el esqueleto y la priorización están en la clase base. `CompatibilityAnalyzer` es un esqueleto: no se instancia en el MVP. Retrieval **no tiene interceptor**: el controlador responde `202` y procesa en segundo plano (`BackgroundJobs`), así que no traduce errores.
 
 ### llm-analysis: agnóstico del proveedor
 
 ![Componentes de llm-analysis: AnalyzeFindings sobre el puerto FindingAnalyzer, con un adaptador por proveedor y un mock](c4/Componentes-llm-analysis.svg)
 
-`AnalyzeFindings` solo conoce el puerto `FindingAnalyzer`. Cada proveedor soportado es **un adaptador** en `services/llm-analysis/src/infrastructure/providers/`: añadir uno no toca el caso de uso ni el dominio. La llave del tenant solo se entrega al proveedor al que pertenece, y cada tenant + proveedor tiene su propio Circuit Breaker. Qué proveedores hay hoy: [`services/llm-analysis/README.md`](../../services/llm-analysis/README.md).
+`AnalyzeFindings` solo conoce el puerto `FindingAnalyzer`. Cada proveedor soportado es **un adaptador** en `services/llm-analysis/src/infrastructure/adapters/` (Anthropic y Gemini, más el mock de desarrollo): añadir uno no toca el caso de uso ni el dominio. La llave del tenant solo se entrega al proveedor al que pertenece. El caso de uso hace cada llamada a través del puerto `ModelCallPolicy` (`application/ports/model-call-policy.ts`), que implementa `ResilientModelCallPolicy`: ahí viven el Circuit Breaker por tenant + proveedor y la caché de respaldo, no en cada proveedor. `openai` figura en el contrato sin adaptador: el caso de uso responde `llm-error`. Qué proveedores hay hoy: [`services/llm-analysis/README.md`](../../services/llm-analysis/README.md).
 
 ### registry: Service Discovery y Health Checker
 
@@ -83,15 +85,18 @@ Cada servicio se registra al arrancar (`startService`, `packages/discovery`) y e
 3. Exporta cada vista a SVG desde esa página y reemplaza el archivo del mismo nombre en `docs/architecture/c4/` (el nombre es la clave de la vista: `Contexto`, `Contenedores`, `Componentes-<contenedor>`). La imagen Docker no exporta PNG/SVG desde la línea de comandos ([documentación](https://docs.structurizr.com/export/png-and-svg)), por eso se exporta desde el navegador.
 4. Commitea el DSL y los SVG juntos, en el mismo PR.
 
+> Los cinco SVG de componentes (`Componentes-gateway.svg`, `Componentes-reports.svg`, `Componentes-retrieval.svg`, `Componentes-llm-analysis.svg` y `Componentes-registry.svg`) quedan desfasados respecto del DSL actual y deben re-exportarse (paso 3). `Contexto`, `Contenedores` y `Componentes-CLI` no cambian.
+
 ## Coherencia con el código y alcance honesto
 
 | Afirmación del modelo | Evidencia |
 |---|---|
-| Cadena Decorator y plan `free` sin IA | `compose-report.ts`; ejecución real en [`docs/evidence/humo-2026-10-12.txt`](../evidence/humo-2026-10-12.txt) (capas `basic, license-compliance, ai-enrichment, severity-score`) |
-| Degradado sin caída del análisis | Mismo archivo: caso 3, `degraded=true`, `llm-unavailable`, mismos hallazgos |
-| Circuit Breaker + Discovery | Mismo archivo: con Reports detenido el gateway responde `503` y se recupera |
-| `/internal/*` no se enruta | Mismo archivo: respuesta `404` |
-| Layering impuesto | `tooling/eslint/layer-boundaries.mjs` (`pnpm lint` falla si `domain`/`application` importan infraestructura o NestJS) |
-| Cada componente existe | El tipo o la ruta de cada caja del DSL está en el código de `dev` |
+| Cadena Decorator y plan `free` sin IA | `pnpm --filter @gyde/reports test` (`services/reports/test/report-decorator.test.ts`: «composeReport: free plan…»); ejecución real en [`docs/evidence/humo-2026-10-18.txt`](../evidence/humo-2026-10-18.txt) |
+| Degradado sin caída del análisis | `services/reports/test/analysis.test.ts` («is degraded only when an llm failure…»); caso de degradado en el mismo archivo de humo |
+| Circuit Breaker por tenant + proveedor y caché de respaldo en `ResilientModelCallPolicy` | `services/llm-analysis/test/resilient-model-call-policy.test.ts` («keeps one breaker per scope») |
+| Límite de tasa por `apiKeyId`, ventana fija | `services/gateway/test/domain/rate-limit.test.ts` (`RateLimitWindow`) |
+| Circuit Breaker + Discovery y `/internal/*` no se enruta | [`docs/evidence/humo-2026-10-18.txt`](../evidence/humo-2026-10-18.txt): con Reports detenido el gateway responde `503` y se recupera; `/internal/*` responde `404` |
+| Layering impuesto | `pnpm lint` falla si `domain` importa algo no relativo o si `application` importa `zod`, `@gyde/service-kit`, `@gyde/resilience`, `@gyde/discovery`, `@nestjs/*` o `node:*`; comandos de comprobación en [`docs/evidence/clean-architecture-2026-10-18.md`](../evidence/clean-architecture-2026-10-18.md) |
+| Cada componente existe | `grep -noE "services/[a-z-]+/src/[A-Za-z0-9_./-]+" docs/architecture/c4/workspace.dsl docs/architecture/05-modelo-c4.md \| while IFS=: read -r f l p; do [ -e "$p" ] \|\| echo "$f:$l NO EXISTE $p"; done` no imprime nada |
 
 Fuera del MVP o en esqueleto, declarado: `CompatibilityAnalyzer`, fuentes NVD y GHSA, contadores de plan y tasa persistentes. La GitHub Action está implementada y probada con un gateway falso, pero no se demuestra en vivo contra un gateway local.

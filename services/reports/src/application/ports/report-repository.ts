@@ -1,15 +1,16 @@
-import type { AnalysisSnapshot, AnalysisStatus } from '../../domain/analysis/analysis-types';
+import type { Analysis } from '../../domain/analysis/analysis';
+import type { AnalysisStatus } from '../../domain/analysis/analysis-types';
 
-/** Port to persistence (PostgreSQL schema `reports`). */
+/** Port to persistence (PostgreSQL schema `reports`): it stores and returns the `Analysis` entity. */
 export interface ReportRepository {
-  create(analysis: AnalysisSnapshot): Promise<void>;
-  get(id: string): Promise<AnalysisSnapshot | undefined>;
-  update(analysis: AnalysisSnapshot): Promise<void>;
+  create(analysis: Analysis): Promise<void>;
+  get(id: string): Promise<Analysis | undefined>;
+  update(analysis: Analysis): Promise<void>;
   /**
    * Analyses in `status` whose last write is older than `cutoff`: the input of the startup sweep
    * (`SweepStaleAnalyses`). The in-memory adapter returns `[]`, since a restart empties it anyway.
    */
-  findStale(status: AnalysisStatus, cutoff: Date): Promise<AnalysisSnapshot[]>;
+  findStale(status: AnalysisStatus, cutoff: Date): Promise<Analysis[]>;
 }
 
 /** DI token of the `ReportRepository` port: `app.module.ts` binds it to an adapter (see ADR 0011). */

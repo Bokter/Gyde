@@ -1,4 +1,3 @@
-import { Analysis } from '../domain/analysis/analysis';
 import { buildReport } from '../domain/report/build-report';
 import type { GetReportDto, ReportDto } from './dto/analysis.dto';
 import { AnalysisNotFoundError } from './errors';
@@ -14,11 +13,9 @@ export class GetReport {
   constructor(private readonly repository: ReportRepository) {}
 
   async execute(query: GetReportDto): Promise<ReportDto> {
-    const snapshot = await this.repository.get(query.analysisId);
-    if (!snapshot) throw new AnalysisNotFoundError(query.analysisId);
-
-    const analysis = Analysis.rehydrate(snapshot);
-    if (!analysis.isOwnedBy(query.tenantId)) throw new AnalysisNotFoundError(query.analysisId);
+    const analysis = await this.repository.get(query.analysisId);
+    if (!analysis || !analysis.isOwnedBy(query.tenantId))
+      throw new AnalysisNotFoundError(query.analysisId);
     return buildReport(analysis.snapshot());
   }
 }

@@ -40,7 +40,7 @@ export class CreateAnalysis {
       },
       this.now(),
     );
-    await this.repository.create(analysis.snapshot());
+    await this.repository.create(analysis);
 
     try {
       await this.retrieval.retrieve({
@@ -55,7 +55,7 @@ export class CreateAnalysis {
         { analysisId: id, stage: 'retrieval', reason: 'retrieval-error', message },
         this.now(),
       );
-      await this.repository.update(analysis.snapshot());
+      await this.repository.update(analysis);
       // The answer stays "retrieving" even though the job is already failed: the client learns
       // it from the report.
       return { analysisId: id, status: 'retrieving' };

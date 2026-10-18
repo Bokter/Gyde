@@ -1,4 +1,3 @@
-import { Analysis } from '../domain/analysis/analysis';
 import type { AnalysisFailureDto } from './dto/analysis.dto';
 import { AnalysisNotFoundError } from './errors';
 import type { ReportRepository } from './ports/report-repository';
@@ -16,13 +15,12 @@ export class RecordAnalysisFailure {
   ) {}
 
   async execute(failure: AnalysisFailureDto): Promise<void> {
-    const snapshot = await this.repository.get(failure.analysisId);
-    if (!snapshot) throw new AnalysisNotFoundError(failure.analysisId);
+    const analysis = await this.repository.get(failure.analysisId);
+    if (!analysis) throw new AnalysisNotFoundError(failure.analysisId);
 
-    const analysis = Analysis.rehydrate(snapshot);
     if (!analysis.recordFailure(failure, this.options.now ? this.options.now() : new Date())) {
       return;
     }
-    await this.repository.update(analysis.snapshot());
+    await this.repository.update(analysis);
   }
 }

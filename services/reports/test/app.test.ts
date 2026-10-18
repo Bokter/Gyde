@@ -20,6 +20,7 @@ import { PostgresReportRepository } from '../src/infrastructure/postgres-report.
 import { createApp } from '../src/http/app';
 import { FakeRepository, FakeRetrieval } from './support/fakes';
 import { createPgliteDatabase } from './support/pglite';
+import { viaSnapshots } from './support/snapshots';
 
 const token = 'test-internal-token-123456';
 const config = configSchema.parse({ INTERNAL_SERVICE_TOKEN: token });
@@ -571,7 +572,7 @@ describe('startup sweep', () => {
   it('closes the analyses a previous run left in progress when the service starts', async () => {
     const database = createPgliteDatabase();
     await database.migrate(); // the schema (and the rows) of the run that went down
-    const repository = new PostgresReportRepository(database.db);
+    const repository = viaSnapshots(new PostgresReportRepository(database.db));
     await repository.create(leftover('stale-analyzing', 'analyzing'));
     await repository.create(leftover('stale-retrieving', 'retrieving'));
     await repository.create({

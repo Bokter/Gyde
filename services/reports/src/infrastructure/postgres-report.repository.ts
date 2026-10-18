@@ -1,43 +1,11 @@
 import { and, eq, lte } from 'drizzle-orm';
 
 import type { ReportRepository } from '../application/ports/report-repository';
-import type { AnalysisSnapshot, AnalysisStatus } from '../domain/analysis/analysis-types';
+import type { Analysis } from '../domain/analysis/analysis';
+import type { AnalysisStatus } from '../domain/analysis/analysis-types';
 import type { Database } from './db/database';
 import { analyses } from './db/schema';
-
-type AnalysisRow = typeof analyses.$inferSelect;
-
-function toStored(row: AnalysisRow): AnalysisSnapshot {
-  return {
-    id: row.id,
-    tenantId: row.tenantId,
-    status: row.status,
-    aiExpected: row.aiExpected,
-    entitlements: row.entitlements,
-    createdAt: row.createdAt.toISOString(),
-    ...(row.completedAt ? { completedAt: row.completedAt.toISOString() } : {}),
-    ...(row.deterministic ? { deterministic: row.deterministic } : {}),
-    ...(row.ai ? { ai: row.ai } : {}),
-    ...(row.failure ? { failure: row.failure } : {}),
-  };
-}
-
-/** A row ready to insert; `updatedAt` is the clock the startup sweep reads, so it is explicit. */
-function toRow(analysis: AnalysisSnapshot, updatedAt: Date) {
-  return {
-    id: analysis.id,
-    tenantId: analysis.tenantId,
-    status: analysis.status,
-    aiExpected: analysis.aiExpected,
-    entitlements: analysis.entitlements,
-    deterministic: analysis.deterministic ?? null,
-    ai: analysis.ai ?? null,
-    failure: analysis.failure ?? null,
-    createdAt: new Date(analysis.createdAt),
-    updatedAt,
-    completedAt: analysis.completedAt ? new Date(analysis.completedAt) : null,
-  };
-}
+import { toEntity, toRow } from './mappers/analysis.mapper';
 
 /**
  * PostgreSQL adapter of the `ReportRepository` port (schema `reports`).
@@ -47,16 +15,16 @@ function toRow(analysis: AnalysisSnapshot, updatedAt: Date) {
 export class PostgresReportRepository implements ReportRepository {
   constructor(private readonly db: Database) {}
 
-  async create(analysis: AnalysisSnapshot): Promise<void> {
-    await this.db.insert(analyses).values(toRow(analysis, new Date(analysis.createdAt)));
+  async create(analysis: Analysis): Promise<void> {
+    await this.db.insert(analyses).values(toRow(analysis, new Date(analysis.snapshot().createdAt)));
   }
 
-  async get(id: string): Promise<AnalysisSnapshot | undefined> {
+  async get(id: string): Promise<Analysis | undefined> {
     const rows = await this.db.select().from(analyses).where(eq(analyses.id, id)).limit(1);
-    return rows[0] ? toStored(rows[0]) : undefined;
+    return rows[0] ? toEntity(rows[0]) : undefined;
   }
 
-  async update(analysis: AnalysisSnapshot): Promise<void> {
+  async update(analysis: Analysis): Promise<void> {
     const { id, ...values } = toRow(analysis, new Date());
     await this.db
       .insert(analyses)
@@ -64,11 +32,11 @@ export class PostgresReportRepository implements ReportRepository {
       .onConflictDoUpdate({ target: analyses.id, set: values });
   }
 
-  async findStale(status: AnalysisStatus, cutoff: Date): Promise<AnalysisSnapshot[]> {
+  async findStale(status: AnalysisStatus, cutoff: Date): Promise<Analysis[]> {
     const rows = await this.db
       .select()
       .from(analyses)
       .where(and(eq(analyses.status, status), lte(analyses.updatedAt, cutoff)));
-    return rows.map(toStored);
+    return rows.map(toEntity);
   }
 }

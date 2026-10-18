@@ -1,4 +1,3 @@
-import { Analysis } from '../domain/analysis/analysis';
 import type { ReportRepository } from './ports/report-repository';
 
 /** Which watchdog is being scheduled, so a test double can react only to the one it cares about. */
@@ -52,11 +51,10 @@ export class AnalysisWatchdog {
     this.options.schedule(
       async () => {
         try {
-          const snapshot = await this.repository.get(analysisId);
-          if (!snapshot) return;
-          const analysis = Analysis.rehydrate(snapshot);
+          const analysis = await this.repository.get(analysisId);
+          if (!analysis) return;
           if (!analysis.timeOutAi(this.now, 'timeout')) return; // AI already arrived
-          await this.repository.update(analysis.snapshot());
+          await this.repository.update(analysis);
         } catch (err) {
           // Do not rethrow: a timer callback must not crash the process.
           this.options.logger?.error(
@@ -73,11 +71,10 @@ export class AnalysisWatchdog {
     this.options.schedule(
       async () => {
         try {
-          const snapshot = await this.repository.get(analysisId);
-          if (!snapshot) return;
-          const analysis = Analysis.rehydrate(snapshot);
+          const analysis = await this.repository.get(analysisId);
+          if (!analysis) return;
           if (!analysis.timeOutRetrieval(this.now, 'timeout')) return; // Retrieval already delivered
-          await this.repository.update(analysis.snapshot());
+          await this.repository.update(analysis);
         } catch (err) {
           this.options.logger?.error(
             `[reports] Retrieval timeout update failed for ${analysisId}: ${err instanceof Error ? err.message : 'unknown error'}`,

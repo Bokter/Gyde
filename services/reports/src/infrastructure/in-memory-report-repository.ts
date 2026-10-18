@@ -1,4 +1,5 @@
 import type { ReportRepository } from '../application/ports/report-repository';
+import { Analysis } from '../domain/analysis/analysis';
 import type { AnalysisSnapshot, AnalysisStatus } from '../domain/analysis/analysis-types';
 
 /**
@@ -8,21 +9,21 @@ import type { AnalysisSnapshot, AnalysisStatus } from '../domain/analysis/analys
 export class InMemoryReportRepository implements ReportRepository {
   private readonly store = new Map<string, AnalysisSnapshot>();
 
-  async create(analysis: AnalysisSnapshot): Promise<void> {
-    this.store.set(analysis.id, structuredClone(analysis));
+  async create(analysis: Analysis): Promise<void> {
+    this.store.set(analysis.id, structuredClone(analysis.snapshot()));
   }
 
-  async get(id: string): Promise<AnalysisSnapshot | undefined> {
+  async get(id: string): Promise<Analysis | undefined> {
     const found = this.store.get(id);
-    return found ? structuredClone(found) : undefined;
+    return found ? Analysis.rehydrate(structuredClone(found)) : undefined;
   }
 
-  async update(analysis: AnalysisSnapshot): Promise<void> {
-    this.store.set(analysis.id, structuredClone(analysis));
+  async update(analysis: Analysis): Promise<void> {
+    this.store.set(analysis.id, structuredClone(analysis.snapshot()));
   }
 
   /** Nothing is stale: after a restart this store is empty, and while it lives the timers run. */
-  async findStale(_status: AnalysisStatus, _cutoff: Date): Promise<AnalysisSnapshot[]> {
+  async findStale(_status: AnalysisStatus, _cutoff: Date): Promise<Analysis[]> {
     return [];
   }
 }

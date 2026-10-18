@@ -1,15 +1,12 @@
-import type { AnalysisAccepted, CreateAnalysisJob, Report } from '@gyde/contracts';
-
+import type { AnalysisAcceptedDto, CreateAnalysisJobDto } from '../dto/gateway.dto';
 import type { RequestContext } from '../request-context';
 
 export const REPORTS_CLIENT = Symbol('ReportsClient');
 
-/** The Reports endpoints the gateway uses. Responses come back already validated. */
+/** The Reports endpoint that starts an analysis. The response comes back already validated. */
 export interface ReportsClient {
   createAnalysis(
-    job: CreateAnalysisJob,
+    job: CreateAnalysisJobDto,
     context: RequestContext & { tenantId: string },
-  ): Promise<AnalysisAccepted>;
-  getReport(analysisId: string, context: RequestContext & { tenantId: string }): Promise<Report>;
-  getMarkdown(analysisId: string, context: RequestContext & { tenantId: string }): Promise<string>;
+  ): Promise<AnalysisAcceptedDto>;
 }

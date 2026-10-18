@@ -22,7 +22,7 @@ El gateway **nunca** enruta `/internal/*`: esas rutas son solo entre servicios.
 
 ## Cómo funciona
 
-1. **Autenticación** (`ApiKeyGuard` → `AuthenticateApiKey`): toma `Authorization: Bearer <key>`, comprueba que la clave cumpla los límites de `VerifyApiKeyRequest` (si no, `401` sin llamar a Web) y pregunta a Web (`POST /internal/api-keys/verify`, con `ResilientHttpClient`). `401 unauthorized` con un mismo mensaje para clave ausente, mal formada, desconocida, revocada o vencida.
+1. **Autenticación** (`ApiKeyGuard` → `AuthenticateApiKey`): toma `Authorization: Bearer <key>`, comprueba que la clave cumpla los límites de longitud 10..200 (regla de dominio `isWellFormedApiKey`, copia de los de `VerifyApiKeyRequest`; si no, `401` sin llamar a Web; un test compara ambas para longitudes 0..205) y pregunta a Web (`POST /internal/api-keys/verify`, con `ResilientHttpClient`). `401 unauthorized` con un mismo mensaje para clave ausente, mal formada, desconocida, revocada o vencida.
 2. **Caché de verificación** (~`API_KEY_CACHE_TTL_MS`, 60 s): solo guarda claves **válidas** y se indexa por el **SHA-256** de la clave, nunca por la clave. Una clave revocada puede seguir valiendo hasta que expire su entrada (aceptado); una clave recién creada funciona de inmediato porque los rechazos no se guardan.
 3. **`GET /v1/auth/verify`** devuelve `AuthVerifyResponse` con los `Entitlements` que devolvió Web; no se recalculan.
 4. **`POST /v1/analyses`** valida el cuerpo con `AnalysisRequest`, arma el `CreateAnalysisJob` (`tenantId` + `entitlements` + `request`) y lo envía a Reports (`POST /internal/analyses`); responde `202 AnalysisAccepted`.
@@ -33,9 +33,46 @@ El gateway **nunca** enruta `/internal/*`: esas rutas son solo entre servicios.
 9. **Cabeceras**: `x-request-id` y `x-gyde-tenant-id` viajan a Reports (y `x-request-id` a Web), junto con `x-internal-token`.
 10. **Errores**: sin instancia sana, circuito abierto, `5xx`, tiempo agotado, error de red o una respuesta que no cumple el contrato terminan en un único `503 upstream_unavailable` genérico. El detalle va al log; nombres de servicio y cuerpos del vecino no salen al cliente. El gateway **nunca** registra la clave ni la cabecera `Authorization`.
 
-Estructura: `http/` (guarda y controlador), `application/` (casos de uso y puertos con su token), `infrastructure/` (adaptadores con `ResilientHttpClient`, caché en memoria, SHA-256), enlazado en `app.module.ts`.
+## Estructura
 
-### Limitaciones conocidas
+```
+src/domain/          Principal y Entitlements (tipos), RateLimitWindow y RateLimitDecision (ventana fija),
+                     TenantUsage y billingPeriodOf (cupo mensual por tenant, mes UTC), isWellFormedApiKey
+                     (límites de la clave); solo imports relativos, sin leer la hora
+src/application/     casos de uso (AuthenticateApiKey, EnforceRateLimit, SubmitAnalysis, GetReport),
+                     dto/ (tipos planos que reflejan el contrato), errors.ts (GatewayError, UnauthorizedError,
+                     PlanLimitExceededError, sin HTTP), request-context.ts y ports/ con su token
+src/infrastructure/  adaptadores: WebApiKeyVerifier y HttpReportsClient (ResilientHttpClient), MemoryAuthCache,
+                     MemoryRateLimiter y MemoryUsageCounter (Maps, TTL y expulsión; las reglas están en domain/),
+                     Sha256KeyHasher, mappers/ (contrato -> DTO)
+src/http/            controlador y guards delgados, mappers/ (contrato <-> DTO) y application-error.interceptor.ts
+src/app.module.ts    composition root: enlaza puertos con adaptadores y registra el interceptor (ADR 0011)
+```
+
+Las reglas de capas se comprueban con `pnpm exec eslint --config tooling/eslint/purity.config.mjs services/gateway/src` (ADR 0012).
+
+### Errores
+
+Los casos de uso lanzan errores de aplicación sin estado HTTP; se traducen al mismo `HttpError` de siempre:
+
+| Error de aplicación | Código y estado HTTP | Mensaje |
+|---|---|---|
+| `UnauthorizedError` | `unauthorized`, 401 | `Missing or invalid API key` |
+| `PlanLimitExceededError` | `plan_limit_exceeded`, 402 | `The <plan> plan allows <n> analyses per month and this tenant has used them` |
+| otro `GatewayError` | `internal`, 500 | `Internal server error` |
+
+`ApplicationErrorInterceptor` (`APP_INTERCEPTOR`) traduce lo que lanzan los manejadores de ruta (`PlanLimitExceededError`). Los guards se ejecutan **antes** que los interceptores, así que `ApiKeyGuard` aplica la misma función (`translateApplicationError`) al `UnauthorizedError` de `AuthenticateApiKey`. El límite de tasa no lanza un error de aplicación: `EnforceRateLimit` devuelve una `RateLimitDecision` y `RateLimitGuard` la traduce a `Retry-After` y `429 rate_limited`. Los `HttpError` de los adaptadores (`upstream_unavailable`, `not_found` de Reports) pasan sin tocar. El sobre `ApiError` lo sigue produciendo el filtro global de `service-kit`.
+
+## Excepciones de contrato en application
+
+Solo estos dos archivos importan `@gyde/contracts` (`import type`), por ser pass-through del `Report`:
+
+- `get-report.ts`: `Report` (`GET /v1/analyses/:id` devuelve el reporte de Reports tal cual).
+- `report-reader.ts` (`ports/`): `Report`, el puerto de lectura de ese caso de uso.
+
+El resto de `application/` habla en DTOs (`dto/gateway.dto.ts`) y en tipos de `domain/`. Los DTO son un espejo estructural del contrato y los mappers entregan el valor por referencia; `test/dto-contract.test.ts` falla al compilar si el contrato y el DTO dejan de ser asignables entre sí.
+
+## Limitaciones conocidas
 
 - `Report` no incluye el `tenantId`, así que el gateway no puede comprobar que el análisis pedido pertenezca al tenant de la clave: hoy cualquier clave válida puede leer un análisis cuyo id conozca. Hace falta que Reports filtre por `x-gyde-tenant-id` (Área 4).
 - La caché de verificación, el contador mensual y el límite de tasa viven en memoria de cada instancia: se reinician con el gateway y no se comparten entre réplicas. Con varias réplicas el tope real sería el límite por el número de instancias. Una persistencia compartida (por ejemplo Redis) queda fuera del MVP.

@@ -1,34 +1,30 @@
-import {
-  AnalysisAccepted,
-  buildPath,
-  type CreateAnalysisJob,
-  HEADERS,
-  Report,
-  ROUTES,
-} from '@gyde/contracts';
+import { AnalysisAccepted, buildPath, HEADERS, Report, ROUTES } from '@gyde/contracts';
 import { HttpError, type ResilientHttpClient } from '@gyde/service-kit';
 
+import type { AnalysisAcceptedDto, CreateAnalysisJobDto } from '../application/dto/gateway.dto';
+import type { ReportReader } from '../application/ports/report-reader';
 import type { ReportsClient } from '../application/ports/reports-client';
 import type { RequestContext } from '../application/request-context';
+import { toAnalysisAcceptedDto, toCreateAnalysisJobContract } from './mappers/gateway.mapper';
 import { toUpstreamUnavailable } from './upstream-errors';
 
 type Context = RequestContext & { tenantId: string };
 
 /** Calls Reports through discovery and the circuit breaker, forwarding request and tenant ids. */
-export class HttpReportsClient implements ReportsClient {
+export class HttpReportsClient implements ReportsClient, ReportReader {
   constructor(private readonly client: ResilientHttpClient) {}
 
-  async createAnalysis(job: CreateAnalysisJob, context: Context): Promise<AnalysisAccepted> {
+  async createAnalysis(job: CreateAnalysisJobDto, context: Context): Promise<AnalysisAcceptedDto> {
     try {
       const body = await this.client.postJson<unknown>(
         'reports',
         ROUTES.reports.createAnalysis,
-        job,
+        toCreateAnalysisJobContract(job),
         {
           ...forward(context),
         },
       );
-      return AnalysisAccepted.parse(body);
+      return toAnalysisAcceptedDto(AnalysisAccepted.parse(body));
     } catch (error) {
       throw toUpstreamUnavailable('reports', error);
     }

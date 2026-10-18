@@ -1,7 +1,10 @@
-import type { AnalysisAccepted, AnalysisRequest, CreateAnalysisJob } from '@gyde/contracts';
-
 import type { ReportsClient } from './ports/reports-client';
 import type { UsageCounter } from './ports/usage-counter';
+import type {
+  AnalysisAcceptedDto,
+  AnalysisRequestDto,
+  CreateAnalysisJobDto,
+} from './dto/gateway.dto';
 import type { Principal } from '../domain/principal';
 import { PlanLimitExceededError } from './errors';
 import { billingPeriodOf } from '../domain/usage-allowance';
@@ -26,9 +29,9 @@ export class SubmitAnalysis {
 
   async execute(
     principal: Principal,
-    request: AnalysisRequest,
+    request: AnalysisRequestDto,
     context: RequestContext,
-  ): Promise<AnalysisAccepted> {
+  ): Promise<AnalysisAcceptedDto> {
     const { plan, limits } = principal.entitlements;
     const period = billingPeriodOf(this.deps.now());
 
@@ -36,7 +39,7 @@ export class SubmitAnalysis {
       throw new PlanLimitExceededError(plan, limits.analysesPerMonth);
     }
 
-    const job: CreateAnalysisJob = {
+    const job: CreateAnalysisJobDto = {
       tenantId: principal.tenantId,
       entitlements: principal.entitlements,
       request,

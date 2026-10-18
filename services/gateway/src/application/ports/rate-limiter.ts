@@ -1,10 +1,6 @@
-export const RATE_LIMITER = Symbol('RateLimiter');
+import type { RateLimitDecision } from '../../domain/rate-limit';
 
-export interface RateLimitDecision {
-  allowed: boolean;
-  /** Seconds until the caller may try again; 0 when allowed. */
-  retryAfterSeconds: number;
-}
+export const RATE_LIMITER = Symbol('RateLimiter');
 
 /** Counts the requests of one API key in a time window. */
 export interface RateLimiter {

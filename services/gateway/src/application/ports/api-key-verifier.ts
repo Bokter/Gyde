@@ -1,6 +1,6 @@
 import type { VerifyApiKeyResponse } from '@gyde/contracts';
 
-import type { RequestContext } from '../principal';
+import type { RequestContext } from '../request-context';
 
 export const API_KEY_VERIFIER = Symbol('ApiKeyVerifier');
 

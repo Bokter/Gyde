@@ -1,6 +1,6 @@
 import type { AnalysisAccepted, CreateAnalysisJob, Report } from '@gyde/contracts';
 
-import type { RequestContext } from '../principal';
+import type { RequestContext } from '../request-context';
 
 export const REPORTS_CLIENT = Symbol('ReportsClient');
 

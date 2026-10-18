@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { AuthenticateApiKey } from '../src/application/authenticate-api-key';
 import type { AuthCache } from '../src/application/ports/auth-cache';
-import type { Principal } from '../src/application/principal';
+import type { Principal } from '../src/domain/principal';
 import { MemoryAuthCache } from '../src/infrastructure/memory-auth-cache';
 import { Sha256KeyHasher } from '../src/infrastructure/sha256-key-hasher';
 import { VALID_KEY, validVerification } from './helpers';

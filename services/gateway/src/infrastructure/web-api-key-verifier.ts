@@ -2,7 +2,7 @@ import { ROUTES, VerifyApiKeyResponse } from '@gyde/contracts';
 import type { ResilientHttpClient } from '@gyde/service-kit';
 
 import type { ApiKeyVerifier } from '../application/ports/api-key-verifier';
-import type { RequestContext } from '../application/principal';
+import type { RequestContext } from '../application/request-context';
 import { toUpstreamUnavailable } from './upstream-errors';
 
 /** Asks Web to verify the key. The client adds `x-internal-token`; the key is never logged. */

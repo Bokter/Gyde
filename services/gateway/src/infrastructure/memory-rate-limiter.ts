@@ -1,9 +1,5 @@
-import type { RateLimitDecision, RateLimiter } from '../application/ports/rate-limiter';
-
-interface Window {
-  startedAt: number;
-  count: number;
-}
+import type { RateLimiter } from '../application/ports/rate-limiter';
+import { type RateLimitDecision, RateLimitWindow } from '../domain/rate-limit';
 
 export interface MemoryRateLimiterOptions {
   /** Requests allowed per key in each window. */
@@ -16,7 +12,7 @@ export interface MemoryRateLimiterOptions {
 
 /** Fixed-window, in-memory `RateLimiter`. Per instance of the gateway, like the usage counter. */
 export class MemoryRateLimiter implements RateLimiter {
-  private readonly windows = new Map<string, Window>();
+  private readonly windows = new Map<string, RateLimitWindow>();
   private readonly windowMs: number;
   private readonly maxKeys: number;
   private readonly now: () => number;
@@ -30,23 +26,18 @@ export class MemoryRateLimiter implements RateLimiter {
   consume(apiKeyId: string): RateLimitDecision {
     const now = this.now();
     let window = this.windows.get(apiKeyId);
-    if (!window || now - window.startedAt >= this.windowMs) {
+    if (!window || window.hasExpired(now, this.windowMs)) {
       this.makeRoom(now);
-      window = { startedAt: now, count: 0 };
+      window = RateLimitWindow.open(now);
       this.windows.set(apiKeyId, window);
     }
-    if (window.count >= this.options.limit) {
-      const remainingMs = window.startedAt + this.windowMs - now;
-      return { allowed: false, retryAfterSeconds: Math.max(1, Math.ceil(remainingMs / 1000)) };
-    }
-    window.count += 1;
-    return { allowed: true, retryAfterSeconds: 0 };
+    return window.consume(now, this.options.limit, this.windowMs);
   }
 
   private makeRoom(now: number): void {
     if (this.windows.size < this.maxKeys) return;
     for (const [key, window] of this.windows) {
-      if (now - window.startedAt >= this.windowMs) this.windows.delete(key);
+      if (window.hasExpired(now, this.windowMs)) this.windows.delete(key);
     }
     if (this.windows.size >= this.maxKeys) {
       const oldest = this.windows.keys().next().value;

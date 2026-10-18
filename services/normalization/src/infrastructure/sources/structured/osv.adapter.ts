@@ -7,7 +7,11 @@ import { z } from 'zod';
 
 import type { RawRecord, SourceAdapter } from '../../../application/ports/source-adapter';
 import { InvalidRecordError } from '../../../domain/invalid-record-error';
-import type { KnowledgeObject, SourceKind, Trust } from '../../../domain/knowledge-object';
+import type {
+  KnowledgeObject,
+  SourceKind,
+  Trust,
+} from '../../../domain/entities/knowledge-object.entity';
 import { normalizeOsvRecord } from '../../../domain/osv-normalizer';
 import { parseOsvRecord } from './osv-record.schema';
 

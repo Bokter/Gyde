@@ -1,6 +1,6 @@
-import type { SourceStatusDto, SourcesStatusDto } from './dto/knowledge.dto';
-import type { KnowledgeRepository } from './ports/knowledge-repository';
-import type { SourceAdapter } from './ports/source-adapter';
+import type { SourceStatusDto, SourcesStatusDto } from '../dto/knowledge.dto';
+import type { KnowledgeRepository } from '../../domain/repositories/knowledge.repository';
+import type { SourceAdapter } from '../ports/source-adapter';
 
 export interface ListSourcesDeps {
   adapters: readonly SourceAdapter[];
@@ -8,7 +8,7 @@ export interface ListSourcesDeps {
 }
 
 /** Last ingestion time and state of every configured source (`GET /internal/sources`). */
-export class ListSources {
+export class ListSourcesUseCase {
   constructor(private readonly deps: ListSourcesDeps) {}
 
   async execute(): Promise<SourcesStatusDto> {

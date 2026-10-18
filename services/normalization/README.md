@@ -38,17 +38,23 @@ El cruce **dependencia/versión** (¿esta versión cae en el rango afectado?) lo
 ## Estructura (arquitectura limpia)
 
 ```
-src/domain/                  tipos y reglas puras, sin imports externos: KnowledgeObject (valor inmutable),
-                             OsvRecordInput, osv-normalizer.ts (aviso OSV -> KnowledgeObject),
-                             cvss.ts (puntaje base CVSS v3.0/3.1 a partir del vector) e InvalidRecordError
-src/application/             casos de uso (IngestSource, QueryKnowledge, ListSources), errors.ts
-                             (NormalizationError y subclases, sin HTTP) y dto/ (tipos planos)
-src/application/ports/       SourceAdapter y KnowledgeRepository (hablan en entidades y DTO)
-src/infrastructure/          repositorio PostgreSQL, mappers/ (fila <-> entidad), db/ (esquema Drizzle y migraciones)
+src/domain/entities/         knowledge-object.entity.ts: KnowledgeObject y sus tipos auxiliares. Es un tipo plano
+                             (valor inmutable), no una clase con comportamiento
+src/domain/repositories/     knowledge.repository.ts: contrato KnowledgeRepository (interface + token
+                             KNOWLEDGE_REPOSITORY), IngestionRun y KnowledgeCriteria (criterios de consulta)
+src/domain/                  reglas puras, sin imports externos: OsvRecordInput, osv-normalizer.ts
+                             (aviso OSV -> KnowledgeObject), cvss.ts (puntaje base CVSS v3.0/3.1 a partir
+                             del vector) e InvalidRecordError
+src/application/use-cases/   *.use-case.ts: IngestSourceUseCase, QueryKnowledgeUseCase, ListSourcesUseCase
+src/application/             errors.ts (NormalizationError y subclases, sin HTTP) y dto/ (tipos planos;
+                             KnowledgeQueryDto es un alias de KnowledgeCriteria)
+src/application/ports/       SourceAdapter (fuente de datos externa; habla en entidades y DTO)
+src/infrastructure/repositories/ postgres-knowledge.repository.ts: implementación PostgreSQL del contrato
+src/infrastructure/          mappers/ (fila <-> entidad), db/ (esquema Drizzle y migraciones)
 src/infrastructure/sources/  structured/ (OSV: adaptador y osv-record.schema.ts con el Zod del registro) ·
                              official/ y community/ (vacías, sin adaptadores todavía)
 src/http/                    controlador delgado, mappers/ (contrato <-> DTO) y application-error.interceptor.ts
-src/app.module.ts            composition root: enlaza puertos con adaptadores (ADR 0011)
+src/app.module.ts            composition root: enlaza contratos y puertos con adaptadores (ADR 0011)
 ```
 
 - El dominio no importa `@gyde/*`, `zod` ni `node:*`. El normalizador OSV recibe un registro ya validado (`OsvRecordInput`) y un predicado `isUrl`; la validación Zod del registro y la del contrato `KnowledgeObject` ocurren en `OsvAdapter.normalize` (infraestructura).
@@ -96,7 +102,7 @@ El repositorio (`PostgresKnowledgeRepository`) vive en el schema `normalization`
 
 ## Límites conocidos
 
-- **Avisos retirados.** Cuando una fuente retira un aviso (en OSV, el campo `withdrawn`), el adaptador **lo omite al ingerir y lo cuenta en `recordsSkipped`**, pero **no borra** la copia que ya se guardó antes: el puerto `KnowledgeRepository` no tiene operación de borrado. Mientras esa copia exista, `POST /internal/knowledge/query` la sigue devolviendo y Retrieval puede seguir marcando un aviso que la fuente ya reconoció como falso. Es una posible **fuente de falsos positivos**; la solución prevista es ampliar el puerto con un borrado (o con una marca de «retirado» que la consulta excluya) y que el adaptador la use.
+- **Avisos retirados.** Cuando una fuente retira un aviso (en OSV, el campo `withdrawn`), el adaptador **lo omite al ingerir y lo cuenta en `recordsSkipped`**, pero **no borra** la copia que ya se guardó antes: el contrato `KnowledgeRepository` no tiene operación de borrado. Mientras esa copia exista, `POST /internal/knowledge/query` la sigue devolviendo y Retrieval puede seguir marcando un aviso que la fuente ya reconoció como falso. Es una posible **fuente de falsos positivos**; la solución prevista es ampliar el contrato con un borrado (o con una marca de «retirado» que la consulta excluya) y que el adaptador la use.
 - **Dependencias.** Normalization solo depende de PostgreSQL y de las fuentes que ingiere (cada una detrás de su Circuit Breaker). **No llama a Reports ni a ningún otro servicio**: quien la consulta es Retrieval, así que si normalization cae, el análisis sigue con la última respuesta guardada o sin conocimiento (`partialSources`) y no depende de que Reports lo sepa.
 
 ## Configuración

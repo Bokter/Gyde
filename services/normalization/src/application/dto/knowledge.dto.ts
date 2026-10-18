@@ -1,22 +1,11 @@
 import type {
-  Ecosystem,
-  GameEngine,
-  KnowledgeKind,
   KnowledgeObject,
   SourceKind,
   Trust,
-} from '../../domain/knowledge-object';
+} from '../../domain/entities/knowledge-object.entity';
+import type { KnowledgeCriteria } from '../../domain/repositories/knowledge.repository';
 
-export type KnowledgeQueryDto = {
-  readonly packages: readonly {
-    readonly ecosystem: Ecosystem;
-    readonly name: string;
-    readonly version: string;
-  }[];
-  readonly kinds?: readonly KnowledgeKind[];
-  readonly gameEngine?: GameEngine;
-  readonly limit: number;
-};
+export type KnowledgeQueryDto = KnowledgeCriteria;
 
 export type KnowledgeQueryResultDto = {
   readonly objects: readonly KnowledgeObject[];

@@ -1,5 +1,10 @@
 import { cvssV3BaseScore, severityFromCvss } from './cvss';
-import type { AffectedRange, Ecosystem, KnowledgeObject, Severity } from './knowledge-object';
+import type {
+  AffectedRange,
+  Ecosystem,
+  KnowledgeObject,
+  Severity,
+} from './entities/knowledge-object.entity';
 import type { OsvAffected, OsvRecordInput } from './osv-record';
 
 /**

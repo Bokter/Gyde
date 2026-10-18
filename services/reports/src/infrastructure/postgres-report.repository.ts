@@ -1,6 +1,6 @@
 import { and, eq, lte } from 'drizzle-orm';
 
-import type { ReportRepository } from '../application/ports/report-repository';
+import type { ReportRepository } from '../domain/repositories/report.repository';
 import type { Analysis } from '../domain/entities/analysis.entity';
 import type { AnalysisStatus } from '../domain/entities/analysis-types';
 import type { Database } from './db/database';

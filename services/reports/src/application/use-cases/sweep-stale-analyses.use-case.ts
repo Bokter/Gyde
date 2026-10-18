@@ -1,5 +1,5 @@
 import type { SweepResultDto } from '../dto/analysis.dto';
-import type { ReportRepository } from '../ports/report-repository';
+import type { ReportRepository } from '../../domain/repositories/report.repository';
 
 export const SWEEP_STALE_ANALYSES = Symbol('SweepStaleAnalysesUseCase');
 

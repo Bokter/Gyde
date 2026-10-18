@@ -1,4 +1,4 @@
-import type { ReportRepository } from './ports/report-repository';
+import type { ReportRepository } from '../domain/repositories/report.repository';
 
 /** Which watchdog is being scheduled, so a test double can react only to the one it cares about. */
 export type TimerName = 'ai' | 'retrieval';

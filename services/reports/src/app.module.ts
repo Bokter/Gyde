@@ -19,7 +19,7 @@ import {
   GET_REPORT_MARKDOWN,
   GetReportMarkdownUseCase,
 } from './application/use-cases/get-report-markdown.use-case';
-import { REPORT_REPOSITORY, type ReportRepository } from './application/ports/report-repository';
+import { REPORT_REPOSITORY, type ReportRepository } from './domain/repositories/report.repository';
 import { RETRIEVAL_CLIENT, type RetrievalClient } from './application/ports/retrieval-client';
 import {
   RECORD_AI_RESULT,

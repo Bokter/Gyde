@@ -1,6 +1,6 @@
 import type { AiResultDto } from '../dto/analysis.dto';
 import { AnalysisNotFoundError } from '../errors';
-import type { ReportRepository } from '../ports/report-repository';
+import type { ReportRepository } from '../../domain/repositories/report.repository';
 
 export const RECORD_AI_RESULT = Symbol('RecordAiResultUseCase');
 

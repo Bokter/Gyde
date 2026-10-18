@@ -1,4 +1,4 @@
-import type { ReportRepository } from '../application/ports/report-repository';
+import type { ReportRepository } from '../domain/repositories/report.repository';
 import { Analysis } from '../domain/entities/analysis.entity';
 import type { AnalysisSnapshot, AnalysisStatus } from '../domain/entities/analysis-types';
 

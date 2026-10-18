@@ -1,7 +1,7 @@
 import { Analysis } from '../../domain/entities/analysis.entity';
 import type { AnalysisWatchdog } from '../analysis-watchdog';
 import type { AnalysisAcceptedDto, CreateAnalysisDto } from '../dto/analysis.dto';
-import type { ReportRepository } from '../ports/report-repository';
+import type { ReportRepository } from '../../domain/repositories/report.repository';
 import type { RetrievalClient } from '../ports/retrieval-client';
 
 export const CREATE_ANALYSIS = Symbol('CreateAnalysisUseCase');

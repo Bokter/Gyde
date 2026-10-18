@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 
-import type { RegistryRepository } from '../application/ports/registry-repository';
+import type { RegistryRepository } from '../domain/repositories/registry.repository';
 
 export interface HealthCheckerOptions {
   intervalMs: number;

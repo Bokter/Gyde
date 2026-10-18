@@ -1,10 +1,10 @@
-import type { InstanceDto } from './dto/registry.dto';
-import { InstanceNotFoundError } from './errors';
-import type { RegistryRepository } from './ports/registry-repository';
+import type { InstanceDto } from '../dto/registry.dto';
+import { InstanceNotFoundError } from '../errors';
+import type { RegistryRepository } from '../../domain/repositories/registry.repository';
 
-export const HEARTBEAT_INSTANCE = Symbol('HeartbeatInstance');
+export const HEARTBEAT_INSTANCE = Symbol('HeartbeatInstanceUseCase');
 
-export class HeartbeatInstance {
+export class HeartbeatInstanceUseCase {
   constructor(
     private readonly repository: RegistryRepository,
     private readonly options: { now?: () => number } = {},

@@ -1,4 +1,4 @@
-import type { ServiceInstance, ServiceName } from '../../domain/service-instance';
+import type { ServiceInstance, ServiceName } from '../entities/service-instance.entity';
 
 export const REGISTRY_REPOSITORY = Symbol('RegistryRepository');
 

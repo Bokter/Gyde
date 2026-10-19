@@ -40,7 +40,7 @@ $C ps                      # repítelo hasta que todos estén en "healthy" (unos
 - <a id="recursos-de-docker-desktop"></a>**Recursos de Docker Desktop:** para levantar el stack basta con lo básico; para la verificación completa (`--target check`) dale **al menos 4 CPUs y 6 GB de memoria**. Con el motor de Docker Desktop sobre Hyper-V se ajusta en *Settings → Resources*; con WSL 2 esos controles no aparecen y se fijan en `%UserProfile%\.wslconfig` (`[wsl2]` con `processors=4` y `memory=6GB`), seguido de `wsl --shutdown` y reiniciar Docker Desktop. Comprueba lo que ve Docker con `docker info --format 'CPUs={{.NCPU}} Mem={{.MemTotal}}'`.
 - `--env-file .env` es obligatorio: el compose vive en `infra/compose` y sin él las variables de la raíz no llegan.
 - **Iniciar sesión** (panel web en `http://localhost:3000`) requiere una OAuth App de GitHub propia: callback `http://localhost:3000/api/auth/callback/github`, con `GITHUB_CLIENT_ID` y `GITHUB_CLIENT_SECRET` en tu `.env`. Pasos en [`services/web/README.md`](services/web/README.md).
-- **Para Stripe** (modo test): `STRIPE_SECRET_KEY` (`sk_test_…`), `STRIPE_PRICE_PRO`, `STRIPE_PRICE_STUDIO` y `STRIPE_WEBHOOK_SECRET` (con `stripe listen`). El sistema rechaza cualquier clave que no sea de prueba.
+- **Para Stripe** (modo test): `STRIPE_SECRET_KEY` (`sk_test_…`), `STRIPE_PRICE_PRO`, `STRIPE_PRICE_STUDIO` y `STRIPE_WEBHOOK_SECRET` (con `stripe listen`). El sistema rechaza cualquier clave que no sea de prueba. Cómo se refleja un pago o una cancelación en Gyde: [Planes y webhook de Stripe](#planes-y-webhook-de-stripe).
 
 **Primer análisis**
 
@@ -81,6 +81,34 @@ El recorrido completo (crear un análisis, leer el reporte y el markdown) está 
 ```bash
 SMOKE_API_KEY=<tu clave> COMPOSE_PROJECT_NAME=gyde KEEP_STACK=1 bash infra/scripts/smoke-retrieval.sh
 ```
+
+### Planes y webhook de Stripe
+
+El plan de un estudio **solo cambia por el webhook** de Stripe (`POST /api/stripe/webhook` del servicio web): Gyde no consulta a Stripe. Por eso, mientras desarrollas en local, Stripe no puede alcanzar tu `localhost` y hace falta reenviar los eventos con el CLI, en una terminal que se deja abierta:
+
+```bash
+stripe listen --forward-to localhost:3000/api/stripe/webhook
+```
+
+- El comando imprime un secreto `whsec_…`: debe ser **igual** a `STRIPE_WEBHOOK_SECRET` del `.env` (si no, el webhook responde `400 invalid-signature` y el evento se descarta). Tras cambiarlo, reinicia `web`: `$C up -d web`.
+- Los eventos que se aplican son `checkout.session.completed`, `customer.subscription.created|updated|deleted` e `invoice.payment_failed`. Cada uno queda registrado en `stripe_events` (idempotente: reenviarlo no duplica nada). Los eventos de modo live se ignoran.
+- **Un evento anterior al `stripe listen` no se recupera**: si cancelas o pagas antes de abrirlo, Gyde no se entera (en el Dashboard de Stripe, *Developers → Events*, se puede reenviar).
+- **Cancelar al final del periodo no baja el plan al instante.** Mientras la suscripción sigue `active` con `cancel_at_period_end`, el panel muestra «Termina el…»; el plan pasa a `free` con `customer.subscription.deleted`. Para verlo de inmediato en una demo, cancela con *Immediately* en el Dashboard de Stripe (modo test).
+
+### Probar la GitHub Action contra tu máquina
+
+Un runner de GitHub corre en la nube y no alcanza `localhost:4000`; para probarla en un repositorio de verdad hay que exponer el gateway con un túnel temporal:
+
+```bash
+cloudflared tunnel --url http://localhost:4000     # imprime https://<algo>.trycloudflare.com
+curl https://<algo>.trycloudflare.com/healthz       # debe responder {"status":"ok","service":"gateway",...}
+```
+
+1. `pnpm --filter @gyde/github-action build` y copia `apps/github-action/action.yml` y `apps/github-action/dist/index.js` a `.github/actions/gyde/` (y `.../dist/`) del repositorio de prueba.
+2. En ese repositorio, un workflow `on: pull_request` con `uses: ./.github/actions/gyde`, `api-url: https://<algo>.trycloudflare.com` y `api-key: ${{ secrets.GYDE_API_KEY }}` (la API key de prueba, como secreto del repositorio). Detalle de las entradas en [`apps/github-action/README.md`](apps/github-action/README.md).
+3. Abre un pull request desde una rama del mismo repositorio (un fork no recibe los secretos): el comentario del reporte aparece en el PR y se edita en cada ejecución.
+
+El túnel expone tu gateway a internet mientras esté abierto: usa una API key de prueba, ciérralo al terminar y revócala.
 
 **Verificación completa (opcional).** No hace falta para ejecutar el sistema. Repite lo que hace el CI (formato, lint, tipos, pruebas y build) y tarda varios minutos:
 
@@ -136,6 +164,21 @@ El *composition root* es `app.module.ts`, en la raíz de `src/`: es el único lu
 
 **Cómo se comprueba.** `pnpm lint` aplica la pureza estricta de `domain/` y `application/` a los seis servicios: `domain/` solo admite imports relativos (ni `@gyde/*`, ni `zod`, ni `node:*`, ni librerías) y `application/` no puede importar `zod`, `@gyde/service-kit`, `@gyde/resilience`, `@gyde/discovery`, `@nestjs/*` ni `node:*`, ni `infrastructure/` ni `http/` (solo se tolera `import type` de `@gyde/contracts` en los archivos que el README de cada servicio lista como excepción). La regla vive en [`tooling/eslint/layer-boundaries.mjs`](tooling/eslint/layer-boundaries.mjs). La evidencia de la comprobación está en [`docs/evidence/clean-architecture-2026-10-18.md`](docs/evidence/clean-architecture-2026-10-18.md).
 
+### Dónde ver cada requisito de la entrega
+
+| Requisito | Dónde está (ejemplos reales) | Cómo se comprueba |
+|---|---|---|
+| Carpetas y módulos por capa | `domain/`, `application/`, `infrastructure/`, `http/` en cada uno de los 6 servicios de `services/` | `find services/<servicio>/src -maxdepth 2 -type d` |
+| Entidades | `ServiceInstance` (registry), `Analysis` (reports), `KnowledgeObject` (normalization); reglas puras en `services/gateway/src/domain/` | `services/reports/test/analysis.test.ts` prueba la máquina de estados sin Nest ni base de datos |
+| Casos de uso | `services/*/src/application/use-cases/*.use-case.ts` (p. ej. `CreateAnalysisUseCase`, `AuthenticateApiKeyUseCase`, `RetrieveEvidenceUseCase`) | `ls services/*/src/application/use-cases` |
+| Repositorios | Contrato en `domain/repositories/` e implementaciones en `infrastructure/repositories/` (`PostgresReportRepository` e `InMemoryReportRepository`, `PostgresKnowledgeRepository`, `InMemoryRegistryRepository`) | `services/reports/test/postgres-report-repository.test.ts` |
+| Adaptadores | `services/*/src/infrastructure/adapters/*.adapter.ts` (HTTP hacia otros servicios, Anthropic, Gemini, SHA-256, SPDX) | el caso de uso solo conoce el puerto; ver `app.module.ts` |
+| Controladores | `services/*/src/http/*.controller.ts`, delgados: validan con zod, mapean a DTO y llaman a un caso de uso | `services/gateway/test/app.test.ts`, `services/reports/test/app.test.ts` |
+| Infraestructura desacoplada | `domain/` solo con imports relativos y `application/` sin `zod`, `@nestjs/*` ni `node:*` | `pnpm lint` (falla si alguien lo rompe); salida real en [`docs/evidence/clean-architecture-2026-10-18.md`](docs/evidence/clean-architecture-2026-10-18.md) |
+| Patrones con evidencia funcional | Ver [Patrones implementados](#patrones-implementados) | pruebas citadas en esa tabla y humo [`docs/evidence/humo-2026-10-18.txt`](docs/evidence/humo-2026-10-18.txt) |
+| Manejo de errores | Errores de aplicación sin HTTP, interceptor que los traduce, sobre `ApiError`, `503` ante un vecino caído y reportes degradados | [Manejo de errores](#manejo-de-errores); `services/gateway/test/application-errors.test.ts` |
+| README técnico y coherencia documento-código | Este archivo, el README de cada servicio y los ADR 0002, 0011 y 0012 | cada afirmación de pureza tiene un `grep` o un test en la evidencia |
+
 Diagramas de contexto, contenedores y componentes, con el archivo de cada pieza: [Modelo C4](docs/architecture/05-modelo-c4.md), exportado de una única fuente en Structurizr DSL ([`workspace.dsl`](docs/architecture/c4/workspace.dsl)).
 
 ## Patrones implementados
@@ -175,7 +218,7 @@ Lista completa: [ADR](docs/adr/README.md).
 
 ## Alcance y límites
 
-Fuera del MVP o en esqueleto, de forma declarada: `CompatibilityAnalyzer`, fuentes NVD y GHSA, y los contadores de plan y tasa del gateway (en memoria, se pierden al reiniciar). La GitHub Action está implementada y probada con un gateway falso, pero un runner de GitHub no alcanza un gateway local, así que no se demuestra en vivo. Un análisis que llevaba poco tiempo en curso cuando Reports se reinició puede quedar sin cerrar si su resultado no llega (límite del barrido de arranque, ver [`services/reports/README.md`](services/reports/README.md)). La caché de verificación de claves dura 60 s, así que una clave revocada puede seguir válida ese tiempo.
+Fuera del MVP o en esqueleto, de forma declarada: `CompatibilityAnalyzer`, fuentes NVD y GHSA, y los contadores de plan y tasa del gateway (en memoria, se pierden al reiniciar). La GitHub Action está implementada y probada con las pruebas del paquete y contra el gateway real con una API de GitHub falsa; un runner de GitHub no alcanza un gateway local, así que para usarla en un repositorio de verdad hace falta un túnel o un gateway público ([cómo probarla](#probar-la-github-action-contra-tu-máquina)). No hay una versión publicada de la Action (`dist/` no se versiona). Un análisis que llevaba poco tiempo en curso cuando Reports se reinició puede quedar sin cerrar si su resultado no llega (límite del barrido de arranque, ver [`services/reports/README.md`](services/reports/README.md)). La caché de verificación de claves dura 60 s, así que una clave revocada puede seguir válida ese tiempo.
 
 ## Documentación
 

@@ -18,11 +18,17 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
-import { GetReport } from '../application/get-report';
-import type { Principal, RequestContext } from '../application/principal';
-import { SubmitAnalysis } from '../application/submit-analysis';
+import { GetReportUseCase } from '../application/use-cases/get-report.use-case';
+import type { RequestContext } from '../application/request-context';
+import type { Principal } from '../domain/principal';
+import { SubmitAnalysisUseCase } from '../application/use-cases/submit-analysis.use-case';
 import { ApiKeyGuard } from './api-key.guard';
 import { RateLimitGuard } from './rate-limit.guard';
+import {
+  toAnalysisAcceptedContract,
+  toAnalysisRequestDto,
+  toAuthVerifyResponse,
+} from './mappers/gateway.mapper';
 import { CurrentContext, CurrentPrincipal } from './request-principal';
 
 interface MarkdownReply {
@@ -37,24 +43,28 @@ interface MarkdownReply {
 @UseGuards(ApiKeyGuard, RateLimitGuard)
 export class GatewayController {
   constructor(
-    @Inject(SubmitAnalysis) private readonly submitAnalysis: SubmitAnalysis,
-    @Inject(GetReport) private readonly getReport: GetReport,
+    @Inject(SubmitAnalysisUseCase) private readonly submitAnalysis: SubmitAnalysisUseCase,
+    @Inject(GetReportUseCase) private readonly getReport: GetReportUseCase,
   ) {}
 
-  /** The entitlements are the ones Web returned for the key: they are not recomputed. */
   @Get(ROUTES.gateway.verify)
   verify(@CurrentPrincipal() principal: Principal): AuthVerifyResponse {
-    return { plan: principal.entitlements.plan, entitlements: principal.entitlements };
+    return toAuthVerifyResponse(principal);
   }
 
   @Post(ROUTES.gateway.analyses)
   @HttpCode(202)
-  createAnalysis(
+  async createAnalysis(
     @CurrentPrincipal() principal: Principal,
     @CurrentContext() context: RequestContext,
     @Body(new ZodValidationPipe(AnalysisRequest)) body: AnalysisRequest,
   ): Promise<AnalysisAccepted> {
-    return this.submitAnalysis.execute(principal, body, context);
+    const accepted = await this.submitAnalysis.execute(
+      principal,
+      toAnalysisRequestDto(body),
+      context,
+    );
+    return toAnalysisAcceptedContract(accepted);
   }
 
   @Get(ROUTES.gateway.analysis)

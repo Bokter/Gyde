@@ -12,9 +12,10 @@ import { boolean, jsonb, pgTable, timestamp, varchar } from 'drizzle-orm/pg-core
  * role has `search_path = reports` (ADR 0009), so the same code works against the shared
  * PostgreSQL and against an in-memory database in tests, where the schema does not exist.
  *
- * Columns mirror `StoredAnalysis` (the repository never stores `project`: the report does not
- * need it) plus `updated_at`, the clock the startup sweep reads. There are no `stage`, `degraded`
- * or `degradedReason` columns: `toReport()` derives them from `failure` + `aiExpected`.
+ * Columns mirror `AnalysisSnapshot`, the state of the `Analysis` entity (the repository never
+ * stores `project`: the report does not need it) plus `updated_at`, the clock the startup sweep
+ * reads. There are no `stage`, `degraded` or `degradedReason` columns: `buildReport()` derives
+ * them from `failure` + `aiExpected`.
  */
 export const analyses = pgTable('analyses', {
   id: varchar('id', { length: 64 }).primaryKey(),

@@ -1,16 +1,17 @@
 import { PLAN_CATALOG, type ReportStatus } from '@gyde/contracts';
 import { describe, expect, it } from 'vitest';
 
-import type { StoredAnalysis } from '../src/application/ports/report-repository';
-import { InMemoryReportRepository } from '../src/infrastructure/in-memory-report-repository';
-import { PostgresReportRepository } from '../src/infrastructure/postgres-report.repository';
+import type { AnalysisSnapshot } from '../src/domain/entities/analysis-types';
+import { InMemoryReportRepository } from '../src/infrastructure/repositories/in-memory-report.repository';
+import { PostgresReportRepository } from '../src/infrastructure/repositories/postgres-report.repository';
 import { createPgliteDatabase } from './support/pglite';
+import { viaSnapshots } from './support/snapshots';
 
 function analysis(
   id: string,
   status: ReportStatus,
   createdAt = new Date().toISOString(),
-): StoredAnalysis {
+): AnalysisSnapshot {
   return {
     id,
     tenantId: 'tenant-1',
@@ -25,7 +26,7 @@ describe('PostgresReportRepository', () => {
   it('creates, reads back and updates an analysis on the same row', async () => {
     const database = createPgliteDatabase();
     await database.migrate();
-    const repository = new PostgresReportRepository(database.db);
+    const repository = viaSnapshots(new PostgresReportRepository(database.db));
 
     const created = analysis('a-1', 'retrieving');
     await repository.create(created);
@@ -49,7 +50,7 @@ describe('PostgresReportRepository', () => {
   it('rejects a second create of the same analysis (the id is generated here)', async () => {
     const database = createPgliteDatabase();
     await database.migrate();
-    const repository = new PostgresReportRepository(database.db);
+    const repository = viaSnapshots(new PostgresReportRepository(database.db));
 
     await repository.create(analysis('a-2', 'retrieving'));
     await expect(repository.create(analysis('a-2', 'retrieving'))).rejects.toThrow();
@@ -60,7 +61,7 @@ describe('PostgresReportRepository', () => {
   it('findStale filters by status and by the cutoff of the startup sweep', async () => {
     const database = createPgliteDatabase();
     await database.migrate();
-    const repository = new PostgresReportRepository(database.db);
+    const repository = viaSnapshots(new PostgresReportRepository(database.db));
 
     await repository.create(analysis('old', 'analyzing', '2020-01-01T00:00:00.000Z'));
     await repository.create(analysis('fresh', 'analyzing'));
@@ -84,7 +85,7 @@ describe('PostgresReportRepository', () => {
   it('update refreshes the clock the sweep reads, so a job stops being stale', async () => {
     const database = createPgliteDatabase();
     await database.migrate();
-    const repository = new PostgresReportRepository(database.db);
+    const repository = viaSnapshots(new PostgresReportRepository(database.db));
 
     await repository.create(analysis('a-3', 'analyzing', '2020-01-01T00:00:00.000Z'));
     const cutoff = new Date(Date.now() - 1_000);
@@ -98,7 +99,7 @@ describe('PostgresReportRepository', () => {
   });
 
   it('the in-memory adapter never reports stale rows (a restart empties it)', async () => {
-    const repository = new InMemoryReportRepository();
+    const repository = viaSnapshots(new InMemoryReportRepository());
     await repository.create(analysis('a-4', 'analyzing', '2020-01-01T00:00:00.000Z'));
     expect(await repository.findStale('analyzing', new Date())).toEqual([]);
     expect((await repository.get('a-4'))?.status).toBe('analyzing');

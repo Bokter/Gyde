@@ -2,11 +2,11 @@ import { createHash } from 'node:crypto';
 
 import { describe, expect, it } from 'vitest';
 
-import { AuthenticateApiKey } from '../src/application/authenticate-api-key';
+import { AuthenticateApiKeyUseCase } from '../src/application/use-cases/authenticate-api-key.use-case';
 import type { AuthCache } from '../src/application/ports/auth-cache';
-import type { Principal } from '../src/application/principal';
-import { MemoryAuthCache } from '../src/infrastructure/memory-auth-cache';
-import { Sha256KeyHasher } from '../src/infrastructure/sha256-key-hasher';
+import type { Principal } from '../src/domain/principal';
+import { MemoryAuthCache } from '../src/infrastructure/adapters/memory-auth-cache.adapter';
+import { Sha256KeyHasher } from '../src/infrastructure/adapters/sha256-key-hasher.adapter';
 import { VALID_KEY, validVerification } from './helpers';
 
 const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -21,7 +21,7 @@ describe('AuthenticateApiKey cache keys', () => {
       },
       set: (keyHash) => void seen.push(keyHash),
     };
-    const authenticate = new AuthenticateApiKey({
+    const authenticate = new AuthenticateApiKeyUseCase({
       verifier: { verify: async () => validVerification },
       hasher: new Sha256KeyHasher(),
       cache,

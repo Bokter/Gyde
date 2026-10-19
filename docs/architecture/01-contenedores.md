@@ -45,11 +45,11 @@ Ingiere fuentes heterogéneas en tres niveles de confianza (`structured`, `offic
 
 ## retrieval
 
-Tres vías, dos de ellas determinísticas: **vulnerabilidades** (dependencia + versión contra rangos afectados), **licencias** (compatibilidad SPDX) y **compatibilidad** (motor + SDK + plataforma). Publica el resultado determinístico a reports y, si el plan lo permite, reenvía la evidencia a llm-analysis. Detalle: [`services/retrieval/README.md`](../../services/retrieval/README.md).
+Tres vías, dos de ellas determinísticas: **vulnerabilidades** (dependencia + versión contra rangos afectados), **licencias** (compatibilidad SPDX) y **compatibilidad** (motor + SDK + plataforma). Hoy solo operan las dos primeras: `CompatibilityAnalyzer` es un esqueleto que no se instancia en `app.module.ts`, por lo que `coverage.compatibility` es siempre `false`. Publica el resultado determinístico a reports y, si el plan lo permite, reenvía la evidencia a llm-analysis. Detalle: [`services/retrieval/README.md`](../../services/retrieval/README.md).
 
 ## llm-analysis
 
-Obtiene la llave LLM del tenant desde web, llama al proveedor detrás de un Circuit Breaker **por tenant + proveedor**, valida la respuesta con el esquema y la publica en reports; ante fallo publica el motivo (`llm-not-configured`, `llm-unavailable`, `llm-error`). Detalle: [`services/llm-analysis/README.md`](../../services/llm-analysis/README.md).
+Obtiene la llave LLM del tenant desde web, llama al proveedor (Anthropic o Gemini) a través del puerto `ModelCallPolicy`, que aplica un Circuit Breaker **por tenant + proveedor** y una caché de respaldo, valida la respuesta con el esquema y la publica en reports; ante fallo publica el motivo (`llm-not-configured`, `llm-unavailable`, `llm-error`). Detalle: [`services/llm-analysis/README.md`](../../services/llm-analysis/README.md).
 
 ## reports
 

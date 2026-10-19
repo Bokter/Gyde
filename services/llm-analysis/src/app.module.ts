@@ -2,9 +2,10 @@ import type { CircuitBreakerOptions } from '@gyde/resilience';
 import { APP_CONFIG, ResilientHttpClient } from '@gyde/service-kit';
 import { type DynamicModule, Logger, Module } from '@nestjs/common';
 
-import { AnalyzeFindings } from './application/analyze-findings';
+import { AnalyzeFindingsUseCase } from './application/use-cases/analyze-findings.use-case';
 import { BackgroundJobs } from './application/background-jobs';
 import { FINDING_ANALYZER, type FindingAnalyzer } from './application/ports/finding-analyzer';
+import { MODEL_CALL_POLICY, type ModelCallPolicy } from './application/ports/model-call-policy';
 import { REPORTS_CLIENT, type ReportsClient } from './application/ports/reports-client';
 import {
   TENANT_LLM_CONFIG_PROVIDER,
@@ -12,11 +13,12 @@ import {
 } from './application/ports/tenant-llm-config';
 import type { Config } from './config';
 import { LlmAnalysisController } from './http/llm-analysis.controller';
-import { AnthropicFindingAnalyzer } from './infrastructure/providers/anthropic-finding-analyzer';
-import { GeminiFindingAnalyzer } from './infrastructure/providers/gemini-finding-analyzer';
-import { HttpReportsClient } from './infrastructure/providers/http-reports-client';
-import { HttpTenantLlmConfigProvider } from './infrastructure/providers/http-tenant-llm-config.provider';
-import { MockFindingAnalyzer } from './infrastructure/providers/mock-finding-analyzer';
+import { AnthropicFindingAnalyzer } from './infrastructure/adapters/anthropic-finding-analyzer.adapter';
+import { GeminiFindingAnalyzer } from './infrastructure/adapters/gemini-finding-analyzer.adapter';
+import { HttpReportsClient } from './infrastructure/adapters/http-reports-client.adapter';
+import { HttpTenantLlmConfigProvider } from './infrastructure/adapters/http-tenant-llm-config.adapter';
+import { MockFindingAnalyzer } from './infrastructure/adapters/mock-finding-analyzer.adapter';
+import { ResilientModelCallPolicy } from './infrastructure/adapters/resilient-model-call-policy.adapter';
 import { createServiceResolver } from './infrastructure/service-resolver';
 
 const INTERNAL_HTTP = Symbol('ResilientHttpClient');
@@ -115,16 +117,32 @@ export class AppModule {
           inject: [INTERNAL_HTTP],
         },
         {
-          provide: AnalyzeFindings,
+          // A SINGLETON on purpose: it owns the breaker of each tenant + provider and the fallback
+          // cache, which must live as long as the service (a breaker per call would never open).
+          provide: MODEL_CALL_POLICY,
+          useFactory: (config: Config): ModelCallPolicy =>
+            new ResilientModelCallPolicy({
+              breakerOptions: {
+                // The breaker never gives up before the provider's own timeout does.
+                callTimeoutMs: breakerCallTimeoutMs(config.LLM_PROVIDER_TIMEOUT_MS),
+                ...overrides.breakerOptions,
+              },
+              ...(overrides.now && { now: overrides.now }),
+            }),
+          inject: [APP_CONFIG],
+        },
+        {
+          provide: AnalyzeFindingsUseCase,
           useFactory: (
             tenantConfig: TenantLlmConfigProvider,
             analyzer: FindingAnalyzer,
             geminiAnalyzer: FindingAnalyzer,
             mockAnalyzer: FindingAnalyzer,
             reports: ReportsClient,
+            modelCalls: ModelCallPolicy,
             config: Config,
           ) =>
-            new AnalyzeFindings({
+            new AnalyzeFindingsUseCase({
               tenantConfig,
               // The providers this service supports, by the tenant's `LlmProvider`. FINDING_ANALYZER
               // is the Anthropic adapter; a new provider adds its entry here, nowhere else.
@@ -132,12 +150,7 @@ export class AppModule {
               mockAnalyzer,
               mockEnabled: config.LLM_MOCK_ENABLED,
               reports,
-              breakerOptions: {
-                // The breaker never gives up before the provider's own timeout does.
-                callTimeoutMs: breakerCallTimeoutMs(config.LLM_PROVIDER_TIMEOUT_MS),
-                ...overrides.breakerOptions,
-              },
-              ...(overrides.now && { now: overrides.now }),
+              modelCalls,
               onError: (error, context) =>
                 logger.error(
                   `${context} failed: ${error instanceof Error ? error.message : 'unknown error'}`,
@@ -149,6 +162,7 @@ export class AppModule {
             GEMINI_FINDING_ANALYZER,
             MOCK_FINDING_ANALYZER,
             REPORTS_CLIENT,
+            MODEL_CALL_POLICY,
             APP_CONFIG,
           ],
         },

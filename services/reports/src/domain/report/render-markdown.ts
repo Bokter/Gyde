@@ -1,4 +1,4 @@
-import type { DegradedReason, Finding, Report, Severity } from '@gyde/contracts';
+import type { DegradedReason, Finding, RenderableReport, Severity } from './report-types';
 
 const SEVERITY_ORDER: readonly Severity[] = ['critical', 'high', 'medium', 'low', 'info'];
 
@@ -72,7 +72,7 @@ function renderFinding(f: Finding): string {
  *
  * Pure function.
  */
-export function renderMarkdown(report: Report): string {
+export function renderMarkdown(report: RenderableReport): string {
   const sections: string[] = [];
 
   // --- 1. Title ---

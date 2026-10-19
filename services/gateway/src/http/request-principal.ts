@@ -1,6 +1,7 @@
 import { type ExecutionContext, createParamDecorator } from '@nestjs/common';
 
-import type { Principal, RequestContext } from '../application/principal';
+import type { RequestContext } from '../application/request-context';
+import type { Principal } from '../domain/principal';
 
 /** The slice of the Fastify request the gateway reads and writes. */
 export interface GatewayRequest {

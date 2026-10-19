@@ -2,7 +2,7 @@
 
 **Consolida** lo determinístico (Retrieval) y lo producido por el LLM en un **reporte de riesgo priorizado y explicable** (evidencia, impacto, recomendación). Es el **orquestador** del análisis: crea el trabajo, pide la evidencia a Retrieval y arma el reporte final.
 
-> **Estado:** `POST /internal/analyses` y `GET /internal/analyses/:id` **en vivo** (cliente HTTP de Retrieval con Service Discovery y Circuit Breaker, mediante `ResilientHttpClient`), **persistencia PostgreSQL** con migraciones y barrido de arranque, y render Markdown. Decorator (base hecha); decoradores concretos: **Área 4** (`docs/tasks/area-4-motor-llm-y-reportes.md`).
+> **Estado:** `POST /internal/analyses` y `GET /internal/analyses/:id` **en vivo** (cliente HTTP de Retrieval con Service Discovery y Circuit Breaker, mediante `ResilientHttpClient`), **persistencia PostgreSQL** con migraciones y barrido de arranque, y render Markdown. Patrón Decorator completo: la base y los tres decoradores concretos viven en `src/domain/report/` y `src/domain/report/decorators/`.
 
 - Puerto: `REPORTS_PORT` (4500) · Solo red interna (el gateway es su cliente).
 - Datos propios: schema `reports` de PostgreSQL (`REPORTS_DATABASE_URL` es **opcional**: sin ella el servicio corre en memoria, pensado para desarrollo local y tests).
@@ -22,21 +22,25 @@ Las capas se combinan **en tiempo de ejecución según los permisos del plan** (
 
 > **Decisión:** el Decorator vive aquí y no en el cliente, porque necesita el resultado del LLM, los datos de licencias y los permisos de la API key. Ver `docs/adr/`.
 
-## Ciclo de vida (`AnalysisLifecycle`)
+## Ciclo de vida (entidad `Analysis`)
+
+La máquina de estados vive en la entidad `Analysis` (`src/domain/entities/analysis.entity.ts`); los casos de uso la cargan, le aplican una transición y la guardan.
 
 ```
-create ──▶ pending ──▶ retrieving ──▶ analyzing ──▶ ready
-                              │             │
-                              └─(sin IA)────┼──────▶ ready
-                                            └─(falla de IA)──▶ ready + degraded
+create ──▶ retrieving ──▶ analyzing ──▶ ready
+                  │             │
+                  └─(sin IA)────┼──────▶ ready
+                                └─(falla de IA)──▶ ready + degraded
 retrieval-error ──▶ failed
 retrieving ──(sin respuesta de Retrieval en REPORTS_RETRIEVAL_TIMEOUT_MS)──▶ failed
 ```
 
+`pending` existe en el vocabulario del contrato (`ReportStatus`) pero ninguna transición lo escribe: `create` guarda el análisis directamente como `retrieving`.
+
 - Un reporte es **degradado** solo si se esperaba IA y no pudo correr (`llm-unavailable`, `llm-not-configured`, `llm-error`). Si el plan o el cliente no pidieron IA, **no** es degradado.
 - Nunca se queda colgado: si el resultado de IA no llega en `REPORTS_AI_TIMEOUT_MS`, pasa a `ready` y degradado (`llm-unavailable`).
 - Tampoco se queda en `retrieving`: si Retrieval aceptó el trabajo (202) pero no entrega ni el resultado ni un `AnalysisFailure` en `REPORTS_RETRIEVAL_TIMEOUT_MS`, el análisis pasa a `failed` con `retrieval-error`. El temporizador solo se arma si la llamada a Retrieval tuvo éxito y no hace nada si el análisis ya salió de `retrieving`.
-- Los dos temporizadores viven en memoria y **no sobreviven a un reinicio**: al arrancar, `ReportsStartup` ejecuta el **barrido de recuperación** (`sweepStaleAnalyses`) sobre lo que quedó a medias en la ejecución anterior, con los mismos umbrales:
+- Los dos temporizadores viven en memoria y **no sobreviven a un reinicio**: al arrancar, `ReportsStartup` ejecuta el **barrido de recuperación** (`SweepStaleAnalysesUseCase`) sobre lo que quedó a medias en la ejecución anterior, con los mismos umbrales:
   - `analyzing` más antiguo que `REPORTS_AI_TIMEOUT_MS` → `ready` + degradado (`llm-unavailable`).
   - `retrieving` más antiguo que `REPORTS_RETRIEVAL_TIMEOUT_MS` → `failed` (`retrieval-error`).
   <br>Con el repositorio en memoria no hay nada que barrer (el arranque empieza vacío), así que el barrido solo corre con base de datos.
@@ -51,7 +55,7 @@ retrieving ──(sin respuesta de Retrieval en REPORTS_RETRIEVAL_TIMEOUT_MS)─
 2. Aviso de **degradado** (solo si lo es): qué falta (la explicación de IA) y por qué (`llm-unavailable`, `llm-not-configured` o `llm-error`), y que los hallazgos siguen siendo válidos.
 3. Resumen: conteo por severidad y `riskScore` (si la capa de severidad corrió).
 4. Sección "Cumplimiento de licencias" (si la capa de licencias corrió): agrupa los hallazgos `kind='license'` (conflictivas y desconocidas).
-5. Hallazgos ordenados por severidad (luego CVSS; si corrió IA, se respeta el orden de prioridad de `AiResult` primero): cada uno con título, paquete y versión, **evidencia**, **impacto**, **recomendación**, y su explicación de IA cuando exista.
+5. Hallazgos agrupados por severidad (críticos → informativos). Dentro de cada grupo se respeta el orden que dejó la cadena de decoradores (no se ordena por CVSS; si corrió IA, primero los hallazgos que nombró la IA, en su orden de prioridad): cada uno con título, paquete y versión, **evidencia**, **impacto**, **recomendación**, su explicación de IA cuando exista y sus referencias.
 
 ## API interna
 
@@ -67,22 +71,52 @@ retrieving ──(sin respuesta de Retrieval en REPORTS_RETRIEVAL_TIMEOUT_MS)─
 ## Estructura
 
 ```
-src/domain/report/       Decorator (base, decoradores concretos, composeReport, renderMarkdown)
-src/application/         AnalysisLifecycle (create, get, record*, sweepStaleAnalyses) y sus puertos
-src/infrastructure/      PostgresReportRepository, InMemoryReportRepository, HttpRetrievalClient
-                         (con breaker), reports-startup.ts y db/ (esquema Drizzle, pool, migraciones)
-src/http/                controlador NestJS (todos los endpoints activos)
-src/app.module.ts        composition root: enlaza puertos con adaptadores (ADR 0011)
+src/domain/entities/     Analysis (analysis.entity.ts: transiciones, time-outs, pertenencia al tenant) y los tipos
+                         del pipeline (analysis-types.ts)
+src/domain/repositories/ report.repository.ts: ReportRepository (interfaz y token) que guarda y devuelve Analysis
+src/domain/report/       Decorator (base, decoradores concretos, composeReport), buildReport (Report a partir de
+                         un Analysis), renderMarkdown y report-types.ts; solo imports relativos
+src/application/         use-cases/ (CreateAnalysisUseCase, RecordDeterministicResultUseCase, RecordAiResultUseCase,
+                         RecordAnalysisFailureUseCase, GetReportUseCase, GetReportMarkdownUseCase,
+                         SweepStaleAnalysesUseCase; un archivo *.use-case.ts cada uno), analysis-watchdog.ts
+                         (los dos temporizadores), errors.ts (AnalysisNotFoundError, sin HTTP), dto/ (tipos
+                         planos) y ports/ (RetrievalClient)
+src/infrastructure/      adapters/http-retrieval-client.adapter.ts (HttpRetrievalClient, con discovery y breaker),
+                         repositories/ (PostgresReportRepository e InMemoryReportRepository),
+                         mappers/analysis.mapper.ts (fila <-> entidad), reports-startup.ts y db/ (esquema
+                         Drizzle, pool, migraciones)
+src/http/                controlador delgado, mappers/ (contrato <-> DTO) y application-error.interceptor.ts
+src/app.module.ts        composition root: enlaza puertos con adaptadores y registra el interceptor (ADR 0011)
 drizzle/                 migraciones SQL generadas con `pnpm --filter @gyde/reports db:generate`
 ```
 
-Los criterios de aceptación están como tests en `test/app.test.ts`, `test/postgres-report-repository.test.ts`, `test/migrations.test.ts` y `test/report-decorator.test.ts`.
+Las reglas de capas las aplica `pnpm lint` (ADR 0012).
+
+Los criterios de aceptación están como tests en `test/characterization.test.ts` (comportamiento externo fijado antes del refactor), `test/app.test.ts`, `test/analysis.test.ts` (la entidad, sin Nest ni BD), `test/contract-compat.test.ts` (los tipos del dominio y los DTO siguen siendo equivalentes a los contratos), `test/reports.mapper.test.ts`, `test/postgres-report-repository.test.ts`, `test/migrations.test.ts` y `test/report-decorator.test.ts`.
+
+## Excepciones de contrato en application
+
+Ninguna: `application/` no importa `@gyde/contracts`. Los DTO de `application/dto/analysis.dto.ts` son tipos planos con la misma forma que los mensajes del contrato.
+
+## Comportamientos conocidos (conservados por el refactor)
+
+Descripción factual de lo que el servicio hace hoy. La numeración R1 a R7 es propia de este README y no coincide con la de otras listas del repositorio. El refactor no los cambia y cada uno está fijado por una prueba de caracterización (nombre del `it` entre comillas).
+
+| # | Qué ocurre | Dónde | Prueba |
+|---|---|---|---|
+| R1 | Si la llamada a Retrieval lanza al crear, el análisis queda `failed` pero la respuesta `202` sigue diciendo `status: "retrieving"`; el cliente lo ve en el `GET`. | `application/use-cases/create-analysis.use-case.ts` | `characterization.test.ts`: "keeps answering 202 "retrieving" when Retrieval throws, while the job is failed (the Error message is kept)" |
+| R2 | `degradedReason` es el `reason` del fallo tal cual, sin comprobar que sea uno de los tres motivos de degradación: un fallo `stage: "llm"` con `reason: "retrieval-error"` sale así en el JSON y el banner del Markdown imprime `undefined`. La entidad tampoco comprueba que `reason` corresponda a `stage`. | `domain/report/build-report.ts`, `domain/entities/analysis.entity.ts` | "R2: a degradedReason is cast from failure.reason…"; `analysis.test.ts`: "does not check that the reason fits the stage" |
+| R3 | Un fallo `llm` mientras el análisis sigue en `retrieving` (con IA esperada) lo cierra como `ready`, degradado y sin hallazgos; el resultado determinístico posterior se ignora. | `domain/entities/analysis.entity.ts` (`recordFailure`) | "R3: an llm failure while still retrieving…"; `analysis.test.ts`: "llm failure with AI expected: ready, from retrieving too…" |
+| R4 | Un resultado de IA se guarda aunque no se esperara IA (`aiExpected = false`); al leer, la capa de IA se aplica según los `entitlements` del plan, no según `aiExpected`. | `domain/entities/analysis.entity.ts` (`recordAi`), `domain/report/compose-report.ts` | "R4: an AI result is stored even when AI was not expected…" |
+| R5 | El temporizador de IA solo se arma cuando el resultado determinístico deja el análisis en `analyzing`; no se arma si no se esperaba IA ni si el resultado de IA llegó primero. | `application/use-cases/record-deterministic-result.use-case.ts` | "R5: the AI watchdog is armed only when the deterministic result leaves the job analyzing" |
+| R6 | `update` reescribe la fila completa (upsert) tras leer y modificar, sin bloqueo ni versión: una escritura construida con una lectura vieja pisa datos más nuevos. Además `updated_at` se toma del reloj real (`new Date()`), no del `now` inyectado. | `infrastructure/repositories/postgres-report.repository.ts` | "R6: update rewrites the whole row with no locking…" |
+| R7 | Los temporizadores no se cancelan al cerrar la app ni se les hace `unref`. No hay prueba que lo fije. | `application/analysis-watchdog.ts`, `app.module.ts` | (ninguna) |
 
 ## Persistencia (schema `reports`)
 
 - **Con `REPORTS_DATABASE_URL`**: `PostgresReportRepository` sobre el pool de `pg`. `ReportsStartup` aplica las migraciones de `drizzle/` (con *advisory lock*, idempotente) y después ejecuta el barrido de recuperación, todo antes de que el servicio escuche; `/readyz` responde `503` si la base no responde.
 - **Sin la URL**: `InMemoryReportRepository`, sin migraciones ni barrido; los datos mueren con el proceso.
-- `update` hace *upsert* sobre la misma fila del análisis y siempre refresca `updated_at`, el reloj que lee el barrido. No hay columnas `stage`, `degraded` ni `degradedReason`: se derivan al leer (`toReport`).
+- `update` hace *upsert* sobre la misma fila del análisis y siempre refresca `updated_at`, el reloj que lee el barrido. No hay columnas `stage`, `degraded` ni `degradedReason`: se derivan al leer (`buildReport`).
 - Los tests usan **PGlite** (`test/support/pglite.ts`), PostgreSQL en memoria con las migraciones de producción, para las migraciones, el repositorio y los casos de `app.test.ts` que necesitan base de datos.
 
 ## Configuración

@@ -61,9 +61,9 @@ Vista exportada del [modelo C4](05-modelo-c4.md), que es la única fuente de los
 | Elemento de los documentos | Dónde vive |
 |---|---|
 | API Gateway · Servicio Web · Pipeline de Normalización · Retrieval · Análisis LLM · Reportes | `services/{gateway,web,normalization,retrieval,llm-analysis,reports}` (1:1 con el diagrama de contenedores) |
-| Stripe · fuentes externas (CVE/GHSA/OSV/NVD/docs) · proveedores de IA | Adaptadores en `infrastructure/` de `web`, `normalization` y `llm-analysis`, tras puertos con mocks |
+| Stripe · fuentes externas (CVE/GHSA/OSV/NVD/docs) · proveedores de IA | Adaptadores en `infrastructure/adapters/` (p. ej. `llm-analysis`), en `infrastructure/sources/**` (`normalization`) y en `infrastructure/` de `web`, tras puertos con mocks |
 | Fuentes por nivel de confianza (estructuradas / oficiales / comunidad) | `services/normalization/src/infrastructure/sources/{structured,official,community}` |
-| Retrieval en tres vías (vulnerabilidades, compatibilidad, licencias) | `services/retrieval/src/domain/analyzers/{vulnerabilities,compatibility,licenses}` |
+| Retrieval en tres vías (vulnerabilidades, compatibilidad, licencias) | `services/retrieval/src/domain/analyzers/{vulnerabilities,compatibility,licenses}` (compatibilidad es un esqueleto sin instanciar) |
 | **Circuit Breaker** y caché local / fallback | `packages/resilience` |
 | **Service Discovery** (Registry, Health Checker, instancias) | `services/registry` y `packages/discovery` |
 | **Abstract Factory** (`AnalysisToolchainFactory`, Unity/Unreal) | `packages/analysis-engine/src/toolchain/` |
@@ -73,4 +73,4 @@ Vista exportada del [modelo C4](05-modelo-c4.md), que es la única fuente de los
 | Protección del código propietario | `@gyde/contracts` (esquema estricto) y `packages/analysis-engine/src/privacy/` |
 | Modelo freemium y planes de suscripción | `services/web` (Stripe), `PLAN_CATALOG` en contratos, límites en `gateway`, capas del reporte en `reports` |
 | Despliegue independiente de cada contenedor | `services/*/Dockerfile` e `infra/compose/` |
-| Arquitectura limpia con NestJS (módulos, controladores, inyección de dependencias) | `services/*/src/{http,application,domain,infrastructure}` y `app.module.ts` como composition root; [ADR 0011](../adr/0011-nestjs-como-framework-de-los-servicios.md) |
+| Arquitectura limpia con NestJS (módulos, controladores, inyección de dependencias) | `services/*/src/{http,application,domain,infrastructure}` (con los contratos de repositorio en `domain/repositories/`) y `app.module.ts` como composition root; [ADR 0011](../adr/0011-nestjs-como-framework-de-los-servicios.md) |

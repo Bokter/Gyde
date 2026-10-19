@@ -1,4 +1,4 @@
-import type { Ecosystem } from '@gyde/contracts';
+import type { Ecosystem } from '../model';
 
 /**
  * Package version parsing and ordering, per ecosystem. Pure and deterministic.

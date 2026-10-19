@@ -2,13 +2,14 @@ import { type AnalysisAccepted, LlmAnalysisRequest, ROUTES } from '@gyde/contrac
 import { ZodValidationPipe } from '@gyde/service-kit';
 import { Body, Controller, HttpCode, Inject, Logger, Post } from '@nestjs/common';
 
-import { AnalyzeFindings } from '../application/analyze-findings';
+import { AnalyzeFindingsUseCase } from '../application/use-cases/analyze-findings.use-case';
 import { BackgroundJobs } from '../application/background-jobs';
+import { toAnalysisAcceptedContract, toAnalyzeFindingsDto } from './mappers/llm-analysis.mapper';
 
 /**
  * HTTP surface of llm-analysis: internal only. Retrieval is its only caller.
  *
- * It answers 202 at once and runs `AnalyzeFindings` in the background: the result goes to Reports
+ * It answers 202 at once and runs `AnalyzeFindingsUseCase` in the background: the result goes to Reports
  * (`AiResult`, or `AnalysisFailure` when the AI cannot run). The AI never answers the caller.
  */
 @Controller()
@@ -16,7 +17,7 @@ export class LlmAnalysisController {
   private readonly logger = new Logger(LlmAnalysisController.name);
 
   constructor(
-    @Inject(AnalyzeFindings) private readonly analyzeFindings: AnalyzeFindings,
+    @Inject(AnalyzeFindingsUseCase) private readonly analyzeFindings: AnalyzeFindingsUseCase,
     @Inject(BackgroundJobs) private readonly jobs: BackgroundJobs,
   ) {}
 
@@ -25,14 +26,15 @@ export class LlmAnalysisController {
   analyze(
     @Body(new ZodValidationPipe(LlmAnalysisRequest)) body: LlmAnalysisRequest,
   ): AnalysisAccepted {
+    const dto = toAnalyzeFindingsDto(body);
     this.jobs.run(
-      () => this.analyzeFindings.execute(body),
+      () => this.analyzeFindings.execute(dto),
       // `execute` handles its own failures; this only catches a bug in it.
       (error) =>
         this.logger.error(
-          `Unexpected error analyzing ${body.analysisId}: ${error instanceof Error ? error.message : 'unknown'}`,
+          `Unexpected error analyzing ${dto.analysisId}: ${error instanceof Error ? error.message : 'unknown'}`,
         ),
     );
-    return { analysisId: body.analysisId, status: 'analyzing' };
+    return toAnalysisAcceptedContract(dto.analysisId);
   }
 }

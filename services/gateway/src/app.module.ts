@@ -1,28 +1,31 @@
 import type { ServiceResolver } from '@gyde/discovery';
 import { APP_CONFIG, type Logger, ResilientHttpClient } from '@gyde/service-kit';
 import { type DynamicModule, Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 
-import { AuthenticateApiKey } from './application/authenticate-api-key';
-import { EnforceRateLimit } from './application/enforce-rate-limit';
-import { GetReport } from './application/get-report';
+import { AuthenticateApiKeyUseCase } from './application/use-cases/authenticate-api-key.use-case';
+import { EnforceRateLimitUseCase } from './application/use-cases/enforce-rate-limit.use-case';
+import { GetReportUseCase } from './application/use-cases/get-report.use-case';
 import { API_KEY_VERIFIER, type ApiKeyVerifier } from './application/ports/api-key-verifier';
 import { AUTH_CACHE, type AuthCache } from './application/ports/auth-cache';
 import { KEY_HASHER, type KeyHasher } from './application/ports/key-hasher';
 import { RATE_LIMITER, type RateLimiter } from './application/ports/rate-limiter';
+import { REPORT_READER, type ReportReader } from './application/ports/report-reader';
 import { REPORTS_CLIENT, type ReportsClient } from './application/ports/reports-client';
 import { USAGE_COUNTER, type UsageCounter } from './application/ports/usage-counter';
-import { SubmitAnalysis } from './application/submit-analysis';
+import { SubmitAnalysisUseCase } from './application/use-cases/submit-analysis.use-case';
 import type { Config } from './config';
 import { ApiKeyGuard } from './http/api-key.guard';
+import { ApplicationErrorInterceptor } from './http/application-error.interceptor';
 import { GatewayController } from './http/gateway.controller';
 import { RateLimitGuard } from './http/rate-limit.guard';
-import { HttpReportsClient } from './infrastructure/http-reports-client';
-import { MemoryAuthCache } from './infrastructure/memory-auth-cache';
-import { MemoryRateLimiter } from './infrastructure/memory-rate-limiter';
-import { MemoryUsageCounter } from './infrastructure/memory-usage-counter';
+import { HttpReportsClient } from './infrastructure/adapters/http-reports-client.adapter';
+import { MemoryAuthCache } from './infrastructure/adapters/memory-auth-cache.adapter';
+import { MemoryRateLimiter } from './infrastructure/adapters/memory-rate-limiter.adapter';
+import { MemoryUsageCounter } from './infrastructure/adapters/memory-usage-counter.adapter';
 import { createServiceResolver, staticUrls } from './infrastructure/service-resolver';
-import { Sha256KeyHasher } from './infrastructure/sha256-key-hasher';
-import { WebApiKeyVerifier } from './infrastructure/web-api-key-verifier';
+import { Sha256KeyHasher } from './infrastructure/adapters/sha256-key-hasher.adapter';
+import { WebApiKeyVerifier } from './infrastructure/adapters/web-api-key-verifier.adapter';
 
 export interface AppModuleOptions {
   /** Where failures of the neighbours are recorded (never their bodies or the API key). */
@@ -35,6 +38,7 @@ export interface AppModuleOptions {
 }
 
 const INTERNAL_CLIENT = Symbol('ResilientHttpClient');
+const HTTP_REPORTS_CLIENT = Symbol('HttpReportsClient');
 
 /**
  * Composition root of the service: the only place that knows concrete implementations.
@@ -48,6 +52,7 @@ export class AppModule {
       module: AppModule,
       controllers: [GatewayController],
       providers: [
+        { provide: APP_INTERCEPTOR, useClass: ApplicationErrorInterceptor },
         ApiKeyGuard,
         RateLimitGuard,
         {
@@ -83,14 +88,25 @@ export class AppModule {
           inject: [APP_CONFIG],
         },
         {
-          provide: REPORTS_CLIENT,
-          useFactory: (client: ResilientHttpClient): ReportsClient => new HttpReportsClient(client),
+          // One adapter, two ports: starting an analysis and reading one.
+          provide: HTTP_REPORTS_CLIENT,
+          useFactory: (client: ResilientHttpClient) => new HttpReportsClient(client),
           inject: [INTERNAL_CLIENT],
         },
         {
-          provide: AuthenticateApiKey,
+          provide: REPORTS_CLIENT,
+          useFactory: (adapter: HttpReportsClient): ReportsClient => adapter,
+          inject: [HTTP_REPORTS_CLIENT],
+        },
+        {
+          provide: REPORT_READER,
+          useFactory: (adapter: HttpReportsClient): ReportReader => adapter,
+          inject: [HTTP_REPORTS_CLIENT],
+        },
+        {
+          provide: AuthenticateApiKeyUseCase,
           useFactory: (verifier: ApiKeyVerifier, hasher: KeyHasher, cache: AuthCache) =>
-            new AuthenticateApiKey({ verifier, hasher, cache }),
+            new AuthenticateApiKeyUseCase({ verifier, hasher, cache }),
           inject: [API_KEY_VERIFIER, KEY_HASHER, AUTH_CACHE],
         },
         { provide: USAGE_COUNTER, useFactory: (): UsageCounter => new MemoryUsageCounter() },
@@ -104,20 +120,20 @@ export class AppModule {
           inject: [APP_CONFIG],
         },
         {
-          provide: EnforceRateLimit,
-          useFactory: (limiter: RateLimiter) => new EnforceRateLimit(limiter),
+          provide: EnforceRateLimitUseCase,
+          useFactory: (limiter: RateLimiter) => new EnforceRateLimitUseCase(limiter),
           inject: [RATE_LIMITER],
         },
         {
-          provide: SubmitAnalysis,
+          provide: SubmitAnalysisUseCase,
           useFactory: (reports: ReportsClient, usage: UsageCounter) =>
-            new SubmitAnalysis({ reports, usage, now: options.now ?? Date.now }),
+            new SubmitAnalysisUseCase({ reports, usage, now: options.now ?? Date.now }),
           inject: [REPORTS_CLIENT, USAGE_COUNTER],
         },
         {
-          provide: GetReport,
-          useFactory: (reports: ReportsClient) => new GetReport(reports),
-          inject: [REPORTS_CLIENT],
+          provide: GetReportUseCase,
+          useFactory: (reader: ReportReader) => new GetReportUseCase(reader),
+          inject: [REPORT_READER],
         },
       ],
     };

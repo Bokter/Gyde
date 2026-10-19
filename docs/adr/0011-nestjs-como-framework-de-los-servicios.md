@@ -42,3 +42,11 @@ Reglas prácticas:
 - **Seguir con Fastify directo:** más liviano y ya implementado, pero el equipo pidió NestJS explícitamente.
 - **NestJS con decoradores en toda la aplicación (`@Injectable` en casos de uso y dominio):** más corto, pero acopla la lógica al framework y rompe la regla de capas del ADR 0002.
 - **Adaptador de Express:** más extendido, pero perdería `app.inject()` y el id de petición de Fastify que ya usan las pruebas.
+
+## Actualización (2026-10-18)
+
+El [ADR 0012](0012-dtos-entidades-y-pureza-de-capas.md) precisa dónde viven las piezas; el texto anterior se conserva como se aprobó:
+
+- Los tokens (interface + `Symbol`) de los repositorios de una entidad viven en `domain/repositories/`; los puertos hacia otros servicios y recursos, en `application/ports/`.
+- Los adaptadores están en `infrastructure/repositories/` (repositorios) y `infrastructure/adapters/` (resto de puertos, con sufijo `.adapter.ts`).
+- Los errores de aplicación (`application/errors.ts`) se traducen a `HttpError` con un interceptor (`http/application-error.interceptor.ts`, registrado con `APP_INTERCEPTOR`) y no con un filtro `@Catch`.

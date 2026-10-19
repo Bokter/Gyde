@@ -1,7 +1,7 @@
 import { HttpError } from '@gyde/service-kit';
 import { type CanActivate, type ExecutionContext, Inject, Injectable } from '@nestjs/common';
 
-import { EnforceRateLimit } from '../application/enforce-rate-limit';
+import { EnforceRateLimitUseCase } from '../application/use-cases/enforce-rate-limit.use-case';
 import type { GatewayRequest } from './request-principal';
 
 interface HeaderReply {
@@ -14,7 +14,7 @@ interface HeaderReply {
  */
 @Injectable()
 export class RateLimitGuard implements CanActivate {
-  constructor(@Inject(EnforceRateLimit) private readonly enforce: EnforceRateLimit) {}
+  constructor(@Inject(EnforceRateLimitUseCase) private readonly enforce: EnforceRateLimitUseCase) {}
 
   canActivate(context: ExecutionContext): boolean {
     const http = context.switchToHttp();

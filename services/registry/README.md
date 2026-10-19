@@ -2,7 +2,7 @@
 
 Mantiene la lista actualizada de **instancias activas y saludables** de cada servicio, para que nadie "hardcodee" direcciones que cambian con el autoescalado (patrón **Service Discovery**). Es un servicio de infraestructura muy pequeño: no aparece en el diagrama de contenedores, pero sí en el documento (sección 3.1: *Service Registry* y *Health Checker*).
 
-> **Estado:** implementado y verificado (**Área 1**, `docs/tasks/area-1-plataforma-y-borde.md`). Cliente: `@gyde/discovery`.
+> **Estado:** implementado (**Área 1**, `docs/tasks/area-1-plataforma-y-borde.md`). Cliente: `@gyde/discovery`.
 
 - Puerto: `REGISTRY_PORT` (4100) · Solo red interna · Todas las rutas `/v1/*` exigen `x-internal-token`.
 
@@ -10,9 +10,9 @@ Mantiene la lista actualizada de **instancias activas y saludables** de cada ser
 
 | Método y ruta | Cuerpo | Respuesta |
 |---|---|---|
-| `POST /v1/instances` | `ServiceRegistration` | `201` |
-| `PUT /v1/instances/:instanceId/heartbeat` | — | `204` (`404` si no existe) |
-| `DELETE /v1/instances/:instanceId` | — | `204` |
+| `POST /v1/instances` | `ServiceRegistration` | `201` `InstanceInfo` |
+| `PUT /v1/instances/:instanceId/heartbeat` | — | `200` `InstanceInfo` (`404` si no existe) |
+| `DELETE /v1/instances/:instanceId` | — | `200` `{ "ok": true }` (también si no existe) |
 | `GET /v1/services/:serviceName` | — | `ResolveResponse` (solo instancias saludables) |
 
 ## Comportamiento (documento, tablas 3.1 y 3.3)
@@ -22,15 +22,28 @@ Mantiene la lista actualizada de **instancias activas y saludables** de cada ser
 - Si no hay ninguna instancia sana, `resolve` devuelve lista vacía: el cliente (`@gyde/discovery`) lanza `NoHealthyInstanceError` y el Gateway responde un error controlado o un resultado degradado.
 - El estado vive en memoria (basta para el MVP: las instancias se vuelven a registrar solas al reiniciar el registry).
 
-## Estructura sugerida
+## Estructura
 
 ```
-src/domain/          InstanceRegistry (registro con TTL, reglas puras y reloj inyectable)
-src/application/     casos de uso (register, heartbeat, deregister, resolve) y puerto HealthProbe
-src/infrastructure/  HealthProbe sobre HTTP y el bucle del Health Checker
-src/http/            controladores NestJS (ya declarados como stubs 501)
-src/app.module.ts    composition root: enlaza puertos con adaptadores (ADR 0011)
+src/domain/          entities/service-instance.entity.ts (ServiceInstance: heartbeat, sondas, expiración) y
+                     repositories/registry.repository.ts (contrato RegistryRepository); solo imports relativos
+src/application/     use-cases/*.use-case.ts (register, heartbeat, deregister, resolve), dto/ (tipos planos)
+                     y errors.ts (InstanceNotFoundError, sin HTTP)
+src/infrastructure/  repositories/in-memory-registry.repository.ts (InMemoryRegistryRepository) y
+                     health-checker.ts (HealthChecker, bucle de sondas /healthz)
+src/http/            controlador delgado, mappers/ (contrato <-> DTO) y application-error.interceptor.ts
+src/app.module.ts    composition root: enlaza puertos con adaptadores y registra el interceptor (ADR 0011)
 ```
+
+Las reglas de capas las aplica `pnpm lint` (ADR 0012).
+
+## Desviación conocida
+
+`GET /v1/services/:serviceName` no valida el nombre: `GET /v1/services/bogus` responde `200` con `{"serviceName":"bogus","instances":[]}` en lugar de `400`. Se conserva para no cambiar el contrato observable. El *cast* a `ServiceName` está aislado en `toResolveDto` (`src/http/mappers/registry.mapper.ts`). Lo fija la prueba de `test/characterization.test.ts` "resolve with an invalid serviceName is NOT validated today: 200 with an empty list".
+
+## Excepciones de contrato en application
+
+Ninguna: `application/` no importa `@gyde/contracts`.
 
 ## Configuración
 

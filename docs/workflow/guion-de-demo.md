@@ -76,7 +76,7 @@ curl -s -H "Authorization: Bearer $KP" $G/v1/auth/verify
 
 (La del Pro devuelve `"plan":"pro"` con `aiEnrichment` en `true`.) Si la clave no es válida, el gateway responde `401`.
 
-> **La IA de la demo es el mock.** `LLM_MOCK_ENABLED=true` en el `.env` hace que `llm-analysis` use `MockFindingAnalyzer` (`services/llm-analysis/src/infrastructure/providers/mock-finding-analyzer.ts`) y no necesita ninguna llave de IA del estudio. Con un proveedor real hay que guardar la llave del estudio en `/dashboard/llm-config` de la web ([ADR 0007](../adr/0007-llaves-llm-por-estudio-byok.md)).
+> **La IA de la demo es el mock.** `LLM_MOCK_ENABLED=true` en el `.env` hace que `llm-analysis` use `MockFindingAnalyzer` (`services/llm-analysis/src/infrastructure/adapters/mock-finding-analyzer.adapter.ts`) y no necesita ninguna llave de IA del estudio. Con un proveedor real hay que guardar la llave del estudio en `/dashboard/llm-config` de la web ([ADR 0007](../adr/0007-llaves-llm-por-estudio-byok.md)).
 
 ### 0.2 Convenciones de las escenas
 
@@ -147,9 +147,9 @@ Las capas del plan free, tal como las devuelve la API (`--format json`, o el `GE
 
 | Patrón | Qué se ve en esta escena | Archivo |
 |---|---|---|
-| **Template Method** | Los pasos corren siempre en el mismo orden (autenticar → parsear → enviar → vulnerabilidades → licencias → reporte → publicar); el CLI solo rellena `parseDependencies` y `publishResult` | `packages/analysis-engine/src/pipeline/analysis-pipeline.ts:52` (`runAnalysis`), `local-cli.pipeline.ts` |
-| **Abstract Factory** | El CLI detectó `unity` y la fábrica entregó el **par** parser C# + fetcher OSV; nunca un parser C++ con OSV | `packages/analysis-engine/src/toolchain/create-toolchain.ts:21` (el único `switch`), `ports.ts:28`, `unity/unity-toolchain.factory.ts` |
-| **Decorator** | La cadena que el plan free permite: básico → licencias → severidad, **sin** IA | `services/reports/src/domain/report/compose-report.ts:29` |
+| **Template Method** | Los pasos corren siempre en el mismo orden (autenticar → parsear → enviar → vulnerabilidades → licencias → reporte → publicar); el CLI solo rellena `parseDependencies` y `publishResult` | `packages/analysis-engine/src/pipeline/analysis-pipeline.ts:67` (`runAnalysis`), `local-cli.pipeline.ts` |
+| **Abstract Factory** | El CLI detectó `unity` y la fábrica entregó el **par** parser C# + fetcher OSV; nunca un parser C++ con OSV | `packages/analysis-engine/src/toolchain/create-toolchain.ts:25` (el único `switch`), `ports.ts:28`, `unity/unity-toolchain.factory.ts` |
+| **Decorator** | La cadena que el plan free permite: básico → licencias → severidad, **sin** IA | `services/reports/src/domain/report/compose-report.ts:28` |
 | Privacidad | Solo viajan nombres, versiones y licencias | `packages/analysis-engine/src/privacy/build-analysis-request.ts:12` |
 
 **Las pruebas que protegen esos patrones** (se pueden mostrar en vivo, ~2 s):
@@ -230,10 +230,10 @@ analizar $KP --format markdown --fail-on none
 
 | Patrón | Qué se ve | Archivo |
 |---|---|---|
-| **Decorator** | `composeReport` arma la cadena según los permisos del plan **en tiempo de ejecución**: `Basic → LicenseCompliance → AiEnrichment → SeverityScore` | `services/reports/src/domain/report/compose-report.ts:29` |
+| **Decorator** | `composeReport` arma la cadena según los permisos del plan **en tiempo de ejecución**: `Basic → LicenseCompliance → AiEnrichment → SeverityScore` | `services/reports/src/domain/report/compose-report.ts:28` |
 | Decorator concreto de IA | **Mezcla** el `AiResult` por id de hallazgo, respeta su prioridad y descarta ids que no existen (un modelo que inventa un id no rompe el informe) | `services/reports/src/domain/report/decorators/ai-enrichment.decorator.ts:17` |
-| Orden fijo de la severidad | Va última para que su puntaje cubra lo anterior | `…/decorators/severity-score.decorator.ts:25` |
-| Servicio de IA | Sin llave → `llm-not-configured`; proveedor caído → `llm-unavailable`; nunca lanza hacia quien llama | `services/llm-analysis/src/application/analyze-findings.ts:68` |
+| Orden fijo de la severidad | Va última para que su puntaje cubra lo anterior | `…/decorators/severity-score.decorator.ts:24` |
+| Servicio de IA | Sin llave → `llm-not-configured`; proveedor caído → `llm-unavailable`; nunca lanza hacia quien llama | `services/llm-analysis/src/application/use-cases/analyze-findings.use-case.ts:60` (`execute`, que captura todo), `:94` (`llm-not-configured`) y `:76` (`llm-unavailable`) |
 
 **Línea para el micrófono:** «Free es básico + licencias + severidad; Pro añade IA. No hay una clase por combinación: son capas que se apilan».
 
@@ -336,8 +336,8 @@ curl -s -H "x-internal-token: $T" localhost:4100/v1/services/llm-analysis
 |---|---|---|
 | **Circuit Breaker** | Cerrado → abierto tras 5 fallos → semiabierto → cerrado; un breaker por dependencia (aquí `retrieval->llm-analysis`) | `packages/resilience/src/circuit-breaker.ts:65`; envoltorio HTTP en `packages/service-kit/src/resilient-http-client.ts:88` |
 | **Service Discovery** | La instancia desaparece del registry unos segundos después de caer y reaparece sola | `services/registry`, `packages/discovery` |
-| Degradado, no fallo | Un informe es `degraded` solo si se esperaba IA y no pudo correr (`llm-unavailable`, `llm-not-configured`, `llm-error`) | `services/reports/src/application/analysis-lifecycle.ts:292` (`recordFailure`) |
-| Quién avisa | Retrieval publica `llm-unavailable` a Reports si no llega a `llm-analysis` | `services/retrieval/src/application/retrieve-evidence.ts` (paso 6 del use case) |
+| Degradado, no fallo | Un informe es `degraded` solo si se esperaba IA y no pudo correr (`llm-unavailable`, `llm-not-configured`, `llm-error`) | `services/reports/src/domain/entities/analysis.entity.ts:148` (`Analysis.recordFailure`), `services/reports/src/application/use-cases/record-analysis-failure.use-case.ts:17` |
+| Quién avisa | Retrieval publica `llm-unavailable` a Reports si no llega a `llm-analysis` | `services/retrieval/src/application/use-cases/retrieve-evidence.use-case.ts:173` (paso 6 del caso de uso) |
 
 > **Variante del Circuit Breaker en una sola pantalla:** el paso 2 es el «Circuit Breaker abriendo y cerrando» del [paso 4 de la demo](dia-de-integracion.md#6-los-pasos-de-la-demo). Para verlo en los logs mientras se corre, `$C logs -f retrieval | grep -iE "circuit|fetch failed"` en una segunda terminal.
 
@@ -438,7 +438,7 @@ HTTP 200
 
 | Patrón | Archivo |
 |---|---|
-| **Circuit Breaker** + **Service Discovery** del gateway hacia Reports | `services/gateway/src/infrastructure/http-reports-client.ts` (resuelve la instancia en el registry y llama a través del breaker), `packages/service-kit/src/resilient-http-client.ts:88`, `packages/resilience/src/circuit-breaker.ts:65` |
+| **Circuit Breaker** + **Service Discovery** del gateway hacia Reports | `services/gateway/src/infrastructure/adapters/http-reports-client.adapter.ts` (resuelve la instancia en el registry y llama a través del breaker), `packages/service-kit/src/resilient-http-client.ts:88`, `packages/resilience/src/circuit-breaker.ts:65` |
 | El gateway traduce el fallo a un error del contrato (`upstream_unavailable`, `503`) | `services/gateway` |
 
 ---
@@ -520,9 +520,9 @@ sin cabecera  -> HTTP 404
 
 | Qué | Archivo |
 |---|---|
-| El gateway propaga el tenant resuelto de la API key | `services/gateway/src/infrastructure/http-reports-client.ts` (`HEADERS.tenantId`) |
+| El gateway propaga el tenant resuelto de la API key | `services/gateway/src/infrastructure/adapters/http-reports-client.adapter.ts:66` (`HEADERS.tenantId`) |
 | El controlador lee la cabecera y la pasa al caso de uso | `services/reports/src/http/reports.controller.ts` |
-| **La decisión**: otro tenant (o ninguno) responde exactamente igual que un id inexistente | `services/reports/src/application/analysis-lifecycle.ts:325` (`getReport`) |
+| **La decisión**: otro tenant (o ninguno) responde exactamente igual que un id inexistente | `services/reports/src/application/use-cases/get-report.use-case.ts:17` (`GetReportUseCase`, que usa `Analysis.isOwnedBy` de `services/reports/src/domain/entities/analysis.entity.ts:87`) |
 | La cabecera es parte del contrato | `packages/contracts/src/routes.ts:53` (`HEADERS.tenantId`) |
 
 ---
@@ -584,13 +584,13 @@ docker unpause gyde-llm-analysis-1
 
 | Qué | Archivo |
 |---|---|
-| El puerto (la interfaz que ve la aplicación) | `services/reports/src/application/ports/report-repository.ts` (`ReportRepository`, con `findStale`) |
-| El adaptador PostgreSQL | `services/reports/src/infrastructure/postgres-report.repository.ts:47`, `findStale` en `:67` |
-| El adaptador en memoria (pruebas) | `services/reports/src/infrastructure/in-memory-report-repository.ts` |
+| El puerto (la interfaz que ve la aplicación) | `services/reports/src/domain/repositories/report.repository.ts:5` (`ReportRepository`, con `findStale` en `:13`) |
+| El adaptador PostgreSQL | `services/reports/src/infrastructure/repositories/postgres-report.repository.ts:15`, `findStale` en `:35` |
+| El adaptador en memoria (pruebas) | `services/reports/src/infrastructure/repositories/in-memory-report.repository.ts` |
 | Migraciones | `services/reports/drizzle/0000_analyses.sql`, aplicadas en `services/reports/src/infrastructure/reports-startup.ts` |
-| El barrido | `services/reports/src/application/analysis-lifecycle.ts:152` (`sweepStaleAnalyses`), llamado desde `ReportsStartup.onModuleInit` |
+| El barrido | `services/reports/src/application/use-cases/sweep-stale-analyses.use-case.ts:20` (`SweepStaleAnalysesUseCase`), llamado desde `ReportsStartup.onModuleInit` (`services/reports/src/infrastructure/reports-startup.ts:32`) |
 
-**Clean Architecture en una frase:** `AnalysisLifecycle` (aplicación) depende de `ReportRepository` (un puerto); PostgreSQL es un detalle de `infrastructure/` que se inyecta al arrancar. Por eso el mismo código corre con la base de datos o con el almacén en memoria de las pruebas.
+**Clean Architecture en una frase:** los casos de uso de `application/` (`GetReportUseCase`, `SweepStaleAnalysesUseCase`, `RecordAnalysisFailureUseCase`…) dependen de `ReportRepository` (un contrato en `domain/repositories/`); PostgreSQL es un detalle de `infrastructure/` que se inyecta al arrancar. Por eso el mismo código corre con la base de datos o con el almacén en memoria de las pruebas.
 
 ---
 

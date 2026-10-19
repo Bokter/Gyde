@@ -9,8 +9,13 @@ export interface AppDeps extends AppModuleOptions {
 }
 
 /** Builds the NestJS application of the normalization service (not listening yet: see `main.ts`). */
-export function createApp({ config, logger, database }: AppDeps): Promise<NestFastifyApplication> {
-  return createService(AppModule.register({ database }), {
+export function createApp({
+  config,
+  logger,
+  database,
+  adapters,
+}: AppDeps): Promise<NestFastifyApplication> {
+  return createService(AppModule.register({ database, adapters }), {
     name: 'normalization',
     logger,
     config,

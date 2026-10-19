@@ -1,4 +1,4 @@
-import type { Finding, ReportLayer } from '@gyde/contracts';
+import type { Finding, ReportLayer } from './report-types';
 
 /** What the Decorator chain builds up: the findings plus the layers that touched them. */
 export interface ReportContent {

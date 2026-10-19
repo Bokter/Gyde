@@ -1,4 +1,4 @@
-import type { Severity } from '@gyde/contracts';
+import type { Severity } from './entities/knowledge-object.entity';
 
 /**
  * CVSS v3.0 / v3.1 base score, computed from a vector string such as

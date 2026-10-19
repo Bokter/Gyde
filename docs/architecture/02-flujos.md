@@ -43,7 +43,7 @@ sequenceDiagram
     end
 ```
 
-Estados del análisis: `pending → retrieving → analyzing → ready` (o `failed` si falla la recuperación). El cliente publica el resultado al terminar.
+Estados del análisis: `retrieving → analyzing → ready` (o `failed` si falla la recuperación). `pending` existe en el contrato pero nunca se escribe: el análisis nace en `retrieving`. El cliente publica el resultado al terminar.
 
 ## 2. Resultado degradado (la IA falla o no está configurada)
 
@@ -59,9 +59,7 @@ sequenceDiagram
     RET->>LLM: evidencia
     LLM->>AI: solicitud con la llave del estudio
     AI --x LLM: timeout o error
-    LLM->>AI: reintento
-    AI --x LLM: timeout o error
-    Note over LLM: Circuito abierto: umbral de fallos superado
+    Note over LLM: Circuito abierto: umbral de fallos superado (sin reintentos; solo breaker y caché de respaldo)
     LLM->>REP: AnalysisFailure (llm-unavailable)
     Note over REP: ready + degraded, con hallazgos determinísticos
     U->>REP: pide el reporte (a través del gateway)

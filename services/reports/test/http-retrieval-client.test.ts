@@ -8,7 +8,7 @@ import {
 } from '@gyde/service-kit';
 import { describe, expect, it } from 'vitest';
 
-import { HttpRetrievalClient } from '../src/infrastructure/http-retrieval-client';
+import { HttpRetrievalClient } from '../src/infrastructure/adapters/http-retrieval-client.adapter';
 
 const token = 'test-internal-token-123456';
 const request = {

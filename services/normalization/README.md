@@ -71,7 +71,7 @@ Se conservan tal cual (el refactor no cambia comportamiento); quedan registrados
 - **Doble validación.** Un aviso OSV se valida dos veces: el esquema del registro (`osv-record.schema.ts`) y luego el contrato `KnowledgeObject` (en `OsvAdapter.normalize`). Lo que el contrato rechaza (fechas mal formadas, `affected.name` de más de 200 caracteres) se cuenta como registro inválido (`recordsSkipped`). El repositorio vuelve a validar con el contrato al escribir y al leer una fila.
 - **Un fixture sin `id` falla toda la ingesta** (`503`): el error sale del generador `fetchChanges`, no se cuenta como omitido.
 - **Cualquier error de `normalize()` que no sea `InvalidRecordError` falla la ingesta** completa (`503`).
-- **`official/` y `community/` están vacías** y hay 4 `it.todo` en `test/app.test.ts` (adaptadores NVD/GHSA, oficial, comunidad y cron).
+- **`official/` y `community/` están vacías** y hay 4 `it.todo` en `test/app.test.ts` (líneas 162 a 165: adaptadores NVD/GHSA, oficial, comunidad y cron).
 
 ## Reglas
 

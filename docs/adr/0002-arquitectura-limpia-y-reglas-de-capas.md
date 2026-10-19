@@ -35,3 +35,12 @@ Las reglas se **imponen con ESLint** (`tooling/eslint/layer-boundaries.mjs`, `no
 
 - **Convención sin comprobación automática:** se erosiona con el primer apuro.
 - **Un plugin de límites de ESLint o dependency-cruiser:** más potentes, pero añaden una dependencia y su configuración; las reglas nativas bastan para cuatro capas.
+
+## Actualización (2026-10-18)
+
+El [ADR 0012](0012-dtos-entidades-y-pureza-de-capas.md) precisa esta decisión para los seis servicios backend; el texto anterior se conserva como se aprobó:
+
+- `domain/` es más estricto: solo admite imports relativos dentro de `domain/` (sin `@gyde/*`, `zod`, `node:*` ni librerías de terceros).
+- `application/` tampoco puede importar `zod`, `@gyde/service-kit`, `@gyde/resilience`, `@gyde/discovery`, `@nestjs/*` ni `node:*`; solo se tolera `import type` de `@gyde/contracts` en la allowlist del ADR 0012.
+- Los contratos de repositorio (interface + token `Symbol`) viven en `domain/repositories/`; los puertos hacia otros servicios y recursos siguen en `application/ports/`.
+- Las reglas estrictas están en `tooling/eslint/layer-boundaries.mjs` (`servicePurity`) y las ejecuta `pnpm lint`.

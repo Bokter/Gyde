@@ -4,7 +4,7 @@ import prettier from 'eslint-config-prettier';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-import { layerBoundaries } from './tooling/eslint/layer-boundaries.mjs';
+import { layerBoundaries, servicePurity } from './tooling/eslint/layer-boundaries.mjs';
 
 export default defineConfig([
   globalIgnores([
@@ -34,5 +34,6 @@ export default defineConfig([
     rules: { 'no-console': 'off' },
   },
   ...layerBoundaries,
+  ...servicePurity,
   prettier,
 ]);

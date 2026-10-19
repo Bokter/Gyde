@@ -2,7 +2,7 @@
 
 Mantiene la lista actualizada de **instancias activas y saludables** de cada servicio, para que nadie "hardcodee" direcciones que cambian con el autoescalado (patrón **Service Discovery**). Es un servicio de infraestructura muy pequeño: no aparece en el diagrama de contenedores, pero sí en el documento (sección 3.1: *Service Registry* y *Health Checker*).
 
-> **Estado:** implementado y verificado (**Área 1**, `docs/tasks/area-1-plataforma-y-borde.md`). Cliente: `@gyde/discovery`.
+> **Estado:** implementado (**Área 1**, `docs/tasks/area-1-plataforma-y-borde.md`). Cliente: `@gyde/discovery`.
 
 - Puerto: `REGISTRY_PORT` (4100) · Solo red interna · Todas las rutas `/v1/*` exigen `x-internal-token`.
 
@@ -35,7 +35,11 @@ src/http/            controlador delgado, mappers/ (contrato <-> DTO) y applicat
 src/app.module.ts    composition root: enlaza puertos con adaptadores y registra el interceptor (ADR 0011)
 ```
 
-Las reglas de capas se comprueban con `pnpm exec eslint --config tooling/eslint/purity.config.mjs services/registry/src` (ADR 0012).
+Las reglas de capas las aplica `pnpm lint` (ADR 0012).
+
+## Desviación conocida
+
+`GET /v1/services/:serviceName` no valida el nombre: `GET /v1/services/bogus` responde `200` con `{"serviceName":"bogus","instances":[]}` en lugar de `400`. Se conserva para no cambiar el contrato observable. El *cast* a `ServiceName` está aislado en `toResolveDto` (`src/http/mappers/registry.mapper.ts`). Lo fija la prueba de `test/characterization.test.ts` "resolve with an invalid serviceName is NOT validated today: 200 with an empty list".
 
 ## Excepciones de contrato en application
 

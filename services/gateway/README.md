@@ -50,7 +50,9 @@ src/http/            controlador y guards delgados, mappers/ (contrato <-> DTO) 
 src/app.module.ts    composition root: enlaza puertos con adaptadores y registra el interceptor (ADR 0011)
 ```
 
-Las reglas de capas se comprueban con `pnpm exec eslint --config tooling/eslint/purity.config.mjs services/gateway/src` (ADR 0012).
+Las reglas de capas las aplica `pnpm lint` (ADR 0012).
+
+`domain/` solo contiene *value objects* y reglas puras (tipos planos y funciones): no hay `domain/entities/` ni `domain/repositories/`, porque el gateway no guarda entidades con identidad (la caché, el límite de tasa y el contador mensual son puertos con adaptadores en memoria).
 
 ### Errores
 

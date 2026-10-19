@@ -2,7 +2,7 @@
 
 Cada ADR registra **una decisión**, el contexto que la motivó y sus consecuencias. Sirven para no volver a discutir lo ya decidido y para que quien llegue después entienda el porqué. Plantilla: [0000](0000-plantilla.md).
 
-Para proponer o cambiar una decisión: copia la plantilla con el siguiente número, abre un PR (`docs(adr): ...`) y se acuerda en la revisión. Un ADR **no se borra**: se marca como *Reemplazada por NNNN*.
+Para proponer o cambiar una decisión: copia la plantilla con el siguiente número, abre un PR (`docs(adr): ...`) y se acuerda en la revisión. Un ADR **no se borra**: se marca como *Reemplazada por NNNN*. Cuando una decisión posterior la precisa sin reemplazarla, el ADR original conserva su texto y recibe al final una sección *Actualización (fecha)* que enlaza al ADR nuevo.
 
 | # | Decisión | Estado |
 |---|---|---|
@@ -17,4 +17,4 @@ Para proponer o cambiar una decisión: copia la plantilla con el siguiente núme
 | [0009](0009-postgresql-un-schema-por-servicio.md) | PostgreSQL: un schema y un rol por servicio | Aceptada |
 | [0010](0010-rama-dev-de-integracion.md) | Rama `dev` de integración antes de `main` | Aceptada |
 | [0011](0011-nestjs-como-framework-de-los-servicios.md) | NestJS como framework de los servicios del backend | Aceptada |
-| [0012](0012-dtos-entidades-y-pureza-de-capas.md) | DTOs, entidades y pureza de capas en los servicios NestJS | Propuesta |
+| [0012](0012-dtos-entidades-y-pureza-de-capas.md) | DTOs, entidades y pureza de capas en los servicios NestJS | Aceptada |

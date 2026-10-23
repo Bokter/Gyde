@@ -43,7 +43,7 @@ catalog:
   spdx-expression-parse: ^5.0.0
   stripe: ^17.5.0
   tailwindcss: ^4.3.3
-  tsup: ^8.5.1
+  tsup: ^9.0.0
   tsx: ^4.23.15
   # typescript-eslint does not support TypeScript >= 6.1 yet; revisit when it does.
   typescript: ~6.0.3
